@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dotkeep"
+version = "0.1.0"
+dependencies = [
+    "typer",
+    "gitpython"
+]
+description = "dotkeep is a minimal, Git-backed dotfiles manager for Linux"
+requires-python = ">= 3.8"
+readme = "README.md"
+authors = [
+    {name = "Moustafa Salem", email = "salemmoustafa442@gmail.com"}
+]
+license = "GPL-3.0-or-later"
