@@ -1,6 +1,5 @@
 # dotkeep
 
-[![PyPI version](https://img.shields.io/pypi/v/dotkeep)](https://pypi.org/project/dotkeep)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 
 A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies tracking, versioning, and synchronizing your configuration files across machines.
