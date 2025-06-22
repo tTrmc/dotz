@@ -60,5 +60,59 @@ def add(path: Annotated[Path, typer.Argument(help="Path to dotfile (relative to 
             typer.secho(f"Error pushing to origin: {e}", fg=typer.colors.RED, err=True)
             raise typer.Exit()
 
+@app.command()       
+def delete(path: Annotated[Path, typer.Argument(help="Path to dotfile (relative to your home directory)")], push: Annotated[bool, typer.Option("--push", "-p", help="Push commit to origin")]):
+    repo = ensure_repo()
+    src = (HOME / path).expanduser()
+    if not src.is_symlink():
+        typer.secho(f"Error: {src} is not a symlink managed by dotkeep.", fg=typer.colors.RED, err=True)
+        raise typer.Exit()
+
+    rel = src.relative_to(HOME)
+    dest = WORK_TREE / rel
+    if not dest.exists():
+        typer.secho(f"Error: {dest} does not exist in the dotkeep repository.", fg=typer.colors.RED, err=True)
+        raise typer.Exit()
+
+    src.unlink()
+    dest.unlink()
+    repo.index.remove([str(dest)])
+    repo.index.commit(f"Remove {rel}")
+    typer.secho(f"✓ Removed {rel}", fg=typer.colors.GREEN)
+
+    if push:
+        try:
+            origin = repo.remote("origin")
+            branch = repo.active_branch.name
+            origin.push(refspec=f"{branch}:{branch}", set_upstream=True)
+            typer.secho("✓ Pushed to origin", fg=typer.colors.GREEN)
+        except GitCommandError as e:
+            typer.secho(f"Error pushing to origin: {e}", fg=typer.colors.RED, err=True)
+            raise typer.Exit()
+    
+@app.command()
+def status():
+    repo = ensure_repo()
+    untracked = list(repo.untracked_files)
+    modified = [item.a_path for item in repo.index.diff(None)]
+    staged = [item.a_path for item in repo.index.diff("HEAD")]
+
+    typer.secho("Status of dotkeep repository:", fg=typer.colors.WHITE)
+    if not untracked and not modified and not staged:
+        typer.secho("✓ No changes", fg=typer.colors.GREEN)
+    else:
+        if untracked:
+            typer.secho("Untracked files:", fg=typer.colors.YELLOW)
+            for file in untracked:
+                typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
+        if modified:
+            typer.secho("Modified files:", fg=typer.colors.YELLOW)
+            for file in modified:
+                typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
+        if staged:
+            typer.secho("Staged files:", fg=typer.colors.YELLOW)
+            for file in staged:
+                typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
+
 if __name__ == "__main__":
     app()
