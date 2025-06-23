@@ -22,7 +22,7 @@ A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies 
 1. **Clone and install**
 
    ```bash
-   git clone https://github.com/<yourusername>/dotkeep.git
+   git clone https://github.com/tTrmc/dotkeep.git
    cd dotkeep
    pip install -e .
    ```
