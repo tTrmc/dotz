@@ -47,6 +47,10 @@ def init(
     # Initialize Git directly in ~/.dotkeep/repo
     repo = Repo.init(str(WORK_TREE))
 
+    # Create empty initial commit
+    repo.git.commit("--allow-empty", "-m", "Initial commit")
+    typer.secho("✓ Created empty initial commit", fg=typer.colors.GREEN)
+
     # Optionally set a remote
     if remote:
         repo.create_remote("origin", remote)
