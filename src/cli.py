@@ -304,6 +304,42 @@ def pull():
     except GitCommandError as e:
         typer.secho(f"Error pulling from origin: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit()
+    
+@app.command()
+def push():
+    """
+    Push all local commits to the 'origin' remote, if it exists.
+    """
+    repo = ensure_repo()
+
+    # Make sure there is an 'origin' remote
+    if "origin" not in [r.name for r in repo.remotes]:
+        typer.secho(
+            "Error: No 'origin' remote found. Please set one with `dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
+            fg=typer.colors.RED,
+            err=True
+        )
+        raise typer.Exit()
+
+    # Attempt to push the current branch
+    origin = repo.remote("origin")
+    branch = repo.active_branch.name
+    try:
+        result = origin.push(refspec=f"{branch}:{branch}", set_upstream=True)
+        # Check if any push results had errors
+        if any(r.flags & r.ERROR for r in result):
+            for r in result:
+                if r.flags & r.ERROR:
+                    typer.secho(
+                        f"Error pushing to origin: {r.summary}",
+                        fg=typer.colors.RED,
+                        err=True
+                    )
+            raise typer.Exit()
+        typer.secho("✓ Pushed local commits to origin", fg=typer.colors.GREEN)
+    except GitCommandError as e:
+        typer.secho(f"Error pushing to origin: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit()
 
 
 if __name__ == "__main__":
