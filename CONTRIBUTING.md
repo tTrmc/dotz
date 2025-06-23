@@ -14,7 +14,7 @@ Thank you for your interest in contributing to dotkeep! I welcome all pull reque
 
 ## Code Style
 
-Please follow [PEP 8](https://peps.python.org/pep-0008/) guidelines for Python code. Automated tools like [flake8](https://flake8.pycqa.org/) or [black](https://black.readthedocs.io/) are helpful for ensuring code quality and style consistency.
+Please follow [PEP 8](https://peps.python.org/pep-0008/) guidelines for Python code.
 
 ## Commit Messages
 
@@ -45,6 +45,6 @@ Please [open an issue](https://github.com/<yourusername>/dotkeep/issues) for any
 
 ## Suggestions & Questions
 
-For feature ideas or general questions, [open an issue](https://github.com/<yourusername>/dotkeep/issues). I’ll do our best to respond promptly.
+For feature ideas or general questions, [open an issue](https://github.com/<yourusername>/dotkeep/issues). I’ll do my best to respond promptly.
 
 I appreciate your contributions!
