@@ -43,7 +43,7 @@ A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies 
 
 ### Initialize
 
-Create your dotkeep repository under `~/.dotkeep` and optionally add a remote:
+Create your dotkeep repository at `~/.dotkeep/repo` (where the `.git` directory resides) and optionally add a remote:
 
 ```bash
 # Initialize locally
@@ -85,6 +85,22 @@ List untracked, modified, and staged files in your dotkeep repository:
 dotkeep status
 ```
 
+### Pull
+
+Fetch and merge the latest changes from the remote into your local dotkeep repository:
+
+```bash
+dotkeep pull
+```
+
+### Push
+
+Push all local commits (including added or deleted dotfiles) to the remote:
+
+```bash
+dotkeep push
+```
+
 ---
 
 ## Project Structure
@@ -99,6 +115,8 @@ dotkeep/
 └── .gitignore          # Files and directories to exclude
 ```
 
+The `.git` folder is created inside `~/.dotkeep/repo` once you initialize dotkeep.
+
 ---
 
 ## Contributing
@@ -109,12 +127,4 @@ dotkeep/
 4. Push to the branch: `git push origin feature/YourFeature`.
 5. Open a Pull Request.
 
-Please ensure your code follows [PEP 8](https://peps.python.org/pep-0008/) and includes relevant tests.
-
----
-
-## License
-
-This project is distributed under the **GPL-3.0-or-later** license. See the [LICENSE](LICENSE) file for details.
-
----
+Please ensure your code follows [PEP 8](https://peps.python.org/pep-0008/)
