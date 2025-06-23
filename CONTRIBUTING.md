@@ -1,5 +1,3 @@
-```markdown
-# filepath: /home/moustafas/Documents/dotkeep/CONTRIBUTING.md
 # Contributing to dotkeep
 
 Thank you for your interest in contributing to dotkeep! I welcome all pull requests, bug reports, and feature suggestions.
@@ -50,5 +48,3 @@ Please [open an issue](https://github.com/<yourusername>/dotkeep/issues) for any
 For feature ideas or general questions, [open an issue](https://github.com/<yourusername>/dotkeep/issues). I’ll do our best to respond promptly.
 
 I appreciate your contributions!
-
-```
