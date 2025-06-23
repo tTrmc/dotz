@@ -209,6 +209,21 @@ def status():
             # If remote branch does not exist or cannot be reached, do nothing
             pass
 
+@app.command()
+def list_files():
+    """
+    List all files currently tracked by dotkeep.
+    """
+    repo = ensure_repo()
+    tracked_files = repo.git.ls_files().splitlines()
+    if not tracked_files:
+        typer.secho("No files tracked by dotkeep.", fg=typer.colors.YELLOW)
+        return
+
+    typer.secho("Files tracked by dotkeep:", fg=typer.colors.WHITE)
+    for f in tracked_files:
+        typer.secho(f"  - {f}", fg=typer.colors.YELLOW)
+
 
 if __name__ == "__main__":
     app()
