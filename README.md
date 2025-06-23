@@ -127,4 +127,12 @@ The `.git` folder is created inside `~/.dotkeep/repo` once you initialize dotkee
 4. Push to the branch: `git push origin feature/YourFeature`.
 5. Open a Pull Request.
 
-Please ensure your code follows [PEP 8](https://peps.python.org/pep-0008/)
+Please ensure your code follows [PEP 8](https://peps.python.org/pep-0008/) and includes relevant tests.
+
+---
+
+## License
+
+This project is distributed under the **GPL-3.0-or-later** license. See the [LICENSE](LICENSE) file for details.
+
+---

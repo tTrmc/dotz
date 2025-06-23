@@ -1,0 +1,54 @@
+```markdown
+# filepath: /home/moustafas/Documents/dotkeep/CONTRIBUTING.md
+# Contributing to dotkeep
+
+Thank you for your interest in contributing to dotkeep! I welcome all pull requests, bug reports, and feature suggestions.
+
+## Getting Started
+
+1. Fork the repository on GitHub.
+2. Create a new branch for your changes:
+   ```bash
+   git checkout -b feature/my-new-feature
+   ```
+3. Make your changes locally in this new branch.
+4. Test your changes to ensure everything works correctly.
+
+## Code Style
+
+Please follow [PEP 8](https://peps.python.org/pep-0008/) guidelines for Python code. Automated tools like [flake8](https://flake8.pycqa.org/) or [black](https://black.readthedocs.io/) are helpful for ensuring code quality and style consistency.
+
+## Commit Messages
+
+Keep commits clear and descriptive:
+- Explain what changed and why.  
+- Use imperative mood (e.g., “Add support for…” instead of “Added support for…”).  
+- Group related changes into a single commit when possible.
+
+## Pull Requests
+
+When you’re ready:
+1. Push your branch to your fork on GitHub:
+   ```bash
+   git push -u origin feature/my-new-feature
+   ```
+2. Open a pull request (PR):
+   - Clearly describe your changes and link to any related issues.
+   - Include instructions on how to reproduce or test your changes if necessary.
+
+Once your PR is approved, it will be merged into the main branch.
+
+## Reporting Bugs
+
+Please [open an issue](https://github.com/<yourusername>/dotkeep/issues) for any bugs you encounter:
+- Describe the steps to reproduce.
+- Include logs or stack traces if available.
+- Mention your environment (OS, Python version, etc.).
+
+## Suggestions & Questions
+
+For feature ideas or general questions, [open an issue](https://github.com/<yourusername>/dotkeep/issues). I’ll do our best to respond promptly.
+
+I appreciate your contributions!
+
+```
