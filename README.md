@@ -109,9 +109,12 @@ dotkeep push
 dotkeep/
 ├── src/                # Source code
 │   └── cli.py          # Typer-based CLI entry point
+├── tests/              # Automated tests
+│   └── test_cli.py     # Pytest-based CLI tests
 ├── pyproject.toml      # Project metadata and dependencies
 ├── README.md           # Project documentation
 ├── LICENSE             # GPL-3.0-or-later license
+├── CONTRIBUTING.md     # Contribution guidelines
 └── .gitignore          # Files and directories to exclude
 ```
 
@@ -119,15 +122,22 @@ The `.git` folder is created inside `~/.dotkeep/repo` once you initialize dotkee
 
 ---
 
+## Testing
+
+To run the test suite (requires [pytest](https://pytest.org/)):
+
+```bash
+pip install pytest
+pytest
+```
+
+This will discover and run all tests in the `tests/` directory, including `test_cli.py`.
+
+---
+
 ## Contributing
 
-1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/YourFeature`.
-3. Commit your changes: `git commit -m 'Add new feature'`.
-4. Push to the branch: `git push origin feature/YourFeature`.
-5. Open a Pull Request.
-
-Please ensure your code follows [PEP 8](https://peps.python.org/pep-0008/) and includes relevant tests.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute, report bugs, or suggest features.
 
 ---
 
