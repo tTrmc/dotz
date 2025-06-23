@@ -1,6 +1,7 @@
 # dotkeep
 
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
+[![Last Commit](https://img.shields.io/github/last-commit/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/commits/main)
 
 A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies tracking, versioning, and synchronizing your configuration files across machines.
 

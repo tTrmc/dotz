@@ -194,6 +194,21 @@ def status():
             for file in staged:
                 typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
 
+    # Show files that have not been pushed to the remote, if available
+    if "origin" in [r.name for r in repo.remotes]:
+        branch = repo.active_branch.name
+        remote_branch = f"origin/{branch}"
+        # Attempt to diff HEAD with origin/branch
+        try:
+            unpushed_diff = repo.index.diff(remote_branch)
+            if unpushed_diff:
+                typer.secho("Unpushed changes:", fg=typer.colors.YELLOW)
+                for diff_item in unpushed_diff:
+                    typer.secho(f"  - {diff_item.a_path}", fg=typer.colors.YELLOW)
+        except:
+            # If remote branch does not exist or cannot be reached, do nothing
+            pass
+
 
 if __name__ == "__main__":
     app()
