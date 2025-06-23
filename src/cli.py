@@ -14,7 +14,6 @@ WORK_TREE = DOTKEEP_DIR / "repo"
 def ensure_repo():
     """Return a Repo object or show an error if not initialized."""
     try:
-        # Use WORK_TREE here, NOT DOTKEEP_DIR
         return Repo(str(WORK_TREE))
     except NoSuchPathError:
         typer.secho(
@@ -38,7 +37,7 @@ def init(
     """
     if DOTKEEP_DIR.exists():
         typer.secho("dotkeep already initialised at ~/.dotkeep", fg=typer.colors.YELLOW)
-        raise typer.Exit()
+        raise typer.Exit(code=1)
 
     typer.secho("Initialising dotkeep...", fg=typer.colors.WHITE)
     DOTKEEP_DIR.mkdir()
@@ -46,6 +45,10 @@ def init(
 
     # Initialize Git directly in ~/.dotkeep/repo
     repo = Repo.init(str(WORK_TREE))
+
+    # Set user.name and user.email for initial commit
+    repo.git.config("user.name", "dotkeep")
+    repo.git.config("user.email", "dotkeep@example.com")
 
     # Create empty initial commit
     repo.git.commit("--allow-empty", "-m", "Initial commit")
@@ -75,7 +78,7 @@ def add(
 
     if not src.exists():
         typer.secho(f"Error: {src} not found.", fg=typer.colors.RED, err=True)
-        raise typer.Exit()
+        raise typer.Exit(code=1)
 
     rel = src.relative_to(HOME)
     dest = WORK_TREE / rel
@@ -138,7 +141,7 @@ def delete(
             fg=typer.colors.RED,
             err=True
         )
-        raise typer.Exit()
+        raise typer.Exit(code=1)
 
     rel = src.relative_to(HOME)
     dest = WORK_TREE / rel
@@ -149,7 +152,7 @@ def delete(
             fg=typer.colors.RED,
             err=True
         )
-        raise typer.Exit()
+        raise typer.Exit(code=1)
 
     # Remove symlink and file in repo
     src.unlink()
@@ -266,7 +269,7 @@ def restore(
             fg=typer.colors.RED,
             err=True
         )
-        raise typer.Exit()
+        raise typer.Exit(code=1)
 
     # Check if the repo copy exists
     if not dest.exists():
@@ -275,14 +278,14 @@ def restore(
             fg=typer.colors.RED,
             err=True
         )
-        raise typer.Exit()
+        raise typer.Exit(code=1)
 
     # If there's already something at src, remove it
     if src.is_symlink() or src.exists():
         src.unlink()
 
-    # Copy the file from dotkeep repo back to home directory
-    shutil.copy2(dest, src)
+    # Create symlink from home to repo (not a copy)
+    src.symlink_to(dest)
     typer.secho(f"✓ Restored {rel}", fg=typer.colors.GREEN)
 
 
