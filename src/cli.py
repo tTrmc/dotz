@@ -14,7 +14,8 @@ WORK_TREE = DOTKEEP_DIR / "repo"
 def ensure_repo():
     """Return a Repo object or show an error if not initialized."""
     try:
-        return Repo(str(DOTKEEP_DIR))
+        # Use WORK_TREE here, NOT DOTKEEP_DIR
+        return Repo(str(WORK_TREE))
     except NoSuchPathError:
         typer.secho(
             "Error: dotkeep repository not initialized. Run `dotkeep init` first.",
@@ -31,18 +32,26 @@ def init(
         typer.Option(help="Optional remote URL to add as origin (SSH or HTTPS).")
     ] = ""
 ):
-    """Initialize a new dotkeep repository."""
+    """
+    Initialize a new dotkeep repository by placing the .git folder in ~/.dotkeep/repo.
+    If ~/.dotkeep already exists with a .git folder at the top level, please remove or rename it first.
+    """
     if DOTKEEP_DIR.exists():
         typer.secho("dotkeep already initialised at ~/.dotkeep", fg=typer.colors.YELLOW)
         raise typer.Exit()
 
-    typer.secho("Initialising...", fg=typer.colors.WHITE)
+    typer.secho("Initialising dotkeep...", fg=typer.colors.WHITE)
     DOTKEEP_DIR.mkdir()
-    repo = Repo.init(str(DOTKEEP_DIR))
     WORK_TREE.mkdir()
+
+    # Initialize Git directly in ~/.dotkeep/repo
+    repo = Repo.init(str(WORK_TREE))
+
+    # Optionally set a remote
     if remote:
         repo.create_remote("origin", remote)
-    typer.secho("✓ Initialised dotkeep repository", fg=typer.colors.GREEN)
+
+    typer.secho("✓ Initialised dotkeep repository in ~/.dotkeep/repo", fg=typer.colors.GREEN)
 
 
 @app.command()
@@ -71,16 +80,17 @@ def add(
     # Copy the file to the dotkeep repo
     shutil.copy2(src, dest)
 
-    # Stage and commit
-    repo.index.add([str(dest)])
+    # Stage using a path relative to WORK_TREE
+    tracked_path = dest.relative_to(WORK_TREE).as_posix()
+    repo.index.add([tracked_path])
     repo.index.commit(f"Add {rel}")
 
     # Replace original with symlink
     src.unlink()
     src.symlink_to(dest)
-
     typer.secho(f"✓ Added {rel}", fg=typer.colors.GREEN)
 
+    # Optionally push
     if push:
         try:
             origin = repo.remote("origin")
@@ -141,12 +151,13 @@ def delete(
     src.unlink()
     dest.unlink()
 
-    # Remove from git index and commit
-    repo.index.remove([str(dest)])
+    # Remove from git index using path relative to WORK_TREE
+    tracked_path = dest.relative_to(WORK_TREE).as_posix()
+    repo.index.remove([tracked_path])
     repo.index.commit(f"Remove {rel}")
-
     typer.secho(f"✓ Removed {rel}", fg=typer.colors.GREEN)
 
+    # Optionally push
     if push:
         try:
             origin = repo.remote("origin")
@@ -209,6 +220,7 @@ def status():
             # If remote branch does not exist or cannot be reached, do nothing
             pass
 
+
 @app.command()
 def list_files():
     """
@@ -223,6 +235,75 @@ def list_files():
     typer.secho("Files tracked by dotkeep:", fg=typer.colors.WHITE)
     for f in tracked_files:
         typer.secho(f"  - {f}", fg=typer.colors.YELLOW)
+
+
+@app.command()
+def restore(
+    path: Annotated[
+        Path,
+        typer.Argument(help="Path to dotfile (relative to your home directory)")
+    ]
+):
+    """
+    Restore a dotfile from the dotkeep repository to your home directory.
+    Overwrites any existing file or symlink at that location.
+    """
+    repo = ensure_repo()
+    src = (HOME / path).expanduser()
+    rel = src.relative_to(HOME)
+    dest = WORK_TREE / rel
+
+    # Check if the file is tracked (exists in the repo)
+    tracked_files = repo.git.ls_files().splitlines()
+    tracked_path = dest.relative_to(WORK_TREE).as_posix()
+    if tracked_path not in tracked_files:
+        typer.secho(
+            f"Error: {rel} is not tracked by dotkeep.",
+            fg=typer.colors.RED,
+            err=True
+        )
+        raise typer.Exit()
+
+    # Check if the repo copy exists
+    if not dest.exists():
+        typer.secho(
+            f"Error: {dest} does not exist in the dotkeep repository.",
+            fg=typer.colors.RED,
+            err=True
+        )
+        raise typer.Exit()
+
+    # If there's already something at src, remove it
+    if src.is_symlink() or src.exists():
+        src.unlink()
+
+    # Copy the file from dotkeep repo back to home directory
+    shutil.copy2(dest, src)
+    typer.secho(f"✓ Restored {rel}", fg=typer.colors.GREEN)
+
+
+@app.command()
+def pull():
+    """
+    Pull the latest changes from the 'origin' remote into the local dotkeep repository.
+    """
+    repo = ensure_repo()
+    # Check if 'origin' remote exists
+    if "origin" not in [r.name for r in repo.remotes]:
+        typer.secho(
+            "Error: No 'origin' remote found. Please set one with `dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
+            fg=typer.colors.RED,
+            err=True
+        )
+        raise typer.Exit()
+
+    origin = repo.remote("origin")
+    try:
+        origin.pull()
+        typer.secho("✓ Pulled latest changes from origin", fg=typer.colors.GREEN)
+    except GitCommandError as e:
+        typer.secho(f"Error pulling from origin: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit()
 
 
 if __name__ == "__main__":
