@@ -1,5 +1,6 @@
 import typer
 import shutil
+import os
 from typing_extensions import Annotated
 from pathlib import Path
 from git import Repo, NoSuchPathError, GitCommandError
@@ -188,7 +189,7 @@ def delete(
 
 @app.command()
 def status():
-    """Show the status of your dotkeep repo (untracked, modified, staged)."""
+    """Show the status of your dotkeep repo (untracked, modified, staged), and dotfiles in $HOME not tracked by dotkeep."""
     repo = ensure_repo()
     untracked = list(repo.untracked_files)
     modified = [item.a_path for item in repo.index.diff(None)]
@@ -226,6 +227,17 @@ def status():
         except:
             # If remote branch does not exist or cannot be reached, do nothing
             pass
+
+    # Get all files in $HOME that start with '.' and are files (not directories)
+    home_dotfiles = [f for f in os.listdir(HOME) if f.startswith('.') and (HOME / f).is_file()]
+    # Get tracked files (relative to WORK_TREE)
+    tracked_files = set(repo.git.ls_files().splitlines())
+    # Only consider dotfiles in $HOME that are not tracked by dotkeep
+    untracked_home_dotfiles = [f for f in home_dotfiles if f not in tracked_files]
+    if untracked_home_dotfiles:
+        typer.secho("Dotfiles in $HOME not tracked by dotkeep:", fg=typer.colors.MAGENTA)
+        for f in untracked_home_dotfiles:
+            typer.secho(f"  - {f}", fg=typer.colors.MAGENTA)
 
 
 @app.command()

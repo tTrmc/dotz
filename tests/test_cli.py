@@ -114,3 +114,57 @@ def test_help_and_version(temp_home):
     result = run_dotkeep("--help", env=env)
     assert result.returncode == 0
     assert "dotkeep - a Git-backed dot-files manager" in result.stdout
+
+def test_status_shows_untracked_dotfiles_in_home(temp_home):
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+    # Create two dotfiles in $HOME but do not add them
+    dotfile1 = temp_home / ".myrc"
+    dotfile2 = temp_home / ".other"
+    dotfile1.write_text("foo\n")
+    dotfile2.write_text("bar\n")
+    # Create a non-dotfile (should not be listed)
+    ndf = temp_home / "notadotfile"
+    ndf.write_text("baz\n")
+    # Create a dot-directory (should not be listed)
+    dotdir = temp_home / ".config"
+    dotdir.mkdir()
+    # Create a symlinked dotfile (should be listed)
+    symlink_target = temp_home / ".symlink_target"
+    symlink_target.write_text("target\n")
+    symlink = temp_home / ".symlinked"
+    symlink.symlink_to(symlink_target)
+    # Run status
+    result = run_dotkeep("status", env=env)
+    out = result.stdout + result.stderr
+    # Should show the two dotfiles and the symlinked dotfile
+    assert "Dotfiles in $HOME not tracked by dotkeep" in out
+    assert ".myrc" in out
+    assert ".other" in out
+    assert ".symlinked" in out
+    # Should not show the non-dotfile or dot-directory
+    assert "notadotfile" not in out
+    assert ".config" not in out
+
+def test_status_with_repo_and_home_changes(temp_home):
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+    # Add a dotfile
+    dotfile = temp_home / ".bashrc"
+    dotfile.write_text("export TEST=1\n")
+    run_dotkeep("add", ".bashrc", env=env)
+    # Modify the tracked file
+    dotfile.write_text("export TEST=2\n")
+    # Create an untracked dotfile
+    untracked = temp_home / ".untracked"
+    untracked.write_text("foo\n")
+    # Run status
+    result = run_dotkeep("status", env=env)
+    out = result.stdout + result.stderr
+    # Should show modified tracked file and untracked home dotfile
+    assert "Modified files:" in out
+    assert ".bashrc" in out
+    assert "Dotfiles in $HOME not tracked by dotkeep" in out
+    assert ".untracked" in out
