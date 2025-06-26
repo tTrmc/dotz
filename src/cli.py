@@ -25,6 +25,77 @@ def ensure_repo():
         raise typer.Exit(code=1)
 
 
+def copy_file_or_directory(src_path, dest_path, repo, added_files):
+    """
+    Recursively copy files or directories and track them in git.
+    Returns a list of relative paths that were added.
+    """
+    if src_path.is_file():
+        # Handle single file
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_path, dest_path)
+        
+        # Stage the file
+        tracked_path = dest_path.relative_to(WORK_TREE).as_posix()
+        repo.index.add([tracked_path])
+        added_files.append(src_path.relative_to(HOME))
+        
+    elif src_path.is_dir():
+        # Handle directory recursively
+        dest_path.mkdir(parents=True, exist_ok=True)
+        
+        # Process all items in the directory
+        for item in src_path.iterdir():
+            if item.name.startswith('.git'):
+                # Skip .git directories to avoid conflicts
+                continue
+                
+            item_dest = dest_path / item.name
+            copy_file_or_directory(item, item_dest, repo, added_files)
+    else:
+        # Handle special files (symlinks, etc.) - skip them with a warning
+        rel_path = src_path.relative_to(HOME)
+        typer.secho(f"Warning: Skipping {rel_path} (not a regular file or directory)", 
+                   fg=typer.colors.YELLOW)
+
+
+def create_symlinks(src_path, dest_path):
+    """
+    Create symlinks for files or directories.
+    For directories, create the directory structure and symlink individual files.
+    """
+    if dest_path.is_file():
+        # Single file - create symlink
+        if src_path.exists() or src_path.is_symlink():
+            src_path.unlink()
+        src_path.symlink_to(dest_path)
+        
+    elif dest_path.is_dir():
+        # Directory - create directory structure and symlink files
+        if src_path.exists() and not src_path.is_dir():
+            # If src exists but is not a directory, remove it
+            src_path.unlink()
+        
+        # Create the directory structure
+        src_path.mkdir(parents=True, exist_ok=True)
+        
+        # Recursively create symlinks for all files
+        for item in dest_path.rglob('*'):
+            if item.is_file():
+                rel_path = item.relative_to(dest_path)
+                src_item = src_path / rel_path
+                
+                # Create parent directories if needed
+                src_item.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Remove existing file/symlink if present
+                if src_item.exists() or src_item.is_symlink():
+                    src_item.unlink()
+                
+                # Create symlink
+                src_item.symlink_to(item)
+
+
 @app.command()
 def init(
     remote: Annotated[
@@ -66,14 +137,14 @@ def init(
 def add(
     path: Annotated[
         Path,
-        typer.Argument(help="Path to dotfile (relative to your home directory)")
+        typer.Argument(help="Path to dotfile or directory (relative to your home directory)")
     ],
     push: Annotated[
         bool,
         typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
     ] = False
 ):
-    """Add a file to dotkeep, then symlink it in your home directory."""
+    """Add a file or directory to dotkeep, then symlink it in your home directory."""
     repo = ensure_repo()
     src = (HOME / path).expanduser()
 
@@ -83,20 +154,36 @@ def add(
 
     rel = src.relative_to(HOME)
     dest = WORK_TREE / rel
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    
+    # List to track all added files for commit message
+    added_files = []
 
-    # Copy the file to the dotkeep repo
-    shutil.copy2(src, dest)
+    # Copy files/directories to the dotkeep repo
+    copy_file_or_directory(src, dest, repo, added_files)
 
-    # Stage using a path relative to WORK_TREE
-    tracked_path = dest.relative_to(WORK_TREE).as_posix()
-    repo.index.add([tracked_path])
-    repo.index.commit(f"Add {rel}")
+    # Create appropriate commit message
+    if len(added_files) == 1:
+        commit_msg = f"Add {added_files[0]}"
+    else:
+        commit_msg = f"Add {rel} ({len(added_files)} files)"
 
-    # Replace original with symlink
-    src.unlink()
-    src.symlink_to(dest)
-    typer.secho(f"✓ Added {rel}", fg=typer.colors.GREEN)
+    # Commit the changes
+    repo.index.commit(commit_msg)
+
+    # Replace original with symlink(s)
+    create_symlinks(src, dest)
+
+    # Display success message
+    if len(added_files) == 1:
+        typer.secho(f"✓ Added {added_files[0]}", fg=typer.colors.GREEN)
+    else:
+        typer.secho(f"✓ Added {rel} ({len(added_files)} files)", fg=typer.colors.GREEN)
+        # Optionally list the files
+        if len(added_files) <= 10:  # Don't spam for large directories
+            for file_path in added_files:
+                typer.secho(f"  - {file_path}", fg=typer.colors.WHITE)
+        else:
+            typer.secho(f"  (and {len(added_files) - 10} more files)", fg=typer.colors.WHITE)
 
     # Optionally push
     if push:
