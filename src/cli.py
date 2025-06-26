@@ -25,75 +25,17 @@ def ensure_repo():
         raise typer.Exit(code=1)
 
 
-def copy_file_or_directory(src_path, dest_path, repo, added_files):
-    """
-    Recursively copy files or directories and track them in git.
-    Returns a list of relative paths that were added.
-    """
-    if src_path.is_file():
-        # Handle single file
-        dest_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_path, dest_path)
-        
-        # Stage the file
-        tracked_path = dest_path.relative_to(WORK_TREE).as_posix()
-        repo.index.add([tracked_path])
-        added_files.append(src_path.relative_to(HOME))
-        
-    elif src_path.is_dir():
-        # Handle directory recursively
-        dest_path.mkdir(parents=True, exist_ok=True)
-        
-        # Process all items in the directory
-        for item in src_path.iterdir():
-            if item.name.startswith('.git'):
-                # Skip .git directories to avoid conflicts
-                continue
-                
-            item_dest = dest_path / item.name
-            copy_file_or_directory(item, item_dest, repo, added_files)
-    else:
-        # Handle special files (symlinks, etc.) - skip them with a warning
-        rel_path = src_path.relative_to(HOME)
-        typer.secho(f"Warning: Skipping {rel_path} (not a regular file or directory)", 
-                   fg=typer.colors.YELLOW)
-
-
-def create_symlinks(src_path, dest_path):
-    """
-    Create symlinks for files or directories.
-    For directories, create the directory structure and symlink individual files.
-    """
-    if dest_path.is_file():
-        # Single file - create symlink
-        if src_path.exists() or src_path.is_symlink():
-            src_path.unlink()
-        src_path.symlink_to(dest_path)
-        
-    elif dest_path.is_dir():
-        # Directory - create directory structure and symlink files
-        if src_path.exists() and not src_path.is_dir():
-            # If src exists but is not a directory, remove it
-            src_path.unlink()
-        
-        # Create the directory structure
-        src_path.mkdir(parents=True, exist_ok=True)
-        
-        # Recursively create symlinks for all files
-        for item in dest_path.rglob('*'):
+def count_files_in_directory(path):
+    """Count all files recursively in a directory."""
+    if path.is_file():
+        return 1
+    elif path.is_dir():
+        count = 0
+        for item in path.rglob('*'):
             if item.is_file():
-                rel_path = item.relative_to(dest_path)
-                src_item = src_path / rel_path
-                
-                # Create parent directories if needed
-                src_item.parent.mkdir(parents=True, exist_ok=True)
-                
-                # Remove existing file/symlink if present
-                if src_item.exists() or src_item.is_symlink():
-                    src_item.unlink()
-                
-                # Create symlink
-                src_item.symlink_to(item)
+                count += 1
+        return count
+    return 0
 
 
 @app.command()
@@ -154,36 +96,63 @@ def add(
 
     rel = src.relative_to(HOME)
     dest = WORK_TREE / rel
-    
-    # List to track all added files for commit message
-    added_files = []
 
-    # Copy files/directories to the dotkeep repo
-    copy_file_or_directory(src, dest, repo, added_files)
+    # Ensure parent directories exist in the repo
+    dest.parent.mkdir(parents=True, exist_ok=True)
 
-    # Create appropriate commit message
-    if len(added_files) == 1:
-        commit_msg = f"Add {added_files[0]}"
-    else:
-        commit_msg = f"Add {rel} ({len(added_files)} files)"
+    if src.is_file():
+        # Handle single file (existing behavior)
+        shutil.copy2(src, dest)
+        
+        # Stage the file
+        tracked_path = dest.relative_to(WORK_TREE).as_posix()
+        repo.index.add([tracked_path])
+        repo.index.commit(f"Add {rel}")
 
-    # Commit the changes
-    repo.index.commit(commit_msg)
+        # Replace original with symlink
+        src.unlink()
+        src.symlink_to(dest)
+        typer.secho(f"✓ Added {rel}", fg=typer.colors.GREEN)
 
-    # Replace original with symlink(s)
-    create_symlinks(src, dest)
-
-    # Display success message
-    if len(added_files) == 1:
-        typer.secho(f"✓ Added {added_files[0]}", fg=typer.colors.GREEN)
-    else:
-        typer.secho(f"✓ Added {rel} ({len(added_files)} files)", fg=typer.colors.GREEN)
-        # Optionally list the files
-        if len(added_files) <= 10:  # Don't spam for large directories
-            for file_path in added_files:
-                typer.secho(f"  - {file_path}", fg=typer.colors.WHITE)
+    elif src.is_dir():
+        # Handle directory - copy entire directory and create directory symlink
+        if dest.exists():
+            shutil.rmtree(dest)
+        
+        # Copy the entire directory tree
+        shutil.copytree(src, dest)
+        
+        # Count files for commit message
+        file_count = count_files_in_directory(dest)
+        
+        # Stage all files in the directory
+        tracked_path = dest.relative_to(WORK_TREE).as_posix()
+        repo.index.add([tracked_path])
+        
+        # Create commit message
+        if file_count == 1:
+            commit_msg = f"Add {rel} (1 file)"
         else:
-            typer.secho(f"  (and {len(added_files) - 10} more files)", fg=typer.colors.WHITE)
+            commit_msg = f"Add {rel} ({file_count} files)"
+        
+        repo.index.commit(commit_msg)
+
+        # Replace original directory with symlink
+        shutil.rmtree(src)
+        src.symlink_to(dest)
+        
+        # Display success message
+        if file_count == 0:
+            typer.secho(f"✓ Added {rel} (empty directory)", fg=typer.colors.GREEN)
+        elif file_count == 1:
+            typer.secho(f"✓ Added {rel} (1 file)", fg=typer.colors.GREEN)
+        else:
+            typer.secho(f"✓ Added {rel} ({file_count} files)", fg=typer.colors.GREEN)
+
+    else:
+        # Handle special files (symlinks, etc.)
+        typer.secho(f"Error: {src} is not a regular file or directory.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
 
     # Optionally push
     if push:
@@ -211,14 +180,14 @@ def add(
 def delete(
     path: Annotated[
         Path,
-        typer.Argument(help="Path to dotfile (relative to your home directory)")
+        typer.Argument(help="Path to dotfile or directory (relative to your home directory)")
     ],
     push: Annotated[
         bool,
         typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
     ] = False
 ):
-    """Remove a dotkeep-managed file and delete the symlink in your home directory."""
+    """Remove a dotkeep-managed file or directory and delete the symlink in your home directory."""
     repo = ensure_repo()
     src = (HOME / path).expanduser()
 
@@ -242,13 +211,20 @@ def delete(
         )
         raise typer.Exit(code=1)
 
-    # Remove symlink and file in repo
+    # Remove symlink and file/directory in repo
     src.unlink()
-    dest.unlink()
+    
+    if dest.is_file():
+        dest.unlink()
+        # Remove single file from git index
+        tracked_path = dest.relative_to(WORK_TREE).as_posix()
+        repo.index.remove([tracked_path])
+    elif dest.is_dir():
+        shutil.rmtree(dest)
+        # Remove directory from git index
+        tracked_path = dest.relative_to(WORK_TREE).as_posix()
+        repo.index.remove([tracked_path], r=True)  # Recursive removal for directories
 
-    # Remove from git index using path relative to WORK_TREE
-    tracked_path = dest.relative_to(WORK_TREE).as_posix()
-    repo.index.remove([tracked_path])
     repo.index.commit(f"Remove {rel}")
     typer.secho(f"✓ Removed {rel}", fg=typer.colors.GREEN)
 
@@ -347,11 +323,11 @@ def list_files():
 def restore(
     path: Annotated[
         Path,
-        typer.Argument(help="Path to dotfile (relative to your home directory)")
+        typer.Argument(help="Path to dotfile or directory (relative to your home directory)")
     ]
 ):
     """
-    Restore a dotfile from the dotkeep repository to your home directory.
+    Restore a dotfile or directory from the dotkeep repository to your home directory.
     Overwrites any existing file or symlink at that location.
     """
     repo = ensure_repo()
@@ -359,10 +335,8 @@ def restore(
     rel = src.relative_to(HOME)
     dest = WORK_TREE / rel
 
-    # Check if the file is tracked (exists in the repo)
-    tracked_files = repo.git.ls_files().splitlines()
-    tracked_path = dest.relative_to(WORK_TREE).as_posix()
-    if tracked_path not in tracked_files:
+    # Check if the file/directory is tracked (exists in the repo)
+    if not dest.exists():
         typer.secho(
             f"Error: {rel} is not tracked by dotkeep.",
             fg=typer.colors.RED,
@@ -370,18 +344,14 @@ def restore(
         )
         raise typer.Exit(code=1)
 
-    # Check if the repo copy exists
-    if not dest.exists():
-        typer.secho(
-            f"Error: {dest} does not exist in the dotkeep repository.",
-            fg=typer.colors.RED,
-            err=True
-        )
-        raise typer.Exit(code=1)
-
     # If there's already something at src, remove it
-    if src.is_symlink() or src.exists():
+    if src.is_symlink():
         src.unlink()
+    elif src.exists():
+        if src.is_file():
+            src.unlink()
+        elif src.is_dir():
+            shutil.rmtree(src)
 
     # Create symlink from home to repo (not a copy)
     src.symlink_to(dest)
