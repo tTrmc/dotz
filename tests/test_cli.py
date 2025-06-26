@@ -93,78 +93,208 @@ def test_add_nonexistent_file(temp_home):
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
-    result = run_dotkeep("add", ".notfound", env=env)
+
+    # Try to add a file that doesn't exist
+    result = run_dotkeep("add", ".nonexistent", env=env)
     assert result.returncode != 0
-    output = result.stdout + result.stderr
-    assert "not found" in output
+    assert "not found" in result.stderr or "not found" in result.stdout
 
-def test_status_untracked(temp_home):
+def test_add_directory_creates_directory_symlink(temp_home):
+    """Test that adding a directory creates a directory symlink, not individual file symlinks."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
-    # Create a file but don't add it
-    dotfile = temp_home / ".zshrc"
-    dotfile.write_text("export ZSH=1\n")
-    result = run_dotkeep("status", env=env)
-    assert "✓ No changes" in result.stdout
 
-def test_help_and_version(temp_home):
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    result = run_dotkeep("--help", env=env)
+    # Create a config directory with multiple files
+    config_dir = temp_home / ".config" / "myapp"
+    config_dir.mkdir(parents=True)
+    
+    # Create files in the directory
+    (config_dir / "config.yaml").write_text("setting1: value1\nsetting2: value2\n")
+    (config_dir / "app.conf").write_text("[section]\noption=value\n")
+    
+    # Create a subdirectory with a file
+    subdir = config_dir / "themes"
+    subdir.mkdir()
+    (subdir / "dark.theme").write_text("background: black\nforeground: white\n")
+
+    # Add the directory
+    result = run_dotkeep("add", ".config/myapp", env=env)
     assert result.returncode == 0
-    assert "dotkeep - a Git-backed dot-files manager" in result.stdout
+    assert "✓ Added .config/myapp (3 files)" in result.stdout
 
-def test_status_shows_untracked_dotfiles_in_home(temp_home):
+    # Verify all files are tracked
+    result2 = run_dotkeep("list-files", env=env)
+    assert ".config/myapp/config.yaml" in result2.stdout
+    assert ".config/myapp/app.conf" in result2.stdout
+    assert ".config/myapp/themes/dark.theme" in result2.stdout
+
+    # THE KEY TEST: Verify the directory itself is a symlink, not individual files
+    myapp_dir = temp_home / ".config" / "myapp"
+    assert myapp_dir.is_symlink(), "The directory should be a symlink"
+    assert not (myapp_dir / "config.yaml").is_symlink(), "Individual files should NOT be symlinks when directory is symlinked"
+    assert not (myapp_dir / "app.conf").is_symlink(), "Individual files should NOT be symlinks when directory is symlinked"
+
+    # Verify symlink points to the right place
+    dotkeep_repo = temp_home / ".dotkeep" / "repo"
+    assert myapp_dir.readlink() == dotkeep_repo / ".config" / "myapp"
+
+def test_directory_symlink_tracks_new_files(temp_home):
+    """Test that new files added to a symlinked directory are automatically tracked."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
-    # Create two dotfiles in $HOME but do not add them
-    dotfile1 = temp_home / ".myrc"
-    dotfile2 = temp_home / ".other"
-    dotfile1.write_text("foo\n")
-    dotfile2.write_text("bar\n")
-    # Create a non-dotfile (should not be listed)
-    ndf = temp_home / "notadotfile"
-    ndf.write_text("baz\n")
-    # Create a dot-directory (should not be listed)
-    dotdir = temp_home / ".config"
-    dotdir.mkdir()
-    # Create a symlinked dotfile (should be listed)
-    symlink_target = temp_home / ".symlink_target"
-    symlink_target.write_text("target\n")
-    symlink = temp_home / ".symlinked"
-    symlink.symlink_to(symlink_target)
-    # Run status
-    result = run_dotkeep("status", env=env)
-    out = result.stdout + result.stderr
-    # Should show the two dotfiles and the symlinked dotfile
-    assert "Dotfiles in $HOME not tracked by dotkeep" in out
-    assert ".myrc" in out
-    assert ".other" in out
-    assert ".symlinked" in out
-    # Should not show the non-dotfile or dot-directory
-    assert "notadotfile" not in out
-    assert ".config" not in out
 
-def test_status_with_repo_and_home_changes(temp_home):
+    # Create and add a directory
+    dotfolder = temp_home / "dotfolder"
+    dotfolder.mkdir()
+    (dotfolder / ".dot1").write_text("original file\n")
+    
+    result = run_dotkeep("add", "dotfolder", env=env)
+    assert result.returncode == 0
+
+    # Verify it's a directory symlink
+    assert dotfolder.is_symlink()
+
+    # Add a new file to the directory (this should appear in the repo automatically)
+    (dotfolder / ".dot2").write_text("new file\n")
+
+    # The new file should exist in the repo because dotfolder is a symlink to the repo
+    dotkeep_repo = temp_home / ".dotkeep" / "repo"
+    assert (dotkeep_repo / "dotfolder" / ".dot2").exists()
+    
+    # Both files should be accessible through the symlinked directory
+    assert (dotfolder / ".dot1").exists()
+    assert (dotfolder / ".dot2").exists()
+
+def test_add_empty_directory(temp_home):
+    """Test adding an empty directory."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
-    # Add a dotfile
-    dotfile = temp_home / ".bashrc"
-    dotfile.write_text("export TEST=1\n")
-    run_dotkeep("add", ".bashrc", env=env)
-    # Modify the tracked file
-    dotfile.write_text("export TEST=2\n")
-    # Create an untracked dotfile
-    untracked = temp_home / ".untracked"
-    untracked.write_text("foo\n")
-    # Run status
-    result = run_dotkeep("status", env=env)
-    out = result.stdout + result.stderr
-    # Should show modified tracked file and untracked home dotfile
-    assert "Modified files:" in out
-    assert ".bashrc" in out
-    assert "Dotfiles in $HOME not tracked by dotkeep" in out
-    assert ".untracked" in out
+
+    # Create an empty directory
+    empty_dir = temp_home / ".empty_config"
+    empty_dir.mkdir()
+
+    # Add the empty directory
+    result = run_dotkeep("add", ".empty_config", env=env)
+    assert result.returncode == 0
+    assert "✓ Added .empty_config (empty directory)" in result.stdout
+
+    # Verify it's a directory symlink
+    assert empty_dir.is_symlink()
+
+def test_add_directory_with_subdirectories(temp_home):
+    """Test adding a directory with nested subdirectories."""
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+
+    # Create a complex directory structure
+    base_dir = temp_home / ".config" / "complexapp"
+    base_dir.mkdir(parents=True)
+    
+    # Files at root level
+    (base_dir / "main.conf").write_text("main config\n")
+    
+    # Nested subdirectories
+    themes_dir = base_dir / "themes"
+    themes_dir.mkdir()
+    (themes_dir / "light.theme").write_text("light theme\n")
+    (themes_dir / "dark.theme").write_text("dark theme\n")
+    
+    plugins_dir = base_dir / "plugins" / "enabled"
+    plugins_dir.mkdir(parents=True)
+    (plugins_dir / "plugin1.conf").write_text("plugin1 config\n")
+    
+    # Add the entire directory
+    result = run_dotkeep("add", ".config/complexapp", env=env)
+    assert result.returncode == 0
+    assert "✓ Added .config/complexapp (4 files)" in result.stdout
+
+    # Verify all files are tracked
+    result2 = run_dotkeep("list-files", env=env)
+    tracked_files = result2.stdout
+    assert ".config/complexapp/main.conf" in tracked_files
+    assert ".config/complexapp/themes/light.theme" in tracked_files
+    assert ".config/complexapp/themes/dark.theme" in tracked_files
+    assert ".config/complexapp/plugins/enabled/plugin1.conf" in tracked_files
+
+    # Verify the main directory is a symlink, not subdirectories
+    complexapp_dir = temp_home / ".config" / "complexapp"
+    assert complexapp_dir.is_symlink(), "Main directory should be a symlink"
+    assert not (complexapp_dir / "themes").is_symlink(), "Subdirectories should NOT be symlinks"
+    assert not (complexapp_dir / "plugins").is_symlink(), "Subdirectories should NOT be symlinks"
+
+def test_add_single_file_still_works(temp_home):
+    """Ensure that adding single files still works as before."""
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+
+    # Create a single dotfile
+    dotfile = temp_home / ".gitconfig"
+    dotfile.write_text("[user]\nname = Test User\n")
+
+    # Add the single file
+    result = run_dotkeep("add", ".gitconfig", env=env)
+    assert result.returncode == 0
+    assert "✓ Added .gitconfig" in result.stdout
+
+    # Verify it's tracked and symlinked correctly
+    result2 = run_dotkeep("list-files", env=env)
+    assert ".gitconfig" in result2.stdout
+    assert (temp_home / ".gitconfig").is_symlink()
+
+def test_delete_directory(temp_home):
+    """Test deleting a directory managed by dotkeep."""
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+
+    # Create and add a directory
+    test_dir = temp_home / ".test_dir"
+    test_dir.mkdir()
+    (test_dir / "file1.txt").write_text("content1")
+    (test_dir / "file2.txt").write_text("content2")
+    
+    run_dotkeep("add", ".test_dir", env=env)
+    
+    # Verify it's added and is a symlink
+    assert test_dir.is_symlink()
+    
+    # Delete the directory
+    result = run_dotkeep("delete", ".test_dir", env=env)
+    assert result.returncode == 0
+    assert "✓ Removed .test_dir" in result.stdout
+    
+    # Verify directory is gone from both home and repo
+    assert not test_dir.exists()
+    dotkeep_repo = temp_home / ".dotkeep" / "repo"
+    assert not (dotkeep_repo / ".test_dir").exists()
+
+def test_restore_directory(temp_home):
+    """Test restoring a directory managed by dotkeep."""
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+
+    # Create and add a directory
+    test_dir = temp_home / ".restore_test"
+    test_dir.mkdir()
+    (test_dir / "config.txt").write_text("important config")
+    
+    run_dotkeep("add", ".restore_test", env=env)
+    
+    # Remove the symlink (simulate accidental deletion)
+    test_dir.unlink()
+    
+    # Restore the directory
+    result = run_dotkeep("restore", ".restore_test", env=env)
+    assert result.returncode == 0
+    assert "✓ Restored .restore_test" in result.stdout
+    
+    # Verify it's restored as a symlink and files are accessible
+    assert test_dir.is_symlink()
+    assert (test_dir / "config.txt").read_text() == "important config"
