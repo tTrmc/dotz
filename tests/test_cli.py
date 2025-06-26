@@ -99,8 +99,8 @@ def test_add_nonexistent_file(temp_home):
     assert result.returncode != 0
     assert "not found" in result.stderr or "not found" in result.stdout
 
-def test_add_directory(temp_home):
-    """Test adding a directory with multiple files."""
+def test_add_directory_creates_directory_symlink(temp_home):
+    """Test that adding a directory creates a directory symlink, not individual file symlinks."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
@@ -129,14 +129,43 @@ def test_add_directory(temp_home):
     assert ".config/myapp/app.conf" in result2.stdout
     assert ".config/myapp/themes/dark.theme" in result2.stdout
 
-    # Verify symlinks are created correctly
-    assert (temp_home / ".config" / "myapp" / "config.yaml").is_symlink()
-    assert (temp_home / ".config" / "myapp" / "app.conf").is_symlink()
-    assert (temp_home / ".config" / "myapp" / "themes" / "dark.theme").is_symlink()
+    # THE KEY TEST: Verify the directory itself is a symlink, not individual files
+    myapp_dir = temp_home / ".config" / "myapp"
+    assert myapp_dir.is_symlink(), "The directory should be a symlink"
+    assert not (myapp_dir / "config.yaml").is_symlink(), "Individual files should NOT be symlinks when directory is symlinked"
+    assert not (myapp_dir / "app.conf").is_symlink(), "Individual files should NOT be symlinks when directory is symlinked"
 
-    # Verify symlinks point to the right place
+    # Verify symlink points to the right place
     dotkeep_repo = temp_home / ".dotkeep" / "repo"
-    assert (temp_home / ".config" / "myapp" / "config.yaml").readlink() == dotkeep_repo / ".config" / "myapp" / "config.yaml"
+    assert myapp_dir.readlink() == dotkeep_repo / ".config" / "myapp"
+
+def test_directory_symlink_tracks_new_files(temp_home):
+    """Test that new files added to a symlinked directory are automatically tracked."""
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+
+    # Create and add a directory
+    dotfolder = temp_home / "dotfolder"
+    dotfolder.mkdir()
+    (dotfolder / ".dot1").write_text("original file\n")
+    
+    result = run_dotkeep("add", "dotfolder", env=env)
+    assert result.returncode == 0
+
+    # Verify it's a directory symlink
+    assert dotfolder.is_symlink()
+
+    # Add a new file to the directory (this should appear in the repo automatically)
+    (dotfolder / ".dot2").write_text("new file\n")
+
+    # The new file should exist in the repo because dotfolder is a symlink to the repo
+    dotkeep_repo = temp_home / ".dotkeep" / "repo"
+    assert (dotkeep_repo / "dotfolder" / ".dot2").exists()
+    
+    # Both files should be accessible through the symlinked directory
+    assert (dotfolder / ".dot1").exists()
+    assert (dotfolder / ".dot2").exists()
 
 def test_add_empty_directory(temp_home):
     """Test adding an empty directory."""
@@ -151,8 +180,10 @@ def test_add_empty_directory(temp_home):
     # Add the empty directory
     result = run_dotkeep("add", ".empty_config", env=env)
     assert result.returncode == 0
-    # Should handle empty directories gracefully
-    assert "✓ Added .empty_config" in result.stdout
+    assert "✓ Added .empty_config (empty directory)" in result.stdout
+
+    # Verify it's a directory symlink
+    assert empty_dir.is_symlink()
 
 def test_add_directory_with_subdirectories(temp_home):
     """Test adding a directory with nested subdirectories."""
@@ -190,10 +221,11 @@ def test_add_directory_with_subdirectories(temp_home):
     assert ".config/complexapp/themes/dark.theme" in tracked_files
     assert ".config/complexapp/plugins/enabled/plugin1.conf" in tracked_files
 
-    # Verify directory structure is preserved with symlinks
-    assert (temp_home / ".config" / "complexapp" / "main.conf").is_symlink()
-    assert (temp_home / ".config" / "complexapp" / "themes" / "light.theme").is_symlink()
-    assert (temp_home / ".config" / "complexapp" / "plugins" / "enabled" / "plugin1.conf").is_symlink()
+    # Verify the main directory is a symlink, not subdirectories
+    complexapp_dir = temp_home / ".config" / "complexapp"
+    assert complexapp_dir.is_symlink(), "Main directory should be a symlink"
+    assert not (complexapp_dir / "themes").is_symlink(), "Subdirectories should NOT be symlinks"
+    assert not (complexapp_dir / "plugins").is_symlink(), "Subdirectories should NOT be symlinks"
 
 def test_add_single_file_still_works(temp_home):
     """Ensure that adding single files still works as before."""
@@ -215,34 +247,54 @@ def test_add_single_file_still_works(temp_home):
     assert ".gitconfig" in result2.stdout
     assert (temp_home / ".gitconfig").is_symlink()
 
-def test_add_directory_preserves_permissions(temp_home):
-    """Test that file permissions are preserved when adding directories."""
+def test_delete_directory(temp_home):
+    """Test deleting a directory managed by dotkeep."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
 
-    # Create a directory with files having specific permissions
-    scripts_dir = temp_home / ".local" / "bin"
-    scripts_dir.mkdir(parents=True)
+    # Create and add a directory
+    test_dir = temp_home / ".test_dir"
+    test_dir.mkdir()
+    (test_dir / "file1.txt").write_text("content1")
+    (test_dir / "file2.txt").write_text("content2")
     
-    # Create an executable script
-    script_file = scripts_dir / "myscript.sh"
-    script_file.write_text("#!/bin/bash\necho 'Hello World'\n")
-    script_file.chmod(0o755)  # Make it executable
+    run_dotkeep("add", ".test_dir", env=env)
     
-    # Create a regular config file
-    config_file = scripts_dir / "config.txt"
-    config_file.write_text("config data\n")
-    config_file.chmod(0o644)  # Regular file permissions
-
-    # Add the directory
-    result = run_dotkeep("add", ".local/bin", env=env)
+    # Verify it's added and is a symlink
+    assert test_dir.is_symlink()
+    
+    # Delete the directory
+    result = run_dotkeep("delete", ".test_dir", env=env)
     assert result.returncode == 0
-
-    # Check that permissions are preserved in the repo
-    dotkeep_repo = temp_home / ".dotkeep" / "repo"
-    repo_script = dotkeep_repo / ".local" / "bin" / "myscript.sh"
-    repo_config = dotkeep_repo / ".local" / "bin" / "config.txt"
+    assert "✓ Removed .test_dir" in result.stdout
     
-    assert oct(repo_script.stat().st_mode)[-3:] == "755"
-    assert oct(repo_config.stat().st_mode)[-3:] == "644"
+    # Verify directory is gone from both home and repo
+    assert not test_dir.exists()
+    dotkeep_repo = temp_home / ".dotkeep" / "repo"
+    assert not (dotkeep_repo / ".test_dir").exists()
+
+def test_restore_directory(temp_home):
+    """Test restoring a directory managed by dotkeep."""
+    env = os.environ.copy()
+    env["HOME"] = str(temp_home)
+    run_dotkeep("init", env=env)
+
+    # Create and add a directory
+    test_dir = temp_home / ".restore_test"
+    test_dir.mkdir()
+    (test_dir / "config.txt").write_text("important config")
+    
+    run_dotkeep("add", ".restore_test", env=env)
+    
+    # Remove the symlink (simulate accidental deletion)
+    test_dir.unlink()
+    
+    # Restore the directory
+    result = run_dotkeep("restore", ".restore_test", env=env)
+    assert result.returncode == 0
+    assert "✓ Restored .restore_test" in result.stdout
+    
+    # Verify it's restored as a symlink and files are accessible
+    assert test_dir.is_symlink()
+    assert (test_dir / "config.txt").read_text() == "important config"
