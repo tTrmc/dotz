@@ -4,6 +4,7 @@ import os
 from typing_extensions import Annotated
 from pathlib import Path
 from git import Repo, NoSuchPathError, GitCommandError
+from .watcher import main as watcher_main
 
 app = typer.Typer(help="dotkeep - a Git-backed dot-files manager")
 
@@ -415,6 +416,18 @@ def push():
         typer.secho("✓ Pushed local commits to origin", fg=typer.colors.GREEN)
     except GitCommandError as e:
         typer.secho(f"Error pushing to origin: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit()
+    
+@app.command()
+def watch():
+    """
+    Start watching for changes in your home directory and automatically add new dotfiles.
+    """
+    typer.secho("Starting watcher...", fg=typer.colors.WHITE)
+    try:
+        watcher_main()
+    except KeyboardInterrupt:
+        typer.secho("Watcher stopped.", fg=typer.colors.YELLOW)
         raise typer.Exit()
 
 

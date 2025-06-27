@@ -16,7 +16,8 @@ authors = [
 
 dependencies = [
   "typer",
-  "gitpython"
+  "gitpython",
+  "watchdog"
 ]
 
 [project.scripts]
