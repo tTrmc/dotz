@@ -54,6 +54,13 @@ def init_repo(remote: str = "", quiet: bool = False):
 
     if remote:
         repo.create_remote("origin", remote)
+        if not quiet:
+            import typer
+            typer.secho(
+                "⚠️  If you are adding sensitive information, make sure your remote repository is private!",
+                fg=typer.colors.RED,
+                bold=True,
+            )
 
     if not quiet:
         import typer
