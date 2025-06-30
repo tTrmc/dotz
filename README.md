@@ -23,23 +23,63 @@ A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies 
 
 ## Installation
 
-1. **Clone and install**
+### Clone the repository
 
-   ```bash
-   git clone https://github.com/tTrmc/dotkeep.git
-   cd dotkeep
-   pip install -e .
-   ```
+```bash
+git clone https://github.com/tTrmc/dotkeep.git
+cd dotkeep
+```
 
-   Installing in editable mode (`-e`) installs the `dotkeep` CLI globally and allows code changes to take effect immediately.
+### For developers (editable install)
 
-2. **Verify installation**
+> **Recommended for development**
 
-   ```bash
-   dotkeep --help
-   ```
+Use a virtual environment to avoid conflicts with your system Python:
 
-**Requirements:** Python 3.8 or newer, Git
+```bash
+python -m venv .venv         # Create virtual environment
+source .venv/bin/activate    # Activate virtual environment
+pip install -e .             # Install in editable mode
+```
+
+Installing in editable mode (`-e`) installs the `dotkeep` CLI inside the virtual environment and allows your code changes to take effect immediately.
+
+---
+
+### For users (global CLI install)
+
+> **Recommended for end users**
+
+Use `pipx` to install `dotkeep` globally in an isolated environment:
+
+```bash
+# Install pipx if you do not have it:
+sudo pacman -S python-pipx      # Arch Linux
+# or
+sudo apt install pipx           # Debian/Ubuntu
+
+# Ensure pipx is set up:
+pipx ensurepath
+
+# Install dotkeep globally:
+pipx install git+https://github.com/tTrmc/dotkeep.git
+```
+
+---
+
+### Verify installation
+
+```bash
+dotkeep --help
+```
+
+---
+
+**Requirements:**
+
+* Python **3.8** or newer
+* Git
+* `pipx` (recommended for global CLI use)
 
 ---
 
