@@ -12,7 +12,11 @@ A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies 
 * **Easy setup**: Initialize a local dotkeep repository with a single command.
 * **Git-based**: Provides full version history, branching, and remote synchronization.
 * **File management**: Add and remove dotfiles with automatic symlinking.
+* **Recursive directory support**: Add all dotfiles (optionally recursively) from a directory.
+* **Tracked directories**: Only directories you add are watched for new dotfiles.
 * **Status overview**: Display untracked, modified, and staged files at a glance.
+* **Diagnostics**: Built-in `diagnose` command for troubleshooting.
+* **Shell completion**: Tab-completion for all commands and options.
 * **Portable**: Requires only Python 3.8+ and Git.
 
 ---
@@ -53,16 +57,22 @@ dotkeep init
 dotkeep init --remote git@github.com:yourusername/dotkeep.git
 ```
 
-### Add a dotfile
+### Add a dotfile or directory
 
-Copy, commit, and symlink a configuration file from your home directory:
+Copy, commit, and symlink a configuration file or all dotfiles in a directory from your home directory:
 
 ```bash
-# Add without pushing
+# Add a single file without pushing
 dotkeep add .bashrc
 
 # Add and push to remote
 dotkeep add .bashrc --push
+
+# Add all dotfiles in a directory (recursively, default)
+dotkeep add .config
+
+# Add only top-level dotfiles in a directory (non-recursive)
+dotkeep add .config --no-recursive
 ```
 
 ### Remove a dotfile
@@ -77,12 +87,29 @@ dotkeep delete .vimrc
 dotkeep delete .vimrc --push
 ```
 
+### Restore a dotfile
+
+Restore a dotfile or directory from the dotkeep repository to your home directory:
+
+```bash
+dotkeep restore .vimrc
+dotkeep restore .config --push
+```
+
 ### Status
 
 List untracked, modified, and staged files in your dotkeep repository:
 
 ```bash
 dotkeep status
+```
+
+### List tracked files
+
+Show all files currently tracked by dotkeep:
+
+```bash
+dotkeep list-files
 ```
 
 ### Pull
@@ -101,21 +128,56 @@ Push all local commits (including added or deleted dotfiles) to the remote:
 dotkeep push
 ```
 
+### Watch for new dotfiles
+
+Automatically add new dotfiles created in tracked directories:
+
+```bash
+dotkeep watch
+```
+
+### Diagnostics
+
+Diagnose common issues with your dotkeep setup and git repository:
+
+```bash
+dotkeep diagnose
+```
+
+### Shell completion
+
+Enable tab-completion for your shell:
+
+```bash
+dotkeep --install-completion
+```
+Follow the printed instructions for your shell (bash, zsh, fish, etc.).
+
+### Show version
+
+```bash
+dotkeep version
+```
+
 ---
 
 ## Project Structure
 
 ```
 dotkeep/
-├── src/                # Source code
-│   └── cli.py          # Typer-based CLI entry point
-├── tests/              # Automated tests
-│   └── test_cli.py     # Pytest-based CLI tests
-├── pyproject.toml      # Project metadata and dependencies
-├── README.md           # Project documentation
-├── LICENSE             # GPL-3.0-or-later license
-├── CONTRIBUTING.md     # Contribution guidelines
-└── .gitignore          # Files and directories to exclude
+├── src/
+│   └── dotkeep/
+│       ├── __init__.py
+│       ├── cli.py          # Typer-based CLI entry point
+│       ├── core.py         # Core logic for dotfile management
+│       └── watcher.py      # Watchdog-based directory watcher
+├── tests/
+│   └── test_cli.py         # Pytest-based CLI and core tests
+├── pyproject.toml          # Project metadata and dependencies
+├── README.md               # Project documentation
+├── LICENSE                 # GPL-3.0-or-later license
+├── CONTRIBUTING.md         # Contribution guidelines
+└── .gitignore              # Files and directories to exclude
 ```
 
 The `.git` folder is created inside `~/.dotkeep/repo` once you initialize dotkeep.

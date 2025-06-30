@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dotkeep"
-version = "0.1.0"
+version = "0.2.0"
 description = "dotkeep is a minimal, Git-backed dotfiles manager for Linux"
 requires-python = ">=3.8"
 readme = "README.md"

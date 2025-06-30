@@ -4,6 +4,10 @@ from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from .core import add_dotfile, ensure_repo
+import json
+
+HOME = Path.home()
+DOTKEEP_DIR = HOME / ".dotkeep"
 
 def is_in_tracked_directory(relative_path: Path) -> bool:
     """
@@ -19,27 +23,37 @@ def is_in_tracked_directory(relative_path: Path) -> bool:
             return True
     return False
 
+def get_tracked_dirs():
+    tracked_file = DOTKEEP_DIR / "tracked_dirs.json"
+    if not tracked_file.exists():
+        return []
+    with open(tracked_file, "r") as f:
+        return json.load(f)
+
 class DotkeepEventHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory:
+            return
+        # Ignore symlink creations (second event)
+        if os.path.islink(event.src_path):
             return
         filename = os.path.basename(event.src_path)
         if str(filename).startswith("."):
             # Convert the file's path to something relative to HOME
             home_path = Path(str(event.src_path)).relative_to(Path.home())
-            # Check if it's under a tracked directory
-            if is_in_tracked_directory(home_path):
-                # Automatically add the new dotfile
-                add_dotfile(home_path, push=False, quiet=True)
-                print(f"Auto-added dotfile: {event.src_path}")
-            else:
-                print(f"Dotfile not in a tracked directory: {event.src_path}")
+            # Automatically add the new dotfile
+            add_dotfile(home_path, push=False, quiet=True)
+            print(f"Auto-added dotfile: {event.src_path}")
 
 def main():
-    WATCH_PATH = str(Path.home())  # Set the path to watch
     observer = Observer()
     event_handler = DotkeepEventHandler()
-    observer.schedule(event_handler, WATCH_PATH, recursive=True)
+    tracked_dirs = get_tracked_dirs()
+    if not tracked_dirs:
+        print("No tracked directories. Add one with dotkeep add <dir>")
+        return
+    for d in tracked_dirs:
+        observer.schedule(event_handler, d, recursive=True)
     observer.start()
     try:
         while True:
