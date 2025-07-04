@@ -1,16 +1,30 @@
 import typer
 from typing_extensions import Annotated
 from pathlib import Path
-from .core import add_dotfile, init_repo, delete_dotfile, restore_dotfile, pull_repo, push_repo, get_repo_status, list_tracked_files
+from .core import (
+    add_dotfile, init_repo, delete_dotfile, restore_dotfile, pull_repo, push_repo, 
+    get_repo_status, list_tracked_files, load_config, get_config_value, set_config_value,
+    add_file_pattern, remove_file_pattern, reset_config, get_home_dir
+)
 from .watcher import main as watcher_main
 import json
 from git import Repo
 
 app = typer.Typer(help="dotkeep - a Git-backed dot-files manager")
 
-HOME = Path.home()
-DOTKEEP_DIR = HOME / ".dotkeep"
-WORK_TREE = DOTKEEP_DIR / "repo"
+def get_cli_paths():
+    """Get CLI-related paths based on current home directory."""
+    home = get_home_dir()
+    dotkeep_dir = home / ".dotkeep"
+    work_tree = dotkeep_dir / "repo"
+    return home, dotkeep_dir, work_tree
+
+HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
+
+def refresh_cli_paths():
+    """Refresh CLI paths when HOME environment changes."""
+    global HOME, DOTKEEP_DIR, WORK_TREE
+    HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
 
 @app.command()
 def init(
@@ -263,5 +277,132 @@ def diagnose():
     typer.secho("\nDiagnosis complete.", fg=typer.colors.WHITE, bold=True)
 
 
-if __name__ == "__main__":
-    app()
+# Configuration management commands
+config_app = typer.Typer(help="Manage dotkeep configuration")
+app.add_typer(config_app, name="config")
+
+@config_app.command("show")
+def config_show(
+    key: Annotated[
+        str,
+        typer.Argument(help="Configuration key to show (e.g., 'file_patterns.include' or leave empty for all)")
+    ] = "",
+):
+    """Show current configuration or a specific configuration value."""
+    if key:
+        value = get_config_value(key, quiet=True)
+        if value is not None:
+            if isinstance(value, (list, dict)):
+                typer.echo(json.dumps(value, indent=2))
+            else:
+                typer.echo(str(value))
+        else:
+            typer.secho(f"Configuration key '{key}' not found.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+    else:
+        config = load_config()
+        typer.echo(json.dumps(config, indent=2))
+
+@config_app.command("set")
+def config_set(
+    key: Annotated[str, typer.Argument(help="Configuration key to set (e.g., 'search_settings.recursive')")],
+    value: Annotated[str, typer.Argument(help="Value to set (JSON strings for lists/objects)")],
+):
+    """Set a configuration value."""
+    success = set_config_value(key, value)
+    if not success:
+        raise typer.Exit(code=1)
+
+@config_app.command("add-pattern")
+def config_add_pattern(
+    pattern: Annotated[str, typer.Argument(help="File pattern to add (e.g., '*.xml', '.bashrc')")],
+    pattern_type: Annotated[
+        str,
+        typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
+    ] = "include",
+):
+    """Add a file pattern to include or exclude lists."""
+    success = add_file_pattern(pattern, pattern_type)
+    if not success:
+        raise typer.Exit(code=1)
+
+@config_app.command("remove-pattern")
+def config_remove_pattern(
+    pattern: Annotated[str, typer.Argument(help="File pattern to remove")],
+    pattern_type: Annotated[
+        str,
+        typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
+    ] = "include",
+):
+    """Remove a file pattern from include or exclude lists."""
+    success = remove_file_pattern(pattern, pattern_type)
+    if not success:
+        raise typer.Exit(code=1)
+
+@config_app.command("reset")
+def config_reset(
+    confirm: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip confirmation prompt")
+    ] = False,
+):
+    """Reset configuration to defaults."""
+    if not confirm:
+        typer.confirm("Are you sure you want to reset configuration to defaults?", abort=True)
+    
+    reset_config()
+
+@config_app.command("list-patterns")
+def config_list_patterns():
+    """List all current file patterns."""
+    config = load_config()
+    
+    typer.secho("Include patterns:", fg=typer.colors.GREEN, bold=True)
+    for pattern in config["file_patterns"]["include"]:
+        typer.secho(f"  + {pattern}", fg=typer.colors.GREEN)
+    
+    typer.secho("\nExclude patterns:", fg=typer.colors.RED, bold=True)
+    for pattern in config["file_patterns"]["exclude"]:
+        typer.secho(f"  - {pattern}", fg=typer.colors.RED)
+    
+    typer.secho("\nSearch settings:", fg=typer.colors.BLUE, bold=True)
+    for key, value in config["search_settings"].items():
+        typer.secho(f"  {key}: {value}", fg=typer.colors.BLUE)
+
+@config_app.command("help")
+def config_help():
+    """Show detailed help for configuration management."""
+    typer.secho("Dotkeep Configuration Help", fg=typer.colors.WHITE, bold=True)
+    typer.secho("=" * 50, fg=typer.colors.WHITE)
+    
+    typer.secho("\nFile Patterns:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  Include patterns: Files matching these patterns will be tracked")
+    typer.echo("  Exclude patterns: Files matching these patterns will be ignored")
+    typer.echo("  Patterns support shell-style wildcards:")
+    typer.echo("    * matches any number of characters")
+    typer.echo("    ? matches a single character")
+    typer.echo("    [abc] matches any character in brackets")
+    typer.echo("    .* matches files starting with . (dotfiles)")
+    
+    typer.secho("\nSearch Settings:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  recursive: Search subdirectories recursively")
+    typer.echo("  case_sensitive: Whether pattern matching is case-sensitive")
+    typer.echo("  follow_symlinks: Whether to follow symbolic links")
+    
+    typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  dotkeep config add-pattern '*.py'        # Track Python files")
+    typer.echo("  dotkeep config add-pattern '.env*'       # Track environment files")
+    typer.echo("  dotkeep config add-pattern '*.log' -t exclude  # Ignore log files")
+    typer.echo("  dotkeep config set search_settings.recursive false  # Disable recursive search")
+    typer.echo("  dotkeep config show file_patterns.include  # Show include patterns")
+    
+    typer.secho("\nDefault patterns include:", fg=typer.colors.CYAN)
+    typer.echo("  Dotfiles (.*), config files (*.conf, *.config, *.cfg, *.ini)")
+    typer.echo("  YAML/JSON (*.yaml, *.yml, *.json), TOML files (*.toml)")
+    
+    typer.secho("\nDefault exclusions:", fg=typer.colors.CYAN)
+    typer.echo("  System files (.DS_Store, .cache), VCS (.git, .svn)")
+    typer.echo("  Temporary files (*.log, *.tmp)")
+    
+    typer.secho("\nConfiguration is stored in:", fg=typer.colors.MAGENTA)
+    typer.echo(f"  ~/.dotkeep/config.json")

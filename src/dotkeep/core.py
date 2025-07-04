@@ -1,14 +1,74 @@
 import shutil
 import os
+import fnmatch
 from pathlib import Path
 from git import Repo, GitCommandError
 import typer
 import json
 
-HOME = Path.home()
-DOTKEEP_DIR = HOME / ".dotkeep"
-WORK_TREE = DOTKEEP_DIR / "repo"
-TRACKED_DIRS_FILE = DOTKEEP_DIR / "tracked_dirs.json"
+def get_home_dir():
+    """Get the home directory, respecting environment variables for testing."""
+    # Check for test override first
+    if "HOME" in os.environ:
+        return Path(os.environ["HOME"])
+    return Path.home()
+
+def get_dotkeep_paths(home_dir=None):
+    """Get all dotkeep-related paths based on home directory."""
+    if home_dir is None:
+        home_dir = get_home_dir()
+    
+    dotkeep_dir = home_dir / ".dotkeep"
+    work_tree = dotkeep_dir / "repo"
+    tracked_dirs_file = dotkeep_dir / "tracked_dirs.json"
+    config_file = dotkeep_dir / "config.json"
+    
+    return {
+        "home": home_dir,
+        "dotkeep_dir": dotkeep_dir,
+        "work_tree": work_tree,
+        "tracked_dirs_file": tracked_dirs_file,
+        "config_file": config_file
+    }
+
+# Global paths - can be overridden for testing
+_paths = get_dotkeep_paths()
+HOME = _paths["home"]
+DOTKEEP_DIR = _paths["dotkeep_dir"]
+WORK_TREE = _paths["work_tree"]
+TRACKED_DIRS_FILE = _paths["tracked_dirs_file"]
+CONFIG_FILE = _paths["config_file"]
+
+# Default configuration
+DEFAULT_CONFIG = {
+    "file_patterns": {
+        "include": [
+            ".*",  # dotfiles (files starting with .)
+            "*.conf",  # configuration files
+            "*.config",  # config files
+            "*.cfg",  # cfg files
+            "*.ini",  # ini files
+            "*.toml",  # toml files
+            "*.yaml",  # yaml files
+            "*.yml",  # yml files
+            "*.json",  # json config files
+        ],
+        "exclude": [
+            ".DS_Store",  # macOS system files
+            ".Trash*",  # Trash folders
+            ".cache",  # cache directories
+            ".git",  # git directories
+            ".svn",  # svn directories
+            "*.log",  # log files
+            "*.tmp",  # temporary files
+        ]
+    },
+    "search_settings": {
+        "recursive": True,  # default recursive search
+        "case_sensitive": False,  # case insensitive pattern matching
+        "follow_symlinks": False,  # don't follow symlinks by default
+    }
+}
 
 def ensure_repo():
     try:
@@ -124,13 +184,11 @@ def add_dotfile(path: Path, push: bool = False, quiet: bool = False, recursive: 
 
     elif src.is_dir():
         save_tracked_dir(src)
-        if recursive:
-            dotfiles = [item for item in src.rglob("*") if item.is_file() and item.name.startswith(".")]
-        else:
-            dotfiles = [item for item in src.iterdir() if item.is_file() and item.name.startswith(".")]
+        config = load_config()
+        dotfiles = find_config_files(src, config, recursive)
         if not dotfiles:
             if not quiet:
-                typer.secho(f"No dotfiles found in {rel}.", fg=typer.colors.YELLOW)
+                typer.secho(f"No config files found in {rel}.", fg=typer.colors.YELLOW)
             return True
 
         for df in dotfiles:
@@ -145,6 +203,8 @@ def add_dotfile(path: Path, push: bool = False, quiet: bool = False, recursive: 
             if not quiet:
                 typer.secho(f"✓ Added dotfile {sub_rel}", fg=typer.colors.GREEN)
         repo.index.commit(f"Add dotfiles in {rel}")
+        if not quiet:
+            typer.secho(f"✓ Added {len(dotfiles)} dotfiles from {rel}", fg=typer.colors.GREEN)
         if not quiet:
             typer.secho(f"✓ Added {len(dotfiles)} dotfiles from {rel}", fg=typer.colors.GREEN)
 
@@ -406,9 +466,11 @@ def get_repo_status():
             pass
 
     # Dotfiles in $HOME not tracked by dotkeep
-    home_dotfiles = [f for f in os.listdir(HOME) if f.startswith('.') and (HOME / f).is_file()]
+    config = load_config()
+    home_config_files = find_config_files(HOME, config, recursive=False)
+    home_config_file_names = [f.name for f in home_config_files]
     tracked_files = set(repo.git.ls_files().splitlines())
-    untracked_home_dotfiles = [f for f in home_dotfiles if f not in tracked_files]
+    untracked_home_dotfiles = [f for f in home_config_file_names if f not in tracked_files]
 
     return {
         "untracked": untracked,
@@ -421,3 +483,190 @@ def get_repo_status():
 def list_tracked_files():
     repo = ensure_repo()
     return repo.git.ls_files().splitlines()
+
+def load_config():
+    """Load configuration from config file, or return default if not exists."""
+    if not CONFIG_FILE.exists():
+        return DEFAULT_CONFIG.copy()
+    
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            config = json.load(f)
+        
+        # Merge with defaults to ensure all keys exist
+        merged_config = DEFAULT_CONFIG.copy()
+        merged_config.update(config)
+        
+        # Ensure nested dictionaries are also merged
+        if "file_patterns" in config:
+            merged_config["file_patterns"].update(config["file_patterns"])
+        if "search_settings" in config:
+            merged_config["search_settings"].update(config["search_settings"])
+            
+        return merged_config
+    except (json.JSONDecodeError, KeyError) as e:
+        typer.secho(
+            f"Warning: Error reading config file: {e}. Using defaults.",
+            fg=typer.colors.YELLOW,
+            err=True
+        )
+        return DEFAULT_CONFIG.copy()
+
+def save_config(config):
+    """Save configuration to config file."""
+    DOTKEEP_DIR.mkdir(exist_ok=True)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=2)
+
+def matches_patterns(filename, include_patterns, exclude_patterns, case_sensitive=False):
+    """Check if a filename matches the include patterns and doesn't match exclude patterns."""
+    if not case_sensitive:
+        filename = filename.lower()
+        include_patterns = [p.lower() for p in include_patterns]
+        exclude_patterns = [p.lower() for p in exclude_patterns]
+    
+    # Check if file matches any include pattern
+    included = any(fnmatch.fnmatch(filename, pattern) for pattern in include_patterns)
+    
+    # Check if file matches any exclude pattern
+    excluded = any(fnmatch.fnmatch(filename, pattern) for pattern in exclude_patterns)
+    
+    return included and not excluded
+
+def find_config_files(directory, config=None, recursive=True):
+    """Find files matching the configured patterns in a directory."""
+    if config is None:
+        config = load_config()
+    
+    include_patterns = config["file_patterns"]["include"]
+    exclude_patterns = config["file_patterns"]["exclude"]
+    case_sensitive = config["search_settings"]["case_sensitive"]
+    follow_symlinks = config["search_settings"]["follow_symlinks"]
+    
+    found_files = []
+    directory = Path(directory)
+    
+    if recursive:
+        iterator = directory.rglob("*")
+    else:
+        iterator = directory.iterdir()
+    
+    for item in iterator:
+        if not follow_symlinks and item.is_symlink():
+            continue
+            
+        if item.is_file():
+            if matches_patterns(item.name, include_patterns, exclude_patterns, case_sensitive):
+                found_files.append(item)
+    
+    return found_files
+
+def get_config_value(key_path, quiet=False):
+    """Get a configuration value by key path (e.g., 'file_patterns.include')."""
+    config = load_config()
+    keys = key_path.split('.')
+    value = config
+    
+    try:
+        for key in keys:
+            value = value[key]
+        return value
+    except (KeyError, TypeError):
+        if not quiet:
+            typer.secho(f"Error: Configuration key '{key_path}' not found.", fg=typer.colors.RED, err=True)
+        return None
+
+def set_config_value(key_path, value, quiet=False):
+    """Set a configuration value by key path."""
+    config = load_config()
+    keys = key_path.split('.')
+    
+    # Navigate to the parent of the final key
+    current = config
+    for key in keys[:-1]:
+        if key not in current:
+            current[key] = {}
+        current = current[key]
+    
+    # Set the final value
+    try:
+        # Try to parse as JSON for complex values
+        if isinstance(value, str) and (value.startswith('[') or value.startswith('{')):
+            parsed_value = json.loads(value)
+            current[keys[-1]] = parsed_value
+        elif value.lower() in ('true', 'false'):
+            current[keys[-1]] = value.lower() == 'true'
+        else:
+            current[keys[-1]] = value
+            
+        save_config(config)
+        if not quiet:
+            typer.secho(f"✓ Set {key_path} = {current[keys[-1]]}", fg=typer.colors.GREEN)
+        return True
+    except json.JSONDecodeError:
+        if not quiet:
+            typer.secho(f"Error: Invalid JSON value: {value}", fg=typer.colors.RED, err=True)
+        return False
+    except Exception as e:
+        if not quiet:
+            typer.secho(f"Error setting config value: {e}", fg=typer.colors.RED, err=True)
+        return False
+
+def add_file_pattern(pattern, pattern_type="include", quiet=False):
+    """Add a file pattern to include or exclude list."""
+    if pattern_type not in ["include", "exclude"]:
+        if not quiet:
+            typer.secho("Error: pattern_type must be 'include' or 'exclude'", fg=typer.colors.RED, err=True)
+        return False
+        
+    config = load_config()
+    patterns = config["file_patterns"][pattern_type]
+    
+    if pattern not in patterns:
+        patterns.append(pattern)
+        save_config(config)
+        if not quiet:
+            typer.secho(f"✓ Added '{pattern}' to {pattern_type} patterns", fg=typer.colors.GREEN)
+        return True
+    else:
+        if not quiet:
+            typer.secho(f"Pattern '{pattern}' already in {pattern_type} list", fg=typer.colors.YELLOW)
+        return True
+
+def remove_file_pattern(pattern, pattern_type="include", quiet=False):
+    """Remove a file pattern from include or exclude list."""
+    if pattern_type not in ["include", "exclude"]:
+        if not quiet:
+            typer.secho("Error: pattern_type must be 'include' or 'exclude'", fg=typer.colors.RED, err=True)
+        return False
+        
+    config = load_config()
+    patterns = config["file_patterns"][pattern_type]
+    
+    if pattern in patterns:
+        patterns.remove(pattern)
+        save_config(config)
+        if not quiet:
+            typer.secho(f"✓ Removed '{pattern}' from {pattern_type} patterns", fg=typer.colors.GREEN)
+        return True
+    else:
+        if not quiet:
+            typer.secho(f"Pattern '{pattern}' not found in {pattern_type} list", fg=typer.colors.YELLOW)
+        return False
+
+def reset_config(quiet=False):
+    """Reset configuration to defaults."""
+    save_config(DEFAULT_CONFIG)
+    if not quiet:
+        typer.secho("✓ Configuration reset to defaults", fg=typer.colors.GREEN)
+    return True
+
+def update_paths(home_dir=None):
+    """Update global paths. Useful for testing or when HOME changes."""
+    global HOME, DOTKEEP_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE
+    paths = get_dotkeep_paths(home_dir)
+    HOME = paths["home"]
+    DOTKEEP_DIR = paths["dotkeep_dir"] 
+    WORK_TREE = paths["work_tree"]
+    TRACKED_DIRS_FILE = paths["tracked_dirs_file"]
+    CONFIG_FILE = paths["config_file"]
