@@ -49,15 +49,54 @@ def init(
     remote: Annotated[
         str, typer.Option(help="Optional remote URL to add as origin (SSH or HTTPS).")
     ] = "",
+    non_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--non-interactive",
+            "-n",
+            help="Run without prompts (for scripting)",
+            is_flag=True,
+        ),
+    ] = False,
 ):
-    """
-    Initialize a new dotkeep repository by placing the .git folder in
-    ~/.dotkeep/repo. If ~/.dotkeep already exists with a .git folder at the
-    top level, please remove or rename it first.
-    """
+    if not non_interactive and not remote:
+        typer.secho("🛠️  dotkeep Interactive Init", fg=typer.colors.CYAN, bold=True)
+        typer.echo("\nLet's set up your dotkeep repository for managing dotfiles!")
+
+        typer.secho("\n📋 Remote Git URL", fg=typer.colors.BLUE, bold=True)
+        typer.echo("Enter Git remote URL (optional, press Enter to skip):")
+        typer.echo("User can enter SSH or HTTPS URL, or leave blank.")
+        remote = typer.prompt("Remote URL", default="")
+
+        typer.secho("\n📁 Setup common dotfiles?", fg=typer.colors.BLUE, bold=True)
+        typer.echo("Do you want to set up common dotfiles? [Y/n]:")
+        typer.echo("Yes or No, default Yes.")
+        setup_dotfiles = typer.confirm("Set up common dotfiles?", default=True)
+
+        if setup_dotfiles:
+            typer.secho(
+                "✅ Dotfiles will be set up (placeholder)", fg=typer.colors.GREEN
+            )
+        else:
+            typer.secho("⚠️ Skipping dotfile setup.", fg=typer.colors.YELLOW)
+
+        typer.secho("\n🚀 Setting up your dotkeep repository...", fg=typer.colors.CYAN)
+
     success = init_repo(remote=remote, quiet=False)
     if not success:
         raise typer.Exit(code=1)
+
+    if remote:
+        typer.secho(
+            "\n💡 Remember to push your changes to remote after setup.",
+            fg=typer.colors.YELLOW,
+        )
+    else:
+        typer.secho(
+            "\n💡 You can add a remote later with: "
+            "git remote add origin <your-repo-url>",
+            fg=typer.colors.YELLOW,
+        )
 
 
 @app.command()
@@ -489,3 +528,7 @@ def config_help():
 
     typer.secho("\nConfiguration is stored in:", fg=typer.colors.MAGENTA)
     typer.echo("  ~/.dotkeep/config.json")
+
+
+if __name__ == "__main__":
+    app()

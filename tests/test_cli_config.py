@@ -87,7 +87,7 @@ class TestDirectoryWithConfig:
         """Test adding directory with custom file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Add Python files to include patterns
         run_dotkeep("config", "add-pattern", "*.py", env=env)

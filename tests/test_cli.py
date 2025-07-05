@@ -7,6 +7,8 @@ import json
 import os
 import shutil
 import subprocess
+import signal
+import time
 from pathlib import Path
 
 import pytest
@@ -38,13 +40,13 @@ class TestBasicCLICommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("init", env=env)
+        result = run_dotkeep("init", "--non-interactive", env=env)
         assert result.returncode == 0
         assert "Initialising dotkeep..." in result.stdout
         assert "Created empty initial commit" in result.stdout
 
         # Second init should warn and exit
-        result2 = run_dotkeep("init", env=env)
+        result2 = run_dotkeep("init", "--non-interactive", env=env)
         assert result2.returncode != 0
         assert "already initialised" in result2.stdout
 
@@ -52,7 +54,7 @@ class TestBasicCLICommands:
         """Test add, list-files, and status commands."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Create a fake dotfile
         dotfile = temp_home / ".bashrc"
@@ -77,7 +79,7 @@ class TestBasicCLICommands:
         """Test restore and delete commands."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Create and add a dotfile
         dotfile = temp_home / ".vimrc"
@@ -110,7 +112,7 @@ class TestBasicCLICommands:
         """Test adding a file that doesn't exist."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Try to add a file that doesn't exist
         result = run_dotkeep("add", ".nonexistent", env=env)
@@ -273,7 +275,7 @@ class TestDirectoryHandling:
         """Test adding directory with custom file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Add Python files to include patterns
         run_dotkeep("config", "add-pattern", "*.py", env=env)
@@ -304,7 +306,7 @@ class TestDirectoryHandling:
         """Test that exclude patterns work correctly."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Add log files to exclude patterns
         run_dotkeep("config", "add-pattern", "*.log", "--type", "exclude", env=env)
@@ -336,7 +338,7 @@ class TestIntegrationScenarios:
         """Test workflow for tracking Python project files."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Configure for Python project
         run_dotkeep("config", "add-pattern", "*.py", env=env)
@@ -371,7 +373,7 @@ class TestIntegrationScenarios:
         """Test workflow for tracking only configuration files."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", env=env)
+        run_dotkeep("init", "--non-interactive", env=env)
 
         # Remove dotfiles pattern, keep only config files
         run_dotkeep("config", "remove-pattern", ".*", env=env)
@@ -400,7 +402,7 @@ def test_add_directory_symlinks_only_dotfiles(temp_home):
     """Test that adding a directory symlinks only dotfiles inside it."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
 
     # Create a directory with dotfiles and non-dotfiles
     config_dir = temp_home / "dotdir"
@@ -430,7 +432,7 @@ def test_add_empty_directory(temp_home):
     """Test adding an empty directory."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
 
     # Create an empty directory
     empty_dir = temp_home / ".empty_config"
@@ -453,7 +455,7 @@ def test_add_directory_with_subdirectories_symlinks_config_files(temp_home):
     """
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
 
     # Create a complex directory structure
     base_dir = temp_home / "complexapp"
@@ -494,7 +496,7 @@ def test_add_single_file_still_works(temp_home):
     """Ensure that adding single files still works as before."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
 
     # Create a single dotfile
     dotfile = temp_home / ".gitconfig"
@@ -515,7 +517,7 @@ def test_delete_directory_symlinks(temp_home):
     """Test deleting a directory managed by dotkeep (dotfiles inside)."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
 
     # Create and add a directory with dotfiles
     test_dir = temp_home / "test_dir"
@@ -539,7 +541,7 @@ def test_restore_directory_symlinks_dotfiles(temp_home):
     """Test restoring a directory managed by dotkeep (dotfiles inside)."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
 
     # Create and add a directory with dotfiles
     test_dir = temp_home / "restore_test"
@@ -567,7 +569,7 @@ def test_restore_directory_symlinks_dotfiles(temp_home):
 def test_pull_no_remote(temp_home):
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
     result = run_dotkeep("pull", env=env)
     assert result.returncode != 0
     assert (
@@ -579,7 +581,7 @@ def test_pull_no_remote(temp_home):
 def test_push_no_remote(temp_home):
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
     result = run_dotkeep("push", env=env)
     assert result.returncode != 0
     assert (
@@ -621,7 +623,7 @@ def test_diagnose_command(temp_home):
 def test_add_and_status_untracked_home_dotfiles(temp_home):
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
     # Create a dotfile but don't add it
     dotfile = temp_home / ".zshrc"
     dotfile.write_text("export ZSH=1\n")
@@ -636,7 +638,7 @@ def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(temp_home):
     """
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
     d = temp_home / "mydir"
     d.mkdir()
     (d / ".a").write_text("a")
@@ -665,7 +667,7 @@ def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(temp_home):
 def test_restore_nonexistent_file(temp_home):
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
     result = run_dotkeep("restore", ".doesnotexist", env=env)
     assert result.returncode != 0
     assert (
@@ -677,7 +679,7 @@ def test_restore_nonexistent_file(temp_home):
 def test_delete_non_symlink(temp_home):
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
     # Create a file but don't add it
     f = temp_home / ".notalink"
     f.write_text("hi")
@@ -692,14 +694,12 @@ def test_delete_non_symlink(temp_home):
 def test_watcher_starts_and_exits(temp_home):
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", env=env)
+    run_dotkeep("init", "--non-interactive", env=env)
     # Add a tracked dir so watcher doesn't exit immediately
     d = temp_home / "watchdir"
     d.mkdir()
     run_dotkeep("add", "watchdir", env=env)
     # Start watcher in a subprocess and kill it after a short time
-    import signal
-    import time
 
     proc = subprocess.Popen(
         ["dotkeep", "watch"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE

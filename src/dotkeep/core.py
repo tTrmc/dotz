@@ -143,6 +143,8 @@ def init_repo(remote: str = "", quiet: bool = False):
     repo = Repo.init(str(WORK_TREE))
     repo.git.config("user.name", "dotkeep")
     repo.git.config("user.email", "dotkeep@example.com")
+    if not quiet:
+        typer.secho("Creating initial commit...", fg=typer.colors.CYAN)
     repo.git.commit("--allow-empty", "-m", "Initial commit")
     if not quiet:
         typer.secho("Created empty initial commit", fg=typer.colors.GREEN)
