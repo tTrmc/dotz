@@ -465,7 +465,8 @@ class TestWatcherErrorHandling:
         assert "file_patterns" in handler.config
         assert "search_settings" in handler.config
         assert "*.test" in handler.config["file_patterns"]["include"]
-        # Note: due to the way update() works, exclude may not exist if only include was saved
+        # Note: due to the way update() works, exclude may not exist if only
+        # include was saved
         # Let's just check that the config has the basic structure
         assert isinstance(handler.config["file_patterns"], dict)
 

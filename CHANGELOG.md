@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Refactored path management for better testability
+- Updated license field in pyproject.toml to modern SPDX string format
 - Enhanced fixtures for test isolation
 - Improved documentation with configuration examples
 - Professional CLI output (removed unprofessional emojis, kept ✓ marks)

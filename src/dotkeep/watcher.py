@@ -38,11 +38,13 @@ def update_watcher_paths(home_dir=None):
 
 def is_in_tracked_directory(relative_path: Path) -> bool:
     """
-    Return True if 'relative_path' (inside HOME) is under a directory already tracked by dotkeep.
+    Return True if 'relative_path' (inside HOME) is under a directory already
+    tracked by dotkeep.
     """
     repo = ensure_repo()
     tracked_items = set(repo.git.ls_files().splitlines())
-    # Walk up through all parents. If any parent is tracked (i.e., was added as a directory), return True.
+    # Walk up through all parents. If any parent is tracked (i.e., was added
+    # as a directory), return True.
     parts = list(relative_path.parts)
     for i in range(len(parts)):
         check_subpath = Path(*parts[: i + 1]).as_posix()

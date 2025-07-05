@@ -151,7 +151,8 @@ def init_repo(remote: str = "", quiet: bool = False):
         repo.create_remote("origin", remote)
         if not quiet:
             typer.secho(
-                "WARNING: If you are adding sensitive information, make sure your remote repository is private!",
+                "WARNING: If you are adding sensitive information, make sure "
+                "your remote repository is private!",
                 fg=typer.colors.RED,
                 bold=True,
             )
@@ -384,7 +385,8 @@ def pull_repo(quiet: bool = False):
     if "origin" not in [r.name for r in repo.remotes]:
         if not quiet:
             typer.secho(
-                "Error: No 'origin' remote found. Please set one with `dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
+                "Error: No 'origin' remote found. Please set one with "
+                "`dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -401,7 +403,8 @@ def pull_repo(quiet: bool = False):
         if "no tracking information" in msg.lower():
             typer.secho(
                 "Error: No tracking branch set for this branch.\n"
-                "Run: git -C ~/.dotkeep/repo branch --set-upstream-to=origin/<branch> <branch>",
+                "Run: git -C ~/.dotkeep/repo branch "
+                "--set-upstream-to=origin/<branch> <branch>",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -432,7 +435,8 @@ def push_repo(quiet: bool = False):
     if "origin" not in [r.name for r in repo.remotes]:
         if not quiet:
             typer.secho(
-                "Error: No 'origin' remote found. Please set one with `dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
+                "Error: No 'origin' remote found. Please set one with "
+                "`dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -458,7 +462,8 @@ def push_repo(quiet: bool = False):
                     summary = r.summary.lower()
                     if "non-fast-forward" in summary or "rejected" in summary:
                         typer.secho(
-                            "Error: Push rejected (non-fast-forward). You may need to pull first:\n"
+                            "Error: Push rejected (non-fast-forward). You may "
+                            "need to pull first:\n"
                             "  git -C ~/.dotkeep/repo pull --rebase\n"
                             "Or resolve conflicts and try again.",
                             fg=typer.colors.RED,
@@ -482,7 +487,8 @@ def push_repo(quiet: bool = False):
         ):
             typer.secho(
                 "Error: No upstream branch set for this branch.\n"
-                "Run: git -C ~/.dotkeep/repo branch --set-upstream-to=origin/<branch> <branch>",
+                "Run: git -C ~/.dotkeep/repo branch "
+                "--set-upstream-to=origin/<branch> <branch>",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -571,7 +577,10 @@ def save_config(config):
 def matches_patterns(
     filename, include_patterns, exclude_patterns, case_sensitive=False
 ):
-    """Check if a filename matches the include patterns and doesn't match exclude patterns."""
+    """
+    Check if a filename matches the include patterns and doesn't match exclude
+    patterns.
+    """
     if not case_sensitive:
         filename = filename.lower()
         include_patterns = [p.lower() for p in include_patterns]

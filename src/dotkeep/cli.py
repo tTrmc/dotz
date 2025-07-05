@@ -51,8 +51,9 @@ def init(
     ] = "",
 ):
     """
-    Initialize a new dotkeep repository by placing the .git folder in ~/.dotkeep/repo.
-    If ~/.dotkeep already exists with a .git folder at the top level, please remove or rename it first.
+    Initialize a new dotkeep repository by placing the .git folder in
+    ~/.dotkeep/repo. If ~/.dotkeep already exists with a .git folder at the
+    top level, please remove or rename it first.
     """
     success = init_repo(remote=remote, quiet=False)
     if not success:
@@ -98,7 +99,10 @@ def delete(
         bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
 ):
-    """Remove a dotkeep-managed file or directory and delete the symlink in your home directory."""
+    """
+    Remove a dotkeep-managed file or directory and delete the symlink in your
+    home directory.
+    """
     success = delete_dotfile(path, push=push, quiet=quiet)
     if not success:
         raise typer.Exit(code=1)
@@ -106,7 +110,10 @@ def delete(
 
 @app.command()
 def status():
-    """Show the status of your dotkeep repo (untracked, modified, staged), and dotfiles in $HOME not tracked by dotkeep."""
+    """
+    Show the status of your dotkeep repo (untracked, modified, staged), and
+    dotfiles in $HOME not tracked by dotkeep.
+    """
     status = get_repo_status()
 
     typer.secho("Status of dotkeep repository:", fg=typer.colors.WHITE)
@@ -287,11 +294,12 @@ def diagnose():
         tracking = branch.tracking_branch()
         if tracking is None:
             typer.secho(
-                f"WARNING: Branch '{branch.name}' is not tracking a remote branch.",
+                f"WARNING: Branch '{branch.name}' is not tracking a remote " "branch.",
                 fg=typer.colors.YELLOW,
             )
             typer.secho(
-                f"Set upstream with: git -C ~/.dotkeep/repo branch --set-upstream-to=origin/{branch.name} {branch.name}",
+                f"Set upstream with: git -C ~/.dotkeep/repo branch "
+                f"--set-upstream-to=origin/{branch.name} {branch.name}",
                 fg=typer.colors.YELLOW,
             )
         else:
@@ -339,7 +347,8 @@ def config_show(
     key: Annotated[
         str,
         typer.Argument(
-            help="Configuration key to show (e.g., 'file_patterns.include' or leave empty for all)"
+            help="Configuration key to show (e.g., 'file_patterns.include' "
+            "or leave empty for all)"
         ),
     ] = "",
 ):
@@ -465,7 +474,8 @@ def config_help():
     typer.echo("  dotkeep config add-pattern '.env*'       # Track environment files")
     typer.echo("  dotkeep config add-pattern '*.log' -t exclude  # Ignore log files")
     typer.echo(
-        "  dotkeep config set search_settings.recursive false  # Disable recursive search"
+        "  dotkeep config set search_settings.recursive false  "
+        "# Disable recursive search"
     )
     typer.echo("  dotkeep config show file_patterns.include  # Show include patterns")
 

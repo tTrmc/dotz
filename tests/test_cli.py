@@ -447,7 +447,10 @@ def test_add_empty_directory(temp_home):
 
 
 def test_add_directory_with_subdirectories_symlinks_config_files(temp_home):
-    """Test adding a directory with nested subdirectories symlinks dotfiles and config files."""
+    """
+    Test adding a directory with nested subdirectories symlinks dotfiles and
+    config files.
+    """
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
@@ -627,7 +630,10 @@ def test_add_and_status_untracked_home_dotfiles(temp_home):
 
 
 def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(temp_home):
-    """Test that tracked directory is kept even when all files are deleted individually."""
+    """
+    Test that tracked directory is kept even when all files are deleted
+    individually.
+    """
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", env=env)
