@@ -6,8 +6,8 @@ Tests the command-line interface and integration with core functionality.
 import json
 import os
 import shutil
-import subprocess
 import signal
+import subprocess
 import time
 from pathlib import Path
 
