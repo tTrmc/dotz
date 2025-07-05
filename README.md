@@ -34,27 +34,27 @@
 
 ## Installation
 
-### From PyPI (Recommended)
+### For End Users (Recommended)
 
+**From PyPI:**
 ```bash
 pip install dotkeep
 ```
 
-### From source
-
-#### Clone the repository
-
+**Using pipx (isolated environment):**
 ```bash
-git clone https://github.com/tTrmc/dotkeep.git
-cd dotkeep
+# Install pipx if needed
+sudo apt install pipx           # Debian/Ubuntu
+# or
+sudo pacman -S python-pipx      # Arch Linux
+
+# Install dotkeep
+pipx install dotkeep
 ```
 
-#### For developers (editable install)
+### For Developers
 
-> **Recommended for development**
-
-**Quick setup with the provided script:**
-
+**Quick setup:**
 ```bash
 git clone https://github.com/tTrmc/dotkeep.git
 cd dotkeep
@@ -62,209 +62,143 @@ cd dotkeep
 ```
 
 **Manual setup:**
-
-Use a virtual environment to avoid conflicts with your system Python:
-
 ```bash
-python -m venv .venv         # Create virtual environment
-source .venv/bin/activate    # Activate virtual environment
-pip install -e ".[dev,test]" # Install with all dependencies
+git clone https://github.com/tTrmc/dotkeep.git
+cd dotkeep
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev,test]"
 ```
 
-Installing in editable mode (`-e`) installs the `dotkeep` CLI inside the virtual environment and allows your code changes to take effect immediately.
-
----
-
-### For users (global CLI install)
-
-> **Recommended for end users**
-
-**From PyPI (simplest):**
-```bash
-pip install dotkeep
-```
-
-**Using pipx (isolated environment):**
-```bash
-# Install pipx if you do not have it:
-sudo pacman -S python-pipx      # Arch Linux
-# or
-sudo apt install pipx           # Debian/Ubuntu
-
-# Ensure pipx is set up:
-pipx ensurepath
-
-# Install dotkeep globally:
-pipx install dotkeep
-```
-
-**From source:**
-```bash
-pipx install git+https://github.com/tTrmc/dotkeep.git
-```
-
----
-
-### Verify installation
+### Verify Installation
 
 ```bash
 dotkeep --help
 ```
 
+**Requirements:**
+- Python 3.8 or newer
+- Git
+
 ---
 
-**Requirements:**
+>[!CAUTION]
+>**NEVER use public Git repositories with dotkeep.** Your dotfiles often contain:
+>- SSH keys and certificates
+>- API tokens and passwords
+>- Personal file paths and system information
+>- Application configurations with sensitive data
+>
+>**Always use private repositories** or consider excluding sensitive files with dotkeep's pattern configuration.
 
-* Python **3.8** or newer
-* Git
-* `pipx` (recommended for global CLI use)
+---
+
+## Quick Start
+
+### Initialize your dotkeep repository
+```bash
+# Local repository only
+dotkeep init
+
+# With private remote repository (recommended)
+dotkeep init --remote git@github.com:yourusername/dotfiles-private.git
+```
+
+### Add your first dotfile
+```bash
+# Add a single file
+dotkeep add .bashrc
+
+# Add all dotfiles in a directory
+dotkeep add .config
+
+# Add and push to remote
+dotkeep add .vimrc --push
+```
+
+### Sync across machines
+```bash
+# Pull latest changes
+dotkeep pull
+
+# Push your changes
+dotkeep push
+```
 
 ---
 
 ## Usage
 
-### Initialize
+### Repository Management
 
-Create your dotkeep repository at `~/.dotkeep/repo` (where the `.git` directory resides) and optionally add a remote:
-
+**Initialize:**
 ```bash
-# Initialize locally
-dotkeep init
-
-# Initialize with remote
-dotkeep init --remote git@github.com:yourusername/dotkeep.git
+dotkeep init                                                    # Local only
+dotkeep init --remote git@github.com:user/dotfiles-private.git # With remote
 ```
 
-### Add a dotfile or directory
-
-Copy, commit, and symlink a configuration file or all dotfiles in a directory from your home directory:
-
+**Sync:**
 ```bash
-# Add a single file without pushing
-dotkeep add .bashrc
-
-# Add and push to remote
-dotkeep add .bashrc --push
-
-# Add all dotfiles in a directory (recursively, default)
-dotkeep add .config
-
-# Add only top-level dotfiles in a directory (non-recursive)
-dotkeep add .config --no-recursive
+dotkeep pull    # Fetch and merge changes
+dotkeep push    # Push local commits
 ```
 
-### Remove a dotfile
+### File Management
 
-Unlink, delete, and commit the removal of a managed dotfile:
-
+**Add files:**
 ```bash
-# Remove without pushing
-dotkeep delete .vimrc
-
-# Remove and push to remote
-dotkeep delete .vimrc --push
+dotkeep add .bashrc              # Single file
+dotkeep add .config              # Directory (recursive by default)
+dotkeep add .config --no-recursive  # Top-level files only
+dotkeep add .vimrc --push        # Add and push
 ```
 
-### Restore a dotfile
-
-Restore a dotfile or directory from the dotkeep repository to your home directory:
-
+**Remove files:**
 ```bash
-dotkeep restore .vimrc
-dotkeep restore .config --push
+dotkeep delete .vimrc            # Remove file
+dotkeep delete .vimrc --push     # Remove and push
 ```
 
-### Status
-
-List untracked, modified, and staged files in your dotkeep repository:
-
+**Restore files:**
 ```bash
-dotkeep status
+dotkeep restore .vimrc           # Restore single file
+dotkeep restore .config          # Restore directory
 ```
 
-### List tracked files
-
-Show all files currently tracked by dotkeep:
+### Information Commands
 
 ```bash
-dotkeep list-files
+dotkeep status        # Show repository status
+dotkeep list-files    # List tracked files
+dotkeep diagnose      # Troubleshoot issues
+dotkeep version       # Show version
 ```
 
-### Pull
+### Advanced Features
 
-Fetch and merge the latest changes from the remote into your local dotkeep repository:
-
+**File watching:**
 ```bash
-dotkeep pull
+dotkeep watch    # Automatically add new dotfiles in tracked directories
 ```
 
-### Push
-
-Push all local commits (including added or deleted dotfiles) to the remote:
-
+**Shell completion:**
 ```bash
-dotkeep push
+dotkeep --install-completion    # Enable tab completion
 ```
 
-### Watch for new dotfiles
-
-Automatically add new dotfiles created in tracked directories:
-
-```bash
-dotkeep watch
-```
-
-### Configuration management
+### Configuration Management
 
 Manage file patterns and search settings:
 
 ```bash
-# Show current configuration
-dotkeep config show
-
-# List current file patterns
-dotkeep config list-patterns
-
-# Add a file pattern to include
-dotkeep config add-pattern "*.py"
-
-# Add a file pattern to exclude
-dotkeep config add-pattern "*.log" --type exclude
-
-# Remove a pattern
-dotkeep config remove-pattern "*.py"
-
-# Set configuration values
-dotkeep config set search_settings.recursive false
-
-# Reset configuration to defaults
-dotkeep config reset
-
-# Show detailed configuration help
-dotkeep config help
-```
-
-### Diagnostics
-
-Diagnose common issues with your dotkeep setup and git repository:
-
-```bash
-dotkeep diagnose
-```
-
-### Shell completion
-
-Enable tab-completion for your shell:
-
-```bash
-dotkeep --install-completion
-```
-Follow the printed instructions for your shell (bash, zsh, fish, etc.).
-
-### Show version
-
-```bash
-dotkeep version
+dotkeep config show              # Show current configuration
+dotkeep config list-patterns     # List file patterns
+dotkeep config add-pattern "*.py"           # Include Python files
+dotkeep config add-pattern "*.log" --type exclude  # Exclude log files
+dotkeep config remove-pattern "*.py"        # Remove pattern
+dotkeep config set search_settings.recursive false  # Disable recursion
+dotkeep config reset             # Reset to defaults
+dotkeep config help              # Show detailed help
 ```
 
 ---
