@@ -75,16 +75,12 @@ def init(
 
         if setup_dotfiles:
             typer.secho(
-                "✅ Dotfiles will be set up (placeholder)",
-                fg=typer.colors.GREEN
+                "✅ Dotfiles will be set up (placeholder)", fg=typer.colors.GREEN
             )
         else:
             typer.secho("⚠️ Skipping dotfile setup.", fg=typer.colors.YELLOW)
 
-        typer.secho(
-            "\n🚀 Setting up your dotkeep repository...",
-            fg=typer.colors.CYAN
-        )
+        typer.secho("\n🚀 Setting up your dotkeep repository...", fg=typer.colors.CYAN)
 
     success = init_repo(remote=remote, quiet=False)
     if not success:
@@ -93,13 +89,13 @@ def init(
     if remote:
         typer.secho(
             "\n💡 Remember to push your changes to remote after setup.",
-            fg=typer.colors.YELLOW
+            fg=typer.colors.YELLOW,
         )
     else:
         typer.secho(
             "\n💡 You can add a remote later with: "
             "git remote add origin <your-repo-url>",
-            fg=typer.colors.YELLOW
+            fg=typer.colors.YELLOW,
         )
 
 
