@@ -14,32 +14,54 @@ A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies 
 * **File management**: Add and remove dotfiles with automatic symlinking.
 * **Recursive directory support**: Add all dotfiles (optionally recursively) from a directory.
 * **Tracked directories**: Only directories you add are watched for new dotfiles.
+* **Configurable patterns**: Customize which file types to track with include/exclude patterns.
 * **Status overview**: Display untracked, modified, and staged files at a glance.
+* **Configuration management**: Built-in commands to manage file patterns and search settings.
+* **File watching**: Automatic detection and addition of new configuration files.
 * **Diagnostics**: Built-in `diagnose` command for troubleshooting.
 * **Shell completion**: Tab-completion for all commands and options.
+* **Robust & testable**: Comprehensive test suite with environment isolation.
 * **Portable**: Requires only Python 3.8+ and Git.
 
 ---
 
 ## Installation
 
-### Clone the repository
+### From PyPI (Recommended)
+
+```bash
+pip install dotkeep
+```
+
+### From source
+
+#### Clone the repository
 
 ```bash
 git clone https://github.com/tTrmc/dotkeep.git
 cd dotkeep
 ```
 
-### For developers (editable install)
+#### For developers (editable install)
 
 > **Recommended for development**
+
+**Quick setup with the provided script:**
+
+```bash
+git clone https://github.com/tTrmc/dotkeep.git
+cd dotkeep
+./setup-dev.sh  # Sets up virtual environment and installs dependencies
+```
+
+**Manual setup:**
 
 Use a virtual environment to avoid conflicts with your system Python:
 
 ```bash
 python -m venv .venv         # Create virtual environment
 source .venv/bin/activate    # Activate virtual environment
-pip install -e .             # Install in editable mode
+pip install -e ".[dev,test]" # Install with all dependencies
 ```
 
 Installing in editable mode (`-e`) installs the `dotkeep` CLI inside the virtual environment and allows your code changes to take effect immediately.
@@ -50,8 +72,12 @@ Installing in editable mode (`-e`) installs the `dotkeep` CLI inside the virtual
 
 > **Recommended for end users**
 
-Use `pipx` to install `dotkeep` globally in an isolated environment:
+**From PyPI (simplest):**
+```bash
+pip install dotkeep
+```
 
+**Using pipx (isolated environment):**
 ```bash
 # Install pipx if you do not have it:
 sudo pacman -S python-pipx      # Arch Linux
@@ -62,6 +88,11 @@ sudo apt install pipx           # Debian/Ubuntu
 pipx ensurepath
 
 # Install dotkeep globally:
+pipx install dotkeep
+```
+
+**From source:**
+```bash
 pipx install git+https://github.com/tTrmc/dotkeep.git
 ```
 
@@ -176,6 +207,36 @@ Automatically add new dotfiles created in tracked directories:
 dotkeep watch
 ```
 
+### Configuration management
+
+Manage file patterns and search settings:
+
+```bash
+# Show current configuration
+dotkeep config show
+
+# List current file patterns
+dotkeep config list-patterns
+
+# Add a file pattern to include
+dotkeep config add-pattern "*.py"
+
+# Add a file pattern to exclude
+dotkeep config add-pattern "*.log" --type exclude
+
+# Remove a pattern
+dotkeep config remove-pattern "*.py"
+
+# Set configuration values
+dotkeep config set search_settings.recursive false
+
+# Reset configuration to defaults
+dotkeep config reset
+
+# Show detailed configuration help
+dotkeep config help
+```
+
 ### Diagnostics
 
 Diagnose common issues with your dotkeep setup and git repository:
@@ -212,7 +273,11 @@ dotkeep/
 │       ├── core.py         # Core logic for dotfile management
 │       └── watcher.py      # Watchdog-based directory watcher
 ├── tests/
-│   └── test_cli.py         # Pytest-based CLI and core tests
+│   ├── conftest.py         # Shared pytest fixtures
+│   ├── test_cli.py         # CLI command tests
+│   ├── test_cli_config.py  # Configuration command tests  
+│   ├── test_core.py        # Core functionality tests
+│   └── test_watcher.py     # File watching tests
 ├── pyproject.toml          # Project metadata and dependencies
 ├── README.md               # Project documentation
 ├── LICENSE                 # GPL-3.0-or-later license
@@ -221,6 +286,45 @@ dotkeep/
 ```
 
 The `.git` folder is created inside `~/.dotkeep/repo` once you initialize dotkeep.
+
+---
+
+## Configuration
+
+dotkeep uses configurable file patterns to determine which files to track. The configuration is stored in `~/.dotkeep/config.json`.
+
+### Default File Patterns
+
+**Include patterns** (files that will be tracked):
+- `.*` - All dotfiles (files starting with `.`)
+- `*.conf`, `*.config`, `*.cfg`, `*.ini` - Configuration files
+- `*.toml`, `*.yaml`, `*.yml`, `*.json` - Structured config files
+
+**Exclude patterns** (files that will be ignored):
+- `.DS_Store`, `.Trash*` - System files
+- `.cache`, `.git`, `.svn` - Cache and VCS directories  
+- `*.log`, `*.tmp` - Temporary files
+
+### Search Settings
+
+- `recursive`: Search subdirectories recursively (default: `true`)
+- `case_sensitive`: Case-sensitive pattern matching (default: `false`)
+- `follow_symlinks`: Follow symbolic links during search (default: `false`)
+
+### Customizing Configuration
+
+Use the `dotkeep config` commands to customize which files are tracked:
+
+```bash
+# Add Python files to tracking
+dotkeep config add-pattern "*.py"
+
+# Exclude compiled Python files  
+dotkeep config add-pattern "*.pyc" --type exclude
+
+# Disable recursive search
+dotkeep config set search_settings.recursive false
+```
 
 ---
 
@@ -233,7 +337,39 @@ pip install pytest
 pytest
 ```
 
-This will discover and run all tests in the `tests/` directory, including `test_cli.py`.
+### Test Coverage
+
+The project includes comprehensive tests with **73 passing tests** covering:
+
+- **CLI commands**: All dotkeep commands and options
+- **Core functionality**: File management, Git operations, configuration
+- **Configuration management**: Pattern matching, settings, validation  
+- **File watching**: Automatic detection and tracking of new files
+- **Error handling**: Graceful handling of edge cases and failures
+- **Environment isolation**: Tests run in isolated temporary environments
+
+### Development Testing
+
+For development, install with test dependencies:
+
+```bash
+pip install -e ".[dev,test]"  # Install with all dependencies
+pytest -v                     # Run tests with verbose output
+pytest --cov=dotkeep          # Run tests with coverage report
+make test-cov                 # Run tests with HTML coverage report
+```
+
+**Development workflow:**
+
+```bash
+make help          # Show all available commands
+make test          # Run tests
+make lint          # Run code quality checks
+make format        # Auto-format code
+make build         # Build distribution packages
+```
+
+This will discover and run all tests in the `tests/` directory with proper environment isolation and cleanup.
 
 ---
 

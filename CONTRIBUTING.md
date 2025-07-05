@@ -1,16 +1,58 @@
 # Contributing to dotkeep
 
-Thank you for your interest in contributing to dotkeep! I welcome all pull requests, bug reports, and feature suggestions.
+Thank you forPlease [open an issue](https://github.com/tTrmc/dotkeep/issues) for any bugs you encounter:
+- Describe the steps to reproduce.
+- Include logs or stack traces if available.
+- Mention your environment (OS, Python version, etc.).
+
+## Suggestions & Questions
+
+For feature ideas or general questions, [open an issue](https://github.com/tTrmc/dotkeep/issues). I'll do my best to respond promptly.terest in contributing to dotkeep! I welcome all pull requests, bug reports, and feature suggestions.
 
 ## Getting Started
 
 1. Fork the repository on GitHub.
-2. Create a new branch for your changes:
+2. Clone your fork locally:
+   ```bash
+   git clone https://github.com/yourusername/dotkeep.git
+   cd dotkeep
+   ```
+3. Set up the development environment:
+   ```bash
+   ./setup-dev.sh  # This sets up virtual environment and installs dependencies
+   ```
+   Or manually:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   pip install -e ".[dev,test]"
+   ```
+4. Create a new branch for your changes:
    ```bash
    git checkout -b feature/my-new-feature
    ```
-3. Make your changes locally in this new branch.
-4. Test your changes to ensure everything works correctly.
+5. Make your changes locally in this new branch.
+6. Test your changes:
+   ```bash
+   make test    # Run the test suite
+   make lint    # Check code style
+   make build   # Build the package
+   ```
+
+## Development Tools
+
+This project uses modern Python development tools:
+- **pytest**: Testing framework
+- **black**: Code formatting
+- **isort**: Import sorting
+- **flake8**: Linting
+- **mypy**: Type checking
+- **GitHub Actions**: CI/CD pipeline
+
+Run all checks with:
+```bash
+make test lint
+```
 
 ## Code Style
 

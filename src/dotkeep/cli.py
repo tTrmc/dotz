@@ -1,16 +1,31 @@
-import typer
-from typing_extensions import Annotated
+import json
 from pathlib import Path
+
+import typer
+from git import Repo
+from typing_extensions import Annotated
+
 from .core import (
-    add_dotfile, init_repo, delete_dotfile, restore_dotfile, pull_repo, push_repo, 
-    get_repo_status, list_tracked_files, load_config, get_config_value, set_config_value,
-    add_file_pattern, remove_file_pattern, reset_config, get_home_dir
+    add_dotfile,
+    add_file_pattern,
+    delete_dotfile,
+    get_config_value,
+    get_home_dir,
+    get_repo_status,
+    init_repo,
+    list_tracked_files,
+    load_config,
+    pull_repo,
+    push_repo,
+    remove_file_pattern,
+    reset_config,
+    restore_dotfile,
+    set_config_value,
 )
 from .watcher import main as watcher_main
-import json
-from git import Repo
 
 app = typer.Typer(help="dotkeep - a Git-backed dot-files manager")
+
 
 def get_cli_paths():
     """Get CLI-related paths based on current home directory."""
@@ -19,19 +34,21 @@ def get_cli_paths():
     work_tree = dotkeep_dir / "repo"
     return home, dotkeep_dir, work_tree
 
+
 HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
+
 
 def refresh_cli_paths():
     """Refresh CLI paths when HOME environment changes."""
     global HOME, DOTKEEP_DIR, WORK_TREE
     HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
 
+
 @app.command()
 def init(
     remote: Annotated[
-        str,
-        typer.Option(help="Optional remote URL to add as origin (SSH or HTTPS).")
-    ] = ""
+        str, typer.Option(help="Optional remote URL to add as origin (SSH or HTTPS).")
+    ] = "",
 ):
     """
     Initialize a new dotkeep repository by placing the .git folder in ~/.dotkeep/repo.
@@ -46,19 +63,23 @@ def init(
 def add(
     path: Annotated[
         Path,
-        typer.Argument(help="Path to dotfile or directory (relative to your home directory)")
+        typer.Argument(
+            help="Path to dotfile or directory (relative to your home directory)"
+        ),
     ],
     push: Annotated[
-        bool,
-        typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
+        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
     ] = False,
     recursive: Annotated[
         bool,
-        typer.Option("--recursive/--no-recursive", help="Recursively add dotfiles in subdirectories", is_flag=True)
+        typer.Option(
+            "--recursive/--no-recursive",
+            help="Recursively add dotfiles in subdirectories",
+            is_flag=True,
+        ),
     ] = True,
     quiet: Annotated[
-        bool,
-        typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
 ):
     """Add a file or directory to dotkeep, then symlink it in your home directory."""
@@ -66,16 +87,15 @@ def add(
     if not success:
         raise typer.Exit(code=1)
 
+
 @app.command()
 def delete(
     path: Annotated[Path, ...],
     push: Annotated[
-        bool,
-        typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
+        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
     ] = False,
     quiet: Annotated[
-        bool,
-        typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
 ):
     """Remove a dotkeep-managed file or directory and delete the symlink in your home directory."""
@@ -113,7 +133,9 @@ def status():
             typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
 
     if status["untracked_home_dotfiles"]:
-        typer.secho("Dotfiles in $HOME not tracked by dotkeep:", fg=typer.colors.MAGENTA)
+        typer.secho(
+            "Dotfiles in $HOME not tracked by dotkeep:", fg=typer.colors.MAGENTA
+        )
         for f in status["untracked_home_dotfiles"]:
             typer.secho(f"  - {f}", fg=typer.colors.MAGENTA)
 
@@ -137,15 +159,15 @@ def list_files():
 def restore(
     path: Annotated[
         Path,
-        typer.Argument(help="Path to dotfile or directory (relative to your home directory)")
+        typer.Argument(
+            help="Path to dotfile or directory (relative to your home directory)"
+        ),
     ],
     push: Annotated[
-        bool,
-        typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
+        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
     ] = False,
     quiet: Annotated[
-        bool,
-        typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
 ):
     """
@@ -160,8 +182,7 @@ def restore(
 @app.command()
 def pull(
     quiet: Annotated[
-        bool,
-        typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
 ):
     """
@@ -170,12 +191,12 @@ def pull(
     success = pull_repo(quiet=quiet)
     if not success:
         raise typer.Exit(code=1)
-    
+
+
 @app.command()
 def push(
     quiet: Annotated[
-        bool,
-        typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
 ):
     """
@@ -184,7 +205,8 @@ def push(
     success = push_repo(quiet=quiet)
     if not success:
         raise typer.Exit(code=1)
-    
+
+
 @app.command()
 def watch():
     """
@@ -196,19 +218,22 @@ def watch():
     except KeyboardInterrupt:
         typer.secho("Watcher stopped.", fg=typer.colors.YELLOW)
         raise typer.Exit()
-    
+
+
 @app.command()
 def version():
     """Show dotkeep version."""
-    typer.secho("dotkeep version 0.2.0", fg=typer.colors.GREEN)
-    
+    typer.secho("dotkeep version 0.3.0", fg=typer.colors.GREEN)
+
+
 @app.command()
 def completion():
     """
     Show instructions for enabling shell completion.
     """
     typer.echo("Run: dotkeep --install-completion")
-    
+
+
 @app.command()
 def diagnose():
     """
@@ -220,14 +245,16 @@ def diagnose():
 
     # Check repo existence
     if not DOTKEEP_DIR.exists() or not WORK_TREE.exists():
-        typer.secho("❌ dotkeep repo not initialized.", fg=typer.colors.RED)
+        typer.secho("ERROR: dotkeep repo not initialized.", fg=typer.colors.RED)
         typer.secho("Run: dotkeep init", fg=typer.colors.YELLOW)
         return
 
     # Check if .git exists
     git_dir = WORK_TREE / ".git"
     if not git_dir.exists():
-        typer.secho("❌ No .git directory found in dotkeep repo.", fg=typer.colors.RED)
+        typer.secho(
+            "ERROR: No .git directory found in dotkeep repo.", fg=typer.colors.RED
+        )
         typer.secho("Try re-initializing with: dotkeep init", fg=typer.colors.YELLOW)
         return
 
@@ -235,40 +262,65 @@ def diagnose():
     try:
         repo = Repo(str(WORK_TREE))
     except InvalidGitRepositoryError:
-        typer.secho("❌ Invalid git repository in dotkeep repo.", fg=typer.colors.RED)
+        typer.secho(
+            "ERROR: Invalid git repository in dotkeep repo.", fg=typer.colors.RED
+        )
         return
 
     # Check for remotes
     remotes = list(repo.remotes)
     if not remotes:
-        typer.secho("⚠️  No git remote set.", fg=typer.colors.YELLOW)
-        typer.secho("Set one with: git -C ~/.dotkeep/repo remote add origin <url>", fg=typer.colors.YELLOW)
+        typer.secho("WARNING: No git remote set.", fg=typer.colors.YELLOW)
+        typer.secho(
+            "Set one with: git -C ~/.dotkeep/repo remote add origin <url>",
+            fg=typer.colors.YELLOW,
+        )
     else:
-        typer.secho(f"✓ Remote(s) found: {', '.join(r.name for r in remotes)}", fg=typer.colors.GREEN)
+        typer.secho(
+            f"✓ Remote(s) found: {', '.join(r.name for r in remotes)}",
+            fg=typer.colors.GREEN,
+        )
 
     # Check for tracking branch
     try:
         branch = repo.active_branch
         tracking = branch.tracking_branch()
         if tracking is None:
-            typer.secho(f"⚠️  Branch '{branch.name}' is not tracking a remote branch.", fg=typer.colors.YELLOW)
-            typer.secho(f"Set upstream with: git -C ~/.dotkeep/repo branch --set-upstream-to=origin/{branch.name} {branch.name}", fg=typer.colors.YELLOW)
+            typer.secho(
+                f"WARNING: Branch '{branch.name}' is not tracking a remote branch.",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                f"Set upstream with: git -C ~/.dotkeep/repo branch --set-upstream-to=origin/{branch.name} {branch.name}",
+                fg=typer.colors.YELLOW,
+            )
         else:
-            typer.secho(f"✓ Branch '{branch.name}' is tracking '{tracking}'", fg=typer.colors.GREEN)
+            typer.secho(
+                f"✓ Branch '{branch.name}' is tracking '{tracking}'",
+                fg=typer.colors.GREEN,
+            )
     except Exception:
-        typer.secho("⚠️  Could not determine active branch or tracking info.", fg=typer.colors.YELLOW)
+        typer.secho(
+            "WARNING: Could not determine active branch or tracking info.",
+            fg=typer.colors.YELLOW,
+        )
 
     # Check for uncommitted changes
     if repo.is_dirty(untracked_files=True):
-        typer.secho("⚠️  There are uncommitted changes in your dotkeep repo.", fg=typer.colors.YELLOW)
+        typer.secho(
+            "WARNING: There are uncommitted changes in your dotkeep repo.",
+            fg=typer.colors.YELLOW,
+        )
         typer.secho("Run: dotkeep status", fg=typer.colors.YELLOW)
     else:
         typer.secho("✓ No uncommitted changes.", fg=typer.colors.GREEN)
 
     # Check tracked directories
     tracked_dirs_file = DOTKEEP_DIR / "tracked_dirs.json"
-    if not tracked_dirs_file.exists() or not json.loads(tracked_dirs_file.read_text() or "[]"):
-        typer.secho("⚠️  No tracked directories found.", fg=typer.colors.YELLOW)
+    if not tracked_dirs_file.exists() or not json.loads(
+        tracked_dirs_file.read_text() or "[]"
+    ):
+        typer.secho("WARNING: No tracked directories found.", fg=typer.colors.YELLOW)
         typer.secho("Add one with: dotkeep add <directory>", fg=typer.colors.YELLOW)
     else:
         dirs = json.loads(tracked_dirs_file.read_text())
@@ -281,11 +333,14 @@ def diagnose():
 config_app = typer.Typer(help="Manage dotkeep configuration")
 app.add_typer(config_app, name="config")
 
+
 @config_app.command("show")
 def config_show(
     key: Annotated[
         str,
-        typer.Argument(help="Configuration key to show (e.g., 'file_patterns.include' or leave empty for all)")
+        typer.Argument(
+            help="Configuration key to show (e.g., 'file_patterns.include' or leave empty for all)"
+        ),
     ] = "",
 ):
     """Show current configuration or a specific configuration value."""
@@ -297,28 +352,40 @@ def config_show(
             else:
                 typer.echo(str(value))
         else:
-            typer.secho(f"Configuration key '{key}' not found.", fg=typer.colors.RED, err=True)
+            typer.secho(
+                f"Configuration key '{key}' not found.", fg=typer.colors.RED, err=True
+            )
             raise typer.Exit(code=1)
     else:
         config = load_config()
         typer.echo(json.dumps(config, indent=2))
 
+
 @config_app.command("set")
 def config_set(
-    key: Annotated[str, typer.Argument(help="Configuration key to set (e.g., 'search_settings.recursive')")],
-    value: Annotated[str, typer.Argument(help="Value to set (JSON strings for lists/objects)")],
+    key: Annotated[
+        str,
+        typer.Argument(
+            help="Configuration key to set (e.g., 'search_settings.recursive')"
+        ),
+    ],
+    value: Annotated[
+        str, typer.Argument(help="Value to set (JSON strings for lists/objects)")
+    ],
 ):
     """Set a configuration value."""
     success = set_config_value(key, value)
     if not success:
         raise typer.Exit(code=1)
 
+
 @config_app.command("add-pattern")
 def config_add_pattern(
-    pattern: Annotated[str, typer.Argument(help="File pattern to add (e.g., '*.xml', '.bashrc')")],
+    pattern: Annotated[
+        str, typer.Argument(help="File pattern to add (e.g., '*.xml', '.bashrc')")
+    ],
     pattern_type: Annotated[
-        str,
-        typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
+        str, typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
     ] = "include",
 ):
     """Add a file pattern to include or exclude lists."""
@@ -326,12 +393,12 @@ def config_add_pattern(
     if not success:
         raise typer.Exit(code=1)
 
+
 @config_app.command("remove-pattern")
 def config_remove_pattern(
     pattern: Annotated[str, typer.Argument(help="File pattern to remove")],
     pattern_type: Annotated[
-        str,
-        typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
+        str, typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
     ] = "include",
 ):
     """Remove a file pattern from include or exclude lists."""
@@ -339,42 +406,46 @@ def config_remove_pattern(
     if not success:
         raise typer.Exit(code=1)
 
+
 @config_app.command("reset")
 def config_reset(
     confirm: Annotated[
-        bool,
-        typer.Option("--yes", "-y", help="Skip confirmation prompt")
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
     ] = False,
 ):
     """Reset configuration to defaults."""
     if not confirm:
-        typer.confirm("Are you sure you want to reset configuration to defaults?", abort=True)
-    
+        typer.confirm(
+            "Are you sure you want to reset configuration to defaults?", abort=True
+        )
+
     reset_config()
+
 
 @config_app.command("list-patterns")
 def config_list_patterns():
     """List all current file patterns."""
     config = load_config()
-    
+
     typer.secho("Include patterns:", fg=typer.colors.GREEN, bold=True)
     for pattern in config["file_patterns"]["include"]:
         typer.secho(f"  + {pattern}", fg=typer.colors.GREEN)
-    
+
     typer.secho("\nExclude patterns:", fg=typer.colors.RED, bold=True)
     for pattern in config["file_patterns"]["exclude"]:
         typer.secho(f"  - {pattern}", fg=typer.colors.RED)
-    
+
     typer.secho("\nSearch settings:", fg=typer.colors.BLUE, bold=True)
     for key, value in config["search_settings"].items():
         typer.secho(f"  {key}: {value}", fg=typer.colors.BLUE)
+
 
 @config_app.command("help")
 def config_help():
     """Show detailed help for configuration management."""
     typer.secho("Dotkeep Configuration Help", fg=typer.colors.WHITE, bold=True)
     typer.secho("=" * 50, fg=typer.colors.WHITE)
-    
+
     typer.secho("\nFile Patterns:", fg=typer.colors.YELLOW, bold=True)
     typer.echo("  Include patterns: Files matching these patterns will be tracked")
     typer.echo("  Exclude patterns: Files matching these patterns will be ignored")
@@ -383,26 +454,28 @@ def config_help():
     typer.echo("    ? matches a single character")
     typer.echo("    [abc] matches any character in brackets")
     typer.echo("    .* matches files starting with . (dotfiles)")
-    
+
     typer.secho("\nSearch Settings:", fg=typer.colors.YELLOW, bold=True)
     typer.echo("  recursive: Search subdirectories recursively")
     typer.echo("  case_sensitive: Whether pattern matching is case-sensitive")
     typer.echo("  follow_symlinks: Whether to follow symbolic links")
-    
+
     typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
     typer.echo("  dotkeep config add-pattern '*.py'        # Track Python files")
     typer.echo("  dotkeep config add-pattern '.env*'       # Track environment files")
     typer.echo("  dotkeep config add-pattern '*.log' -t exclude  # Ignore log files")
-    typer.echo("  dotkeep config set search_settings.recursive false  # Disable recursive search")
+    typer.echo(
+        "  dotkeep config set search_settings.recursive false  # Disable recursive search"
+    )
     typer.echo("  dotkeep config show file_patterns.include  # Show include patterns")
-    
+
     typer.secho("\nDefault patterns include:", fg=typer.colors.CYAN)
     typer.echo("  Dotfiles (.*), config files (*.conf, *.config, *.cfg, *.ini)")
     typer.echo("  YAML/JSON (*.yaml, *.yml, *.json), TOML files (*.toml)")
-    
+
     typer.secho("\nDefault exclusions:", fg=typer.colors.CYAN)
     typer.echo("  System files (.DS_Store, .cache), VCS (.git, .svn)")
     typer.echo("  Temporary files (*.log, *.tmp)")
-    
+
     typer.secho("\nConfiguration is stored in:", fg=typer.colors.MAGENTA)
-    typer.echo(f"  ~/.dotkeep/config.json")
+    typer.echo("  ~/.dotkeep/config.json")
