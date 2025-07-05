@@ -1,11 +1,16 @@
-# dotkeep
-
+[![PyPI version](https://badge.fury.io/py/dotkeep.svg)](https://badge.fury.io/py/dotkeep)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
+[![CI](https://github.com/tTrmc/dotkeep/workflows/CI/badge.svg)](https://github.com/tTrmc/dotkeep/actions)
 [![Last Commit](https://img.shields.io/github/last-commit/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/commits/main)
+[![GitHub issues](https://img.shields.io/github/issues/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/issues)
 
-A minimal **dotfiles** manager for Linux, backed by Git. **dotkeep** simplifies tracking, versioning, and synchronizing your configuration files across machines.
-
----
+<div style="display: flex; align-items: center; gap: 20px;">
+  <img src="dotlogo.png" alt="dotkeep logo" width="300"/>
+  <div>
+    <h3>A minimal <strong>dotfiles</strong> manager for Linux, backed by Git.</h3>
+    <p><em>dotkeep</em> simplifies tracking, versioning, and synchronizing your configuration files across machines.</p>
+  </div>
+</div>
 
 ## Features
 
