@@ -4,13 +4,17 @@
 [![Last Commit](https://img.shields.io/github/last-commit/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/issues)
 
-<div style="display: flex; align-items: center; gap: 20px;">
-  <img src="dotlogo.png" alt="dotkeep logo" width="300"/>
-  <div>
-    <h3>A minimal <strong>dotfiles</strong> manager for Linux, backed by Git.</h3>
-    <p><em>dotkeep</em> simplifies tracking, versioning, and synchronizing your configuration files across machines.</p>
-  </div>
-</div>
+<table>
+<tr>
+<td width="300">
+<img src="dotlogo.png" alt="dotkeep logo" width="300"/>
+</td>
+<td>
+<h3>A minimal <strong>dotfiles</strong> manager for Linux, backed by Git.</h3>
+<p><em>dotkeep</em> simplifies tracking, versioning, and synchronizing your configuration files across machines.</p>
+</td>
+</tr>
+</table>
 
 ## Features
 
