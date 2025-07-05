@@ -61,9 +61,13 @@ def init(
 ):
     if not non_interactive and not remote:
         typer.secho("dotkeep Interactive Setup", fg=typer.colors.CYAN, bold=True)
+<<<<<<< HEAD
         typer.echo(
             "Welcome! Let's configure your dotkeep repository for managing dotfiles.\n"
         )
+=======
+        typer.echo("Welcome! Let's configure your dotkeep repository for managing dotfiles.\n")
+>>>>>>> origin/main
 
         # Remote URL configuration
         typer.secho("Git Remote Configuration", fg=typer.colors.BLUE, bold=True)
@@ -73,13 +77,18 @@ def init(
         typer.echo("  • GitHub: https://github.com/username/dotfiles.git")
         typer.echo("  • GitLab: https://gitlab.com/username/dotfiles.git")
         typer.echo("  • SSH:    git@github.com:username/dotfiles.git")
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> origin/main
         use_remote = typer.confirm("\nAdd a remote repository?", default=False)
         if use_remote:
             while True:
                 remote = typer.prompt("Enter the remote URL")
                 if remote.strip():
                     # Basic validation
+<<<<<<< HEAD
                     if any(
                         remote.startswith(prefix)
                         for prefix in ["https://", "http://", "git@", "ssh://"]
@@ -97,24 +106,41 @@ def init(
                         "Ctrl+C to skip.",
                         fg=typer.colors.RED,
                     )
+=======
+                    if any(remote.startswith(prefix) for prefix in ['https://', 'http://', 'git@', 'ssh://']):
+                        break
+                    else:
+                        typer.secho("Invalid URL format. Please use https://, git@, or ssh:// URLs.", fg=typer.colors.RED)
+                else:
+                    typer.secho("URL cannot be empty. Please enter a valid URL or press Ctrl+C to skip.", fg=typer.colors.RED)
+>>>>>>> origin/main
         else:
             remote = ""
 
         # Initial dotfiles setup
         typer.echo()
         typer.secho("Initial Dotfiles Setup", fg=typer.colors.BLUE, bold=True)
+<<<<<<< HEAD
         typer.echo(
             "Would you like to automatically add common dotfiles to get started?"
         )
+=======
+        typer.echo("Would you like to automatically add common dotfiles to get started?")
+>>>>>>> origin/main
         typer.echo("This will search for and add files like:")
         typer.echo("  • Shell configs: .bashrc, .zshrc, .profile")
         typer.echo("  • Git config: .gitconfig, .gitignore_global")
         typer.echo("  • SSH config: .ssh/config")
         typer.echo("  • Editor configs: .vimrc, .tmux.conf")
+<<<<<<< HEAD
 
         setup_dotfiles = typer.confirm(
             "\nAutomatically discover and add common dotfiles?", default=True
         )
+=======
+        
+        setup_dotfiles = typer.confirm("\nAutomatically discover and add common dotfiles?", default=True)
+>>>>>>> origin/main
 
         typer.echo()
         typer.secho("Initializing dotkeep repository...", fg=typer.colors.CYAN)
@@ -129,6 +155,7 @@ def init(
     if setup_dotfiles:
         typer.echo()
         typer.secho("Discovering common dotfiles...", fg=typer.colors.CYAN)
+<<<<<<< HEAD
 
         home = get_home_dir()
         common_dotfiles = [
@@ -145,11 +172,22 @@ def init(
             ".ssh/config",
         ]
 
+=======
+        
+        home = get_home_dir()
+        common_dotfiles = [
+            ".bashrc", ".zshrc", ".profile", ".bash_profile",
+            ".gitconfig", ".gitignore_global", ".gitignore",
+            ".vimrc", ".vim", ".tmux.conf", ".ssh/config"
+        ]
+        
+>>>>>>> origin/main
         found_files = []
         for dotfile in common_dotfiles:
             dotfile_path = home / dotfile
             if dotfile_path.exists():
                 found_files.append(dotfile)
+<<<<<<< HEAD
 
         if found_files:
             typer.secho(
@@ -167,10 +205,24 @@ def init(
                         success = add_dotfile(
                             dotfile, push=False, quiet=True, recursive=False
                         )
+=======
+        
+        if found_files:
+            typer.secho(f"Found {len(found_files)} common dotfiles:", fg=typer.colors.GREEN)
+            for f in found_files:
+                typer.echo(f"  • {f}")
+            
+            if typer.confirm(f"\nAdd these {len(found_files)} files to dotkeep?", default=True):
+                added_count = 0
+                for dotfile in found_files:
+                    try:
+                        success = add_dotfile(dotfile, push=False, quiet=True, recursive=False)
+>>>>>>> origin/main
                         if success:
                             added_count += 1
                             typer.secho(f"  ✓ Added {dotfile}", fg=typer.colors.GREEN)
                     except Exception:
+<<<<<<< HEAD
                         typer.secho(
                             f"  ! Could not add {dotfile}", fg=typer.colors.YELLOW
                         )
@@ -180,21 +232,35 @@ def init(
                         f"\nSuccessfully added {added_count} dotfiles!",
                         fg=typer.colors.GREEN,
                     )
+=======
+                        typer.secho(f"  ! Could not add {dotfile}", fg=typer.colors.YELLOW)
+                
+                if added_count > 0:
+                    typer.secho(f"\nSuccessfully added {added_count} dotfiles!", fg=typer.colors.GREEN)
+>>>>>>> origin/main
                 else:
                     typer.secho("No dotfiles were added.", fg=typer.colors.YELLOW)
             else:
                 typer.secho("Skipped automatic dotfile setup.", fg=typer.colors.YELLOW)
         else:
+<<<<<<< HEAD
             typer.secho(
                 "No common dotfiles found in your home directory.",
                 fg=typer.colors.YELLOW,
             )
+=======
+            typer.secho("No common dotfiles found in your home directory.", fg=typer.colors.YELLOW)
+>>>>>>> origin/main
             typer.echo("You can add dotfiles later with: dotkeep add <filename>")
 
     # Show completion message
     typer.echo()
     typer.secho("Repository initialization complete!", fg=typer.colors.GREEN, bold=True)
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> origin/main
     if remote:
         typer.secho(
             "Next steps:",
@@ -209,9 +275,13 @@ def init(
             fg=typer.colors.CYAN,
         )
         typer.echo("  • Add dotfiles: dotkeep add <filename>")
+<<<<<<< HEAD
         typer.echo(
             "  • Add remote later: git -C ~/.dotkeep/repo remote add origin <url>"
         )
+=======
+        typer.echo("  • Add remote later: git -C ~/.dotkeep/repo remote add origin <url>")
+>>>>>>> origin/main
         typer.echo("  • Check status: dotkeep status")
 
 
