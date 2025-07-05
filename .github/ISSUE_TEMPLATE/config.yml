@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/tTrmc/dotkeep/security/advisories/new
+    about: Report a security vulnerability privately
+  - name: Discussions
+    url: https://github.com/tTrmc/dotkeep/discussions
+    about: Ask questions and discuss ideas with the community
