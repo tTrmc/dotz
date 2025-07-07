@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Tuple
 
 import typer
 from git import Repo
@@ -27,7 +28,7 @@ from .watcher import main as watcher_main
 app = typer.Typer(help="dotkeep - a Git-backed dot-files manager")
 
 
-def get_cli_paths():
+def get_cli_paths() -> Tuple[Path, Path, Path]:
     """Get CLI-related paths based on current home directory."""
     home = get_home_dir()
     dotkeep_dir = home / ".dotkeep"
@@ -38,7 +39,7 @@ def get_cli_paths():
 HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
 
 
-def refresh_cli_paths():
+def refresh_cli_paths() -> None:
     """Refresh CLI paths when HOME environment changes."""
     global HOME, DOTKEEP_DIR, WORK_TREE
     HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
@@ -58,7 +59,7 @@ def init(
             is_flag=True,
         ),
     ] = False,
-):
+) -> None:
     if not non_interactive and not remote:
         typer.secho("dotkeep Interactive Setup", fg=typer.colors.CYAN, bold=True)
         typer.echo(
@@ -165,7 +166,7 @@ def init(
                 for dotfile in found_files:
                     try:
                         success = add_dotfile(
-                            dotfile, push=False, quiet=True, recursive=False
+                            Path(dotfile), push=False, quiet=True, recursive=False
                         )
                         if success:
                             added_count += 1
@@ -237,7 +238,7 @@ def add(
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
-):
+) -> None:
     """Add a file or directory to dotkeep, then symlink it in your home directory."""
     success = add_dotfile(path, push=push, quiet=quiet, recursive=recursive)
     if not success:
@@ -253,7 +254,7 @@ def delete(
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
-):
+) -> None:
     """
     Remove a dotkeep-managed file or directory and delete the symlink in your
     home directory.
@@ -264,7 +265,7 @@ def delete(
 
 
 @app.command()
-def status():
+def status() -> None:
     """
     Show the status of your dotkeep repo (untracked, modified, staged), and
     dotfiles in $HOME not tracked by dotkeep.
@@ -303,7 +304,7 @@ def status():
 
 
 @app.command()
-def list_files():
+def list_files() -> None:
     """
     List all files currently tracked by dotkeep.
     """
@@ -331,7 +332,7 @@ def restore(
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
-):
+) -> None:
     """
     Restore a dotfile or directory from the dotkeep repository to your home directory.
     Overwrites any existing file or symlink at that location.
@@ -346,7 +347,7 @@ def pull(
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
-):
+) -> None:
     """
     Pull the latest changes from the 'origin' remote into the local dotkeep repository.
     """
@@ -360,7 +361,7 @@ def push(
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
-):
+) -> None:
     """
     Push all local commits to the 'origin' remote, if it exists.
     """
@@ -370,7 +371,7 @@ def push(
 
 
 @app.command()
-def watch():
+def watch() -> None:
     """
     Start watching for new dotfiles in tracked directories and automatically add them.
     """
@@ -383,13 +384,13 @@ def watch():
 
 
 @app.command()
-def version():
+def version() -> None:
     """Show dotkeep version."""
     typer.secho("dotkeep version 0.3.0", fg=typer.colors.GREEN)
 
 
 @app.command()
-def completion():
+def completion() -> None:
     """
     Show instructions for enabling shell completion.
     """
@@ -397,7 +398,7 @@ def completion():
 
 
 @app.command()
-def diagnose():
+def diagnose() -> None:
     """
     Diagnose common dotkeep and git issues and print helpful advice.
     """
@@ -506,7 +507,7 @@ def config_show(
             "or leave empty for all)"
         ),
     ] = "",
-):
+) -> None:
     """Show current configuration or a specific configuration value."""
     if key:
         value = get_config_value(key, quiet=True)
@@ -536,7 +537,7 @@ def config_set(
     value: Annotated[
         str, typer.Argument(help="Value to set (JSON strings for lists/objects)")
     ],
-):
+) -> None:
     """Set a configuration value."""
     success = set_config_value(key, value)
     if not success:
@@ -551,7 +552,7 @@ def config_add_pattern(
     pattern_type: Annotated[
         str, typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
     ] = "include",
-):
+) -> None:
     """Add a file pattern to include or exclude lists."""
     success = add_file_pattern(pattern, pattern_type)
     if not success:
@@ -564,7 +565,7 @@ def config_remove_pattern(
     pattern_type: Annotated[
         str, typer.Option("--type", "-t", help="Pattern type: 'include' or 'exclude'")
     ] = "include",
-):
+) -> None:
     """Remove a file pattern from include or exclude lists."""
     success = remove_file_pattern(pattern, pattern_type)
     if not success:
@@ -576,7 +577,7 @@ def config_reset(
     confirm: Annotated[
         bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
     ] = False,
-):
+) -> None:
     """Reset configuration to defaults."""
     if not confirm:
         typer.confirm(
@@ -587,7 +588,7 @@ def config_reset(
 
 
 @config_app.command("list-patterns")
-def config_list_patterns():
+def config_list_patterns() -> None:
     """List all current file patterns."""
     config = load_config()
 
@@ -605,7 +606,7 @@ def config_list_patterns():
 
 
 @config_app.command("help")
-def config_help():
+def config_help() -> None:
     """Show detailed help for configuration management."""
     typer.secho("Dotkeep Configuration Help", fg=typer.colors.WHITE, bold=True)
     typer.secho("=" * 50, fg=typer.colors.WHITE)

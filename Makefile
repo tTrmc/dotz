@@ -20,7 +20,7 @@ test-cov:  ## Run tests with coverage
 
 lint:  ## Run linting tools
 	flake8 src tests
-	# mypy src  # Disabled temporarily - type annotations can be added later
+	mypy src
 	black --check src tests
 	isort --check-only src tests
 

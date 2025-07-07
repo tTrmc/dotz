@@ -7,10 +7,12 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
 
+import dotkeep.core as core
 from dotkeep.core import (
     DEFAULT_CONFIG,
     add_dotfile,
@@ -30,7 +32,7 @@ from dotkeep.core import (
 class TestCoreBasicFunctionality:
     """Test basic dotkeep core functionality."""
 
-    def test_init_repo(self, temp_home):
+    def test_init_repo(self, temp_home: Path) -> None:
         """Test repository initialization."""
         result = init_repo(quiet=True)
         assert result is True
@@ -44,7 +46,7 @@ class TestCoreBasicFunctionality:
         result2 = init_repo(quiet=True)
         assert result2 is False
 
-    def test_add_single_dotfile(self, initialized_dotkeep):
+    def test_add_single_dotfile(self, initialized_dotkeep: Path) -> None:
         """Test adding a single dotfile."""
         home = initialized_dotkeep
 
@@ -61,7 +63,7 @@ class TestCoreBasicFunctionality:
         work_tree = home / ".dotkeep" / "repo"
         assert (work_tree / ".bashrc").exists()
 
-    def test_add_directory_recursive(self, initialized_dotkeep):
+    def test_add_directory_recursive(self, initialized_dotkeep: Path) -> None:
         """Test adding a directory with dotfiles recursively."""
         home = initialized_dotkeep
 
@@ -89,9 +91,8 @@ class TestCoreBasicFunctionality:
 class TestConfigurationSystem:
     """Test the configuration system functionality."""
 
-    def test_load_default_config(self, temp_home):
+    def test_load_default_config(self, temp_home: Path) -> None:
         """Test loading default configuration."""
-        import dotkeep.core as core
 
         # Patch paths
         original_config_file = core.CONFIG_FILE
@@ -111,9 +112,9 @@ class TestConfigurationSystem:
             core.CONFIG_FILE = original_config_file
             core.DOTKEEP_DIR = original_dotkeep_dir
 
-    def test_save_and_load_config(self, temp_home):
+    def test_save_and_load_config(self, temp_home: Path) -> None:
         """Test saving and loading custom configuration."""
-        custom_config = {
+        custom_config: Dict[str, Any] = {
             "file_patterns": {"include": ["*.py", "*.txt"], "exclude": ["*.pyc"]},
             "search_settings": {
                 "recursive": False,
@@ -131,7 +132,7 @@ class TestConfigurationSystem:
         assert loaded_config["search_settings"]["recursive"] is False
         assert loaded_config["search_settings"]["case_sensitive"] is True
 
-    def test_get_config_value(self, temp_home):
+    def test_get_config_value(self, temp_home: Path) -> None:
         """Test getting configuration values by key path."""
         # Reset to defaults first to ensure predictable state
         reset_config(quiet=True)
@@ -151,7 +152,7 @@ class TestConfigurationSystem:
         result = get_config_value("nonexistent.key", quiet=True)
         assert result is None
 
-    def test_set_config_value(self, temp_home):
+    def test_set_config_value(self, temp_home: Path) -> None:
         """Test setting configuration values."""
         # Test setting boolean
         result = set_config_value("search_settings.recursive", "false", quiet=True)
@@ -167,7 +168,7 @@ class TestConfigurationSystem:
         config = load_config()
         assert config["test_key"] == "test_value"
 
-    def test_add_remove_file_pattern(self, temp_home):
+    def test_add_remove_file_pattern(self, temp_home: Path) -> None:
         """Test adding and removing file patterns."""
         try:
             # Add include pattern
@@ -202,7 +203,7 @@ class TestConfigurationSystem:
             # Always reset to defaults to avoid test pollution
             reset_config(quiet=True)
 
-    def test_reset_config(self, temp_home):
+    def test_reset_config(self, temp_home: Path) -> None:
         """Test resetting configuration to defaults."""
         # Modify config
         set_config_value("search_settings.recursive", "false", quiet=True)
@@ -220,10 +221,10 @@ class TestConfigurationSystem:
 class TestPatternMatching:
     """Test file pattern matching functionality."""
 
-    def test_matches_patterns_basic(self):
+    def test_matches_patterns_basic(self) -> None:
         """Test basic pattern matching."""
-        include = [".*", "*.conf"]
-        exclude = ["*.log"]
+        include: List[str] = [".*", "*.conf"]
+        exclude: List[str] = ["*.log"]
 
         # Should match dotfiles
         assert matches_patterns(".bashrc", include, exclude, False)
@@ -239,10 +240,10 @@ class TestPatternMatching:
         # Should not match unincluded files
         assert not matches_patterns("readme.txt", include, exclude, False)
 
-    def test_matches_patterns_case_sensitivity(self):
+    def test_matches_patterns_case_sensitivity(self) -> None:
         """Test case sensitivity in pattern matching."""
-        include = ["*.CONF"]
-        exclude = []
+        include: List[str] = ["*.CONF"]
+        exclude: List[str] = []
 
         # Case insensitive (default)
         assert matches_patterns("app.conf", include, exclude, False)
@@ -252,7 +253,7 @@ class TestPatternMatching:
         assert not matches_patterns("app.conf", include, exclude, True)
         assert matches_patterns("app.CONF", include, exclude, True)
 
-    def test_find_config_files(self, temp_home):
+    def test_find_config_files(self, temp_home: Path) -> None:
         """Test finding files matching configuration patterns."""
         # Create test directory with various files
         test_dir = temp_home / "test"
@@ -283,7 +284,7 @@ class TestPatternMatching:
         assert "readme.txt" not in found_names
         assert "backup.log" not in found_names
 
-    def test_find_config_files_recursive(self, temp_home):
+    def test_find_config_files_recursive(self, temp_home: Path) -> None:
         """Test recursive file finding."""
         # Create nested directory structure
         test_dir = temp_home / "test"
@@ -312,7 +313,7 @@ class TestPatternMatching:
 class TestErrorHandling:
     """Test error handling and edge cases."""
 
-    def test_load_config_with_invalid_json(self, temp_home):
+    def test_load_config_with_invalid_json(self, temp_home: Path) -> None:
         """Test loading config when JSON is invalid."""
         # Create invalid config file
         config_file = temp_home / ".dotkeep" / "config.json"
@@ -324,17 +325,17 @@ class TestErrorHandling:
             config = load_config()
         assert config == DEFAULT_CONFIG
 
-    def test_set_config_value_invalid_json(self, temp_home):
+    def test_set_config_value_invalid_json(self, temp_home: Path) -> None:
         """Test setting config value with invalid JSON."""
         result = set_config_value("test_key", "{invalid json", quiet=True)
         assert result is False
 
-    def test_add_pattern_invalid_type(self, temp_home):
+    def test_add_pattern_invalid_type(self, temp_home: Path) -> None:
         """Test adding pattern with invalid type."""
         result = add_file_pattern("*.py", "invalid_type", quiet=True)
         assert result is False
 
-    def test_remove_pattern_invalid_type(self, temp_home):
+    def test_remove_pattern_invalid_type(self, temp_home: Path) -> None:
         """Test removing pattern with invalid type."""
         result = remove_file_pattern("*.py", "invalid_type", quiet=True)
         assert result is False

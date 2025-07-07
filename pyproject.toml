@@ -70,6 +70,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+dotkeep = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -148,6 +151,12 @@ strict_equality = true
 module = [
     "git.*",
     "watchdog.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "dotkeep.*",
 ]
 ignore_missing_imports = true
 

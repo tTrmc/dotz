@@ -10,12 +10,13 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import pytest
 
 
 @pytest.fixture
-def temp_home(tmp_path, monkeypatch):
+def temp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a temporary home directory for testing."""
     home = tmp_path / "home"
     home.mkdir()
@@ -26,7 +27,9 @@ def temp_home(tmp_path, monkeypatch):
     return home
 
 
-def run_dotkeep(*args, env=None):
+def run_dotkeep(
+    *args: str, env: Optional[Dict[str, str]] = None
+) -> subprocess.CompletedProcess[str]:
     """Helper function to run dotkeep CLI commands."""
     cmd = ["dotkeep"] + list(map(str, args))
     return subprocess.run(cmd, capture_output=True, text=True, env=env)
@@ -35,7 +38,7 @@ def run_dotkeep(*args, env=None):
 class TestBasicCLICommands:
     """Test basic CLI command functionality."""
 
-    def test_init_and_double_init(self, temp_home):
+    def test_init_and_double_init(self, temp_home: Path) -> None:
         """Test init command and preventing double initialization."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -50,7 +53,7 @@ class TestBasicCLICommands:
         assert result2.returncode != 0
         assert "already initialised" in result2.stdout
 
-    def test_add_and_list_and_status(self, temp_home):
+    def test_add_and_list_and_status(self, temp_home: Path) -> None:
         """Test add, list-files, and status commands."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -75,7 +78,7 @@ class TestBasicCLICommands:
         result3 = run_dotkeep("status", env=env)
         assert "No changes" in result3.stdout
 
-    def test_restore_and_delete(self, temp_home):
+    def test_restore_and_delete(self, temp_home: Path) -> None:
         """Test restore and delete commands."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -108,7 +111,7 @@ class TestBasicCLICommands:
         output = result3.stdout + result3.stderr
         assert "is not tracked by dotkeep" in output
 
-    def test_add_nonexistent_file(self, temp_home):
+    def test_add_nonexistent_file(self, temp_home: Path) -> None:
         """Test adding a file that doesn't exist."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -123,7 +126,7 @@ class TestBasicCLICommands:
 class TestConfigCLICommands:
     """Test configuration CLI commands."""
 
-    def test_config_show_all(self, temp_home):
+    def test_config_show_all(self, temp_home: Path) -> None:
         """Test showing all configuration."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -137,7 +140,7 @@ class TestConfigCLICommands:
         assert "include" in result.stdout
         assert "exclude" in result.stdout
 
-    def test_config_show_specific_key(self, temp_home):
+    def test_config_show_specific_key(self, temp_home: Path) -> None:
         """Test showing specific configuration key."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -149,7 +152,7 @@ class TestConfigCLICommands:
         assert ".*" in result.stdout
         assert "*.conf" in result.stdout
 
-    def test_config_show_nonexistent_key(self, temp_home):
+    def test_config_show_nonexistent_key(self, temp_home: Path) -> None:
         """Test showing non-existent configuration key."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -158,7 +161,7 @@ class TestConfigCLICommands:
         assert result.returncode == 1
         assert "not found" in result.stderr
 
-    def test_config_set_value(self, temp_home):
+    def test_config_set_value(self, temp_home: Path) -> None:
         """Test setting configuration values."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -174,7 +177,7 @@ class TestConfigCLICommands:
         result2 = run_dotkeep("config", "show", "search_settings.recursive", env=env)
         assert "False" in result2.stdout or "false" in result2.stdout
 
-    def test_config_add_pattern(self, temp_home):
+    def test_config_add_pattern(self, temp_home: Path) -> None:
         """Test adding file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -198,7 +201,7 @@ class TestConfigCLICommands:
         result4 = run_dotkeep("config", "show", "file_patterns.exclude", env=env)
         assert "*.pyc" in result4.stdout
 
-    def test_config_remove_pattern(self, temp_home):
+    def test_config_remove_pattern(self, temp_home: Path) -> None:
         """Test removing file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -216,7 +219,7 @@ class TestConfigCLICommands:
         assert result2.returncode == 1  # Should fail when pattern not found
         assert "not found" in result2.stdout
 
-    def test_config_list_patterns(self, temp_home):
+    def test_config_list_patterns(self, temp_home: Path) -> None:
         """Test listing file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -231,7 +234,7 @@ class TestConfigCLICommands:
         assert "+ .*" in result.stdout  # Include pattern format
         assert "- .DS_Store" in result.stdout  # Exclude pattern format
 
-    def test_config_reset(self, temp_home):
+    def test_config_reset(self, temp_home: Path) -> None:
         """Test resetting configuration."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -252,7 +255,7 @@ class TestConfigCLICommands:
         result3 = run_dotkeep("config", "show", "search_settings.recursive", env=env)
         assert "True" in result3.stdout or "true" in result3.stdout
 
-    def test_config_help(self, temp_home):
+    def test_config_help(self, temp_home: Path) -> None:
         """Test configuration help command."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -271,7 +274,7 @@ class TestConfigCLICommands:
 class TestDirectoryHandling:
     """Test directory handling with new configuration system."""
 
-    def test_add_directory_with_custom_patterns(self, temp_home):
+    def test_add_directory_with_custom_patterns(self, temp_home: Path) -> None:
         """Test adding directory with custom file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -302,7 +305,7 @@ class TestDirectoryHandling:
         # Should not include txt files (not in patterns)
         assert "readme.txt" not in result2.stdout
 
-    def test_add_directory_exclude_patterns(self, temp_home):
+    def test_add_directory_exclude_patterns(self, temp_home: Path) -> None:
         """Test that exclude patterns work correctly."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -334,7 +337,7 @@ class TestDirectoryHandling:
 class TestIntegrationScenarios:
     """Test real-world integration scenarios."""
 
-    def test_python_project_workflow(self, temp_home):
+    def test_python_project_workflow(self, temp_home: Path) -> None:
         """Test workflow for tracking Python project files."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -369,7 +372,7 @@ class TestIntegrationScenarios:
         assert "compiled.pyc" not in result2.stdout  # excluded
         assert "README.md" not in result2.stdout  # not in patterns
 
-    def test_config_files_only_workflow(self, temp_home):
+    def test_config_files_only_workflow(self, temp_home: Path) -> None:
         """Test workflow for tracking only configuration files."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -398,7 +401,7 @@ class TestIntegrationScenarios:
         assert "readme.txt" not in result2.stdout  # not in patterns
 
 
-def test_add_directory_symlinks_only_dotfiles(temp_home):
+def test_add_directory_symlinks_only_dotfiles(temp_home: Path) -> None:
     """Test that adding a directory symlinks only dotfiles inside it."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
@@ -428,7 +431,7 @@ def test_add_directory_symlinks_only_dotfiles(temp_home):
     assert (config_dir / ".dot2").resolve() == dotkeep_repo / "dotdir" / ".dot2"
 
 
-def test_add_empty_directory(temp_home):
+def test_add_empty_directory(temp_home: Path) -> None:
     """Test adding an empty directory."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
@@ -448,7 +451,9 @@ def test_add_empty_directory(temp_home):
     assert list(empty_dir.iterdir()) == []
 
 
-def test_add_directory_with_subdirectories_symlinks_config_files(temp_home):
+def test_add_directory_with_subdirectories_symlinks_config_files(
+    temp_home: Path,
+) -> None:
     """
     Test adding a directory with nested subdirectories symlinks dotfiles and
     config files.
@@ -492,7 +497,7 @@ def test_add_directory_with_subdirectories_symlinks_config_files(temp_home):
     assert (plugins_dir / ".pluginrc").is_symlink()
 
 
-def test_add_single_file_still_works(temp_home):
+def test_add_single_file_still_works(temp_home: Path) -> None:
     """Ensure that adding single files still works as before."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
@@ -513,7 +518,7 @@ def test_add_single_file_still_works(temp_home):
     assert (temp_home / ".gitconfig").is_symlink()
 
 
-def test_delete_directory_symlinks(temp_home):
+def test_delete_directory_symlinks(temp_home: Path) -> None:
     """Test deleting a directory managed by dotkeep (dotfiles inside)."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
@@ -537,7 +542,7 @@ def test_delete_directory_symlinks(temp_home):
     assert not (test_dir / ".file1").exists()
 
 
-def test_restore_directory_symlinks_dotfiles(temp_home):
+def test_restore_directory_symlinks_dotfiles(temp_home: Path) -> None:
     """Test restoring a directory managed by dotkeep (dotfiles inside)."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
@@ -566,7 +571,7 @@ def test_restore_directory_symlinks_dotfiles(temp_home):
     assert (test_dir / ".configrc").read_text() == "important config"
 
 
-def test_pull_no_remote(temp_home):
+def test_pull_no_remote(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", "--non-interactive", env=env)
@@ -578,7 +583,7 @@ def test_pull_no_remote(temp_home):
     )
 
 
-def test_push_no_remote(temp_home):
+def test_push_no_remote(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", "--non-interactive", env=env)
@@ -590,7 +595,7 @@ def test_push_no_remote(temp_home):
     )
 
 
-def test_version_command(temp_home):
+def test_version_command(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     result = run_dotkeep("version", env=env)
@@ -598,7 +603,7 @@ def test_version_command(temp_home):
     assert "dotkeep version" in result.stdout
 
 
-def test_completion_command(temp_home):
+def test_completion_command(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     result = run_dotkeep("completion", env=env)
@@ -606,7 +611,7 @@ def test_completion_command(temp_home):
     assert "dotkeep --install-completion" in result.stdout
 
 
-def test_diagnose_command(temp_home):
+def test_diagnose_command(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     result = run_dotkeep("diagnose", env=env)
@@ -620,7 +625,7 @@ def test_diagnose_command(temp_home):
     )
 
 
-def test_add_and_status_untracked_home_dotfiles(temp_home):
+def test_add_and_status_untracked_home_dotfiles(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", "--non-interactive", env=env)
@@ -631,7 +636,9 @@ def test_add_and_status_untracked_home_dotfiles(temp_home):
     assert ".zshrc" in result.stdout
 
 
-def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(temp_home):
+def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(
+    temp_home: Path,
+) -> None:
     """
     Test that tracked directory is kept even when all files are deleted
     individually.
@@ -652,19 +659,20 @@ def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(temp_home):
     # (automatic cleanup when directory becomes empty is not implemented)
 
     # Helper to read tracked_dirs.json
-    def get_tracked_dirs():
+    def get_tracked_dirs() -> List[str]:
         dotkeep_dir = temp_home / ".dotkeep"
         tracked_dirs_file = dotkeep_dir / "tracked_dirs.json"
         if not tracked_dirs_file.exists():
             return []
         with open(tracked_dirs_file) as f:
-            return json.load(f)
+            content = json.load(f)
+            return content if isinstance(content, list) else []
 
     tracked_dirs = get_tracked_dirs()
     assert str(d) in tracked_dirs  # Directory is still tracked
 
 
-def test_restore_nonexistent_file(temp_home):
+def test_restore_nonexistent_file(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", "--non-interactive", env=env)
@@ -676,7 +684,7 @@ def test_restore_nonexistent_file(temp_home):
     )
 
 
-def test_delete_non_symlink(temp_home):
+def test_delete_non_symlink(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", "--non-interactive", env=env)
@@ -691,7 +699,7 @@ def test_delete_non_symlink(temp_home):
     )
 
 
-def test_watcher_starts_and_exits(temp_home):
+def test_watcher_starts_and_exits(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
     run_dotkeep("init", "--non-interactive", env=env)

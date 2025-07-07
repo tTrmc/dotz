@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,7 +19,7 @@ from dotkeep.watcher import DotkeepEventHandler, get_tracked_dirs
 
 
 @pytest.fixture
-def temp_home(tmp_path, monkeypatch):
+def temp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a temporary home directory for testing."""
     home = tmp_path / "home"
     home.mkdir()
@@ -33,7 +34,7 @@ def temp_home(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def initialized_dotkeep(temp_home):
+def initialized_dotkeep(temp_home: Path) -> Path:
     """Create an initialized dotkeep repository."""
     init_repo(quiet=True)
     return temp_home
@@ -42,14 +43,14 @@ def initialized_dotkeep(temp_home):
 class TestWatcherEventHandler:
     """Test the watcher event handler functionality."""
 
-    def test_handler_initialization(self, initialized_dotkeep):
+    def test_handler_initialization(self, initialized_dotkeep: Path) -> None:
         """Test that the event handler initializes correctly."""
         handler = DotkeepEventHandler()
         assert handler.config is not None
         assert "file_patterns" in handler.config
         assert "search_settings" in handler.config
 
-    def test_should_track_file_dotfiles(self, initialized_dotkeep):
+    def test_should_track_file_dotfiles(self, initialized_dotkeep: Path) -> None:
         """Test that dotfiles are tracked by default."""
         handler = DotkeepEventHandler()
 
@@ -58,7 +59,7 @@ class TestWatcherEventHandler:
         assert handler.should_track_file(".gitconfig")
         assert handler.should_track_file(".vimrc")
 
-    def test_should_track_file_config_files(self, initialized_dotkeep):
+    def test_should_track_file_config_files(self, initialized_dotkeep: Path) -> None:
         """Test that config files are tracked by default."""
         handler = DotkeepEventHandler()
 
@@ -69,7 +70,7 @@ class TestWatcherEventHandler:
         assert handler.should_track_file("data.json")
         assert handler.should_track_file("pyproject.toml")
 
-    def test_should_not_track_excluded_files(self, initialized_dotkeep):
+    def test_should_not_track_excluded_files(self, initialized_dotkeep: Path) -> None:
         """Test that excluded files are not tracked."""
         handler = DotkeepEventHandler()
 
@@ -79,7 +80,7 @@ class TestWatcherEventHandler:
         assert not handler.should_track_file(".DS_Store")
         assert not handler.should_track_file(".cache")
 
-    def test_config_reload_on_modification(self, initialized_dotkeep):
+    def test_config_reload_on_modification(self, initialized_dotkeep: Path) -> None:
         """Test that config is reloaded when config file changes."""
         handler = DotkeepEventHandler()
 
@@ -97,7 +98,7 @@ class TestWatcherEventHandler:
 class TestWatcherIntegration:
     """Test watcher integration with the core functionality."""
 
-    def test_get_tracked_dirs_empty(self, initialized_dotkeep):
+    def test_get_tracked_dirs_empty(self, initialized_dotkeep: Path) -> None:
         """Test getting tracked directories when none exist."""
         import dotkeep.core as core
         import dotkeep.watcher as watcher
@@ -137,7 +138,7 @@ class TestWatcherIntegration:
             watcher.HOME = original_watcher_home
             watcher.DOTKEEP_DIR = original_watcher_dotkeep_dir
 
-    def test_get_tracked_dirs_with_data(self, initialized_dotkeep):
+    def test_get_tracked_dirs_with_data(self, initialized_dotkeep: Path) -> None:
         """Test getting tracked directories when they exist."""
         home = initialized_dotkeep
 
@@ -156,8 +157,8 @@ class TestWatcherIntegration:
 
     @patch("dotkeep.watcher.add_dotfile")
     def test_on_created_tracks_matching_file(
-        self, mock_add_dotfile, initialized_dotkeep
-    ):
+        self, mock_add_dotfile: MagicMock, initialized_dotkeep: Path
+    ) -> None:
         """Test that on_created tracks files matching patterns."""
         home = initialized_dotkeep
         handler = DotkeepEventHandler()
@@ -182,8 +183,8 @@ class TestWatcherIntegration:
 
     @patch("dotkeep.watcher.add_dotfile")
     def test_on_created_ignores_non_matching_file(
-        self, mock_add_dotfile, initialized_dotkeep
-    ):
+        self, mock_add_dotfile: MagicMock, initialized_dotkeep: Path
+    ) -> None:
         """Test that on_created ignores files not matching patterns."""
         home = initialized_dotkeep
         handler = DotkeepEventHandler()
@@ -204,7 +205,9 @@ class TestWatcherIntegration:
         mock_add_dotfile.assert_not_called()
 
     @patch("dotkeep.watcher.add_dotfile")
-    def test_on_created_ignores_symlinks(self, mock_add_dotfile, initialized_dotkeep):
+    def test_on_created_ignores_symlinks(
+        self, mock_add_dotfile: MagicMock, initialized_dotkeep: Path
+    ) -> None:
         """Test that on_created ignores symlink creation events."""
         home = initialized_dotkeep
         handler = DotkeepEventHandler()
@@ -222,8 +225,8 @@ class TestWatcherIntegration:
 
     @patch("dotkeep.watcher.add_dotfile")
     def test_on_created_ignores_directories(
-        self, mock_add_dotfile, initialized_dotkeep
-    ):
+        self, mock_add_dotfile: MagicMock, initialized_dotkeep: Path
+    ) -> None:
         """Test that on_created ignores directory creation events."""
         handler = DotkeepEventHandler()
 
@@ -241,7 +244,7 @@ class TestWatcherIntegration:
 class TestWatcherWithCustomConfig:
     """Test watcher behavior with custom configuration."""
 
-    def test_custom_patterns_respected(self, initialized_dotkeep):
+    def test_custom_patterns_respected(self, initialized_dotkeep: Path) -> None:
         """Test that custom file patterns are respected by the watcher."""
         from dotkeep.core import add_file_pattern, remove_file_pattern, reset_config
 
@@ -262,7 +265,7 @@ class TestWatcherWithCustomConfig:
             # Reset config to avoid test pollution
             reset_config(quiet=True)
 
-    def test_case_sensitivity_config(self, initialized_dotkeep):
+    def test_case_sensitivity_config(self, initialized_dotkeep: Path) -> None:
         """Test that case sensitivity configuration is respected."""
         from dotkeep.core import add_file_pattern, reset_config, set_config_value
 
@@ -287,7 +290,9 @@ class TestWatcherWithCustomConfig:
             reset_config(quiet=True)
 
     @patch("dotkeep.watcher.add_dotfile")
-    def test_watcher_with_python_config(self, mock_add_dotfile, initialized_dotkeep):
+    def test_watcher_with_python_config(
+        self, mock_add_dotfile: MagicMock, initialized_dotkeep: Path
+    ) -> None:
         """Test watcher with Python project configuration."""
         from dotkeep.core import add_file_pattern, reset_config
 
@@ -340,12 +345,14 @@ class TestWatcherWithCustomConfig:
 class TestWatcherCLIIntegration:
     """Test watcher CLI integration."""
 
-    def run_dotkeep(self, *args, env=None):
+    def run_dotkeep(
+        self, *args: str, env: Optional[Dict[str, str]] = None
+    ) -> subprocess.CompletedProcess[str]:
         """Helper to run dotkeep commands."""
         cmd = ["dotkeep"] + list(map(str, args))
         return subprocess.run(cmd, capture_output=True, text=True, env=env)
 
-    def test_watcher_no_tracked_dirs(self, initialized_dotkeep):
+    def test_watcher_no_tracked_dirs(self, initialized_dotkeep: Path) -> None:
         """Test watcher behavior when no directories are tracked."""
         env = os.environ.copy()
         env["HOME"] = str(initialized_dotkeep)
@@ -356,7 +363,7 @@ class TestWatcherCLIIntegration:
         # Should indicate no tracked directories
         assert "No tracked directories" in result.stdout or result.returncode != 0
 
-    def test_watcher_with_tracked_dir(self, initialized_dotkeep):
+    def test_watcher_with_tracked_dir(self, initialized_dotkeep: Path) -> None:
         """Test watcher with a tracked directory."""
         import dotkeep.core as core
         import dotkeep.watcher as watcher
@@ -423,7 +430,7 @@ class TestWatcherCLIIntegration:
 class TestWatcherErrorHandling:
     """Test watcher error handling scenarios."""
 
-    def test_handler_with_corrupted_config(self, initialized_dotkeep):
+    def test_handler_with_corrupted_config(self, initialized_dotkeep: Path) -> None:
         """Test that handler handles corrupted config gracefully."""
         home = initialized_dotkeep
 
@@ -447,7 +454,7 @@ class TestWatcherErrorHandling:
         # Should have some default include patterns
         assert len(handler.config["file_patterns"]["include"]) > 0
 
-    def test_handler_with_missing_config_keys(self, initialized_dotkeep):
+    def test_handler_with_missing_config_keys(self, initialized_dotkeep: Path) -> None:
         """Test handler with incomplete configuration."""
         from dotkeep.core import reset_config, save_config
 
@@ -479,7 +486,7 @@ class TestWatcherRealFileSystem:
     """Integration tests that use real file system watching."""
 
     @pytest.mark.skip(reason="Integration test - requires manual verification")
-    def test_real_file_watching(self, initialized_dotkeep):
+    def test_real_file_watching(self, initialized_dotkeep: Path) -> None:
         """
         This is a template for integration testing real file watching.
         Should be run manually or in integration test suite.

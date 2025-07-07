@@ -3,12 +3,13 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import typer
 from git import GitCommandError, Repo
 
 
-def get_home_dir():
+def get_home_dir() -> Path:
     """Get the home directory, respecting environment variables for testing."""
     # Check for test override first
     if "HOME" in os.environ:
@@ -16,7 +17,7 @@ def get_home_dir():
     return Path.home()
 
 
-def get_dotkeep_paths(home_dir=None):
+def get_dotkeep_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
     """Get all dotkeep-related paths based on home directory."""
     if home_dir is None:
         home_dir = get_home_dir()
@@ -75,7 +76,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def ensure_repo():
+def ensure_repo() -> Repo:
     try:
         return Repo(str(WORK_TREE))
     except Exception:
@@ -87,7 +88,7 @@ def ensure_repo():
         raise typer.Exit(code=1)
 
 
-def count_files_in_directory(path):
+def count_files_in_directory(path: Path) -> int:
     """Count all files recursively in a directory."""
     if path.is_file():
         return 1
@@ -100,7 +101,7 @@ def count_files_in_directory(path):
     return 0
 
 
-def save_tracked_dir(dir_path: Path):
+def save_tracked_dir(dir_path: Path) -> None:
     """Add a directory to the tracked_dirs.json file."""
     if not TRACKED_DIRS_FILE.exists():
         tracked = []
@@ -114,7 +115,7 @@ def save_tracked_dir(dir_path: Path):
             json.dump(tracked, f)
 
 
-def remove_tracked_dir(dir_path: Path):
+def remove_tracked_dir(dir_path: Path) -> None:
     """Remove a directory from the tracked_dirs.json file."""
     if not TRACKED_DIRS_FILE.exists():
         return
@@ -127,7 +128,7 @@ def remove_tracked_dir(dir_path: Path):
             json.dump(tracked, f)
 
 
-def init_repo(remote: str = "", quiet: bool = False):
+def init_repo(remote: str = "", quiet: bool = False) -> bool:
     if DOTKEEP_DIR.exists():
         if not quiet:
             typer.secho(
@@ -168,7 +169,7 @@ def init_repo(remote: str = "", quiet: bool = False):
 
 def add_dotfile(
     path: Path, push: bool = False, quiet: bool = False, recursive: bool = True
-):
+) -> bool:
     """
     Add a file or directory to dotkeep, then symlink it in your home directory.
     Set quiet=True to suppress typer.secho output (for watcher).
@@ -261,7 +262,7 @@ def add_dotfile(
     return True
 
 
-def delete_dotfile(path: Path, push: bool = False, quiet: bool = False):
+def delete_dotfile(path: Path, push: bool = False, quiet: bool = False) -> bool:
     repo = ensure_repo()
     src = (HOME / path).expanduser()
 
@@ -326,7 +327,7 @@ def delete_dotfile(path: Path, push: bool = False, quiet: bool = False):
     return True
 
 
-def restore_dotfile(path: Path, quiet: bool = False, push: bool = False):
+def restore_dotfile(path: Path, quiet: bool = False, push: bool = False) -> bool:
     src = (HOME / path).expanduser()
     rel = src.relative_to(HOME)
     dest = WORK_TREE / rel
@@ -381,7 +382,7 @@ def restore_dotfile(path: Path, quiet: bool = False, push: bool = False):
     return True
 
 
-def pull_repo(quiet: bool = False):
+def pull_repo(quiet: bool = False) -> bool:
     repo = ensure_repo()
     # Check if 'origin' remote exists
     if "origin" not in [r.name for r in repo.remotes]:
@@ -430,7 +431,7 @@ def pull_repo(quiet: bool = False):
         return False
 
 
-def push_repo(quiet: bool = False):
+def push_repo(quiet: bool = False) -> bool:
     repo = ensure_repo()
 
     # Make sure there is an 'origin' remote
@@ -499,11 +500,15 @@ def push_repo(quiet: bool = False):
         return False
 
 
-def get_repo_status():
+def get_repo_status() -> Dict[str, List[str]]:
     repo = ensure_repo()
     untracked = list(repo.untracked_files)
-    modified = [item.a_path for item in repo.index.diff(None)]
-    staged = [item.a_path for item in repo.index.diff("HEAD")]
+    modified = [
+        item.a_path for item in repo.index.diff(None) if item.a_path is not None
+    ]
+    staged = [
+        item.a_path for item in repo.index.diff("HEAD") if item.a_path is not None
+    ]
 
     # Unpushed changes
     unpushed = []
@@ -512,7 +517,9 @@ def get_repo_status():
         remote_branch = f"origin/{branch}"
         try:
             unpushed = [
-                diff_item.a_path for diff_item in repo.index.diff(remote_branch)
+                diff_item.a_path
+                for diff_item in repo.index.diff(remote_branch)
+                if diff_item.a_path is not None
             ]
         except Exception:
             pass
@@ -535,12 +542,13 @@ def get_repo_status():
     }
 
 
-def list_tracked_files():
+def list_tracked_files() -> List[str]:
     repo = ensure_repo()
-    return repo.git.ls_files().splitlines()
+    files_output: str = repo.git.ls_files()
+    return files_output.splitlines()
 
 
-def load_config():
+def load_config() -> Dict[str, Any]:
     """Load configuration from config file, or return default if not exists."""
     if not CONFIG_FILE.exists():
         return DEFAULT_CONFIG.copy()
@@ -554,10 +562,14 @@ def load_config():
         merged_config.update(config)
 
         # Ensure nested dictionaries are also merged
-        if "file_patterns" in config:
-            merged_config["file_patterns"].update(config["file_patterns"])
-        if "search_settings" in config:
-            merged_config["search_settings"].update(config["search_settings"])
+        if "file_patterns" in config and isinstance(config["file_patterns"], dict):
+            file_patterns = merged_config["file_patterns"]
+            if isinstance(file_patterns, dict):
+                file_patterns.update(config["file_patterns"])
+        if "search_settings" in config and isinstance(config["search_settings"], dict):
+            search_settings = merged_config["search_settings"]
+            if isinstance(search_settings, dict):
+                search_settings.update(config["search_settings"])
 
         return merged_config
     except (json.JSONDecodeError, KeyError) as e:
@@ -569,7 +581,7 @@ def load_config():
         return DEFAULT_CONFIG.copy()
 
 
-def save_config(config):
+def save_config(config: Dict[str, Any]) -> None:
     """Save configuration to config file."""
     DOTKEEP_DIR.mkdir(exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
@@ -577,8 +589,11 @@ def save_config(config):
 
 
 def matches_patterns(
-    filename, include_patterns, exclude_patterns, case_sensitive=False
-):
+    filename: str,
+    include_patterns: List[str],
+    exclude_patterns: List[str],
+    case_sensitive: bool = False,
+) -> bool:
     """
     Check if a filename matches the include patterns and doesn't match exclude
     patterns.
@@ -597,7 +612,9 @@ def matches_patterns(
     return included and not excluded
 
 
-def find_config_files(directory, config=None, recursive=True):
+def find_config_files(
+    directory: Path, config: Optional[Dict[str, Any]] = None, recursive: bool = True
+) -> List[Path]:
     """Find files matching the configured patterns in a directory."""
     if config is None:
         config = load_config()
@@ -628,7 +645,7 @@ def find_config_files(directory, config=None, recursive=True):
     return found_files
 
 
-def get_config_value(key_path, quiet=False):
+def get_config_value(key_path: str, quiet: bool = False) -> Any:
     """Get a configuration value by key path (e.g., 'file_patterns.include')."""
     config = load_config()
     keys = key_path.split(".")
@@ -648,7 +665,7 @@ def get_config_value(key_path, quiet=False):
         return None
 
 
-def set_config_value(key_path, value, quiet=False):
+def set_config_value(key_path: str, value: Any, quiet: bool = False) -> bool:
     """Set a configuration value by key path."""
     config = load_config()
     keys = key_path.split(".")
@@ -691,7 +708,9 @@ def set_config_value(key_path, value, quiet=False):
         return False
 
 
-def add_file_pattern(pattern, pattern_type="include", quiet=False):
+def add_file_pattern(
+    pattern: str, pattern_type: str = "include", quiet: bool = False
+) -> bool:
     """Add a file pattern to include or exclude list."""
     if pattern_type not in ["include", "exclude"]:
         if not quiet:
@@ -722,7 +741,9 @@ def add_file_pattern(pattern, pattern_type="include", quiet=False):
         return True
 
 
-def remove_file_pattern(pattern, pattern_type="include", quiet=False):
+def remove_file_pattern(
+    pattern: str, pattern_type: str = "include", quiet: bool = False
+) -> bool:
     """Remove a file pattern from include or exclude list."""
     if pattern_type not in ["include", "exclude"]:
         if not quiet:
@@ -754,7 +775,7 @@ def remove_file_pattern(pattern, pattern_type="include", quiet=False):
         return False
 
 
-def reset_config(quiet=False):
+def reset_config(quiet: bool = False) -> bool:
     """Reset configuration to defaults."""
     save_config(DEFAULT_CONFIG)
     if not quiet:
@@ -762,7 +783,7 @@ def reset_config(quiet=False):
     return True
 
 
-def update_paths(home_dir=None):
+def update_paths(home_dir: Optional[Path] = None) -> None:
     """Update global paths. Useful for testing or when HOME changes."""
     global HOME, DOTKEEP_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE
     paths = get_dotkeep_paths(home_dir)

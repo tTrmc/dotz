@@ -2,14 +2,15 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Dict, List, Optional
 
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from .core import add_dotfile, ensure_repo, get_home_dir, load_config, matches_patterns
 
 
-def get_watcher_paths(home_dir=None):
+def get_watcher_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
     """Get watcher-related paths based on home directory."""
     if home_dir is None:
         home_dir = get_home_dir()
@@ -28,7 +29,7 @@ HOME = _paths["home"]
 DOTKEEP_DIR = _paths["dotkeep_dir"]
 
 
-def update_watcher_paths(home_dir=None):
+def update_watcher_paths(home_dir: Optional[Path] = None) -> None:
     """Update global watcher paths. Useful for testing."""
     global HOME, DOTKEEP_DIR
     paths = get_watcher_paths(home_dir)
@@ -53,20 +54,21 @@ def is_in_tracked_directory(relative_path: Path) -> bool:
     return False
 
 
-def get_tracked_dirs():
+def get_tracked_dirs() -> List[str]:
     tracked_file = DOTKEEP_DIR / "tracked_dirs.json"
     if not tracked_file.exists():
         return []
     with open(tracked_file, "r") as f:
-        return json.load(f)
+        data = json.load(f)
+        return data if isinstance(data, list) else []
 
 
 class DotkeepEventHandler(FileSystemEventHandler):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.config = load_config()
 
-    def should_track_file(self, filename):
+    def should_track_file(self, filename: str) -> bool:
         """Check if a file should be tracked based on current configuration."""
         include_patterns = self.config["file_patterns"]["include"]
         exclude_patterns = self.config["file_patterns"]["exclude"]
@@ -76,7 +78,7 @@ class DotkeepEventHandler(FileSystemEventHandler):
             filename, include_patterns, exclude_patterns, case_sensitive
         )
 
-    def on_created(self, event):
+    def on_created(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
         # Ignore symlink creations (second event)
@@ -84,25 +86,32 @@ class DotkeepEventHandler(FileSystemEventHandler):
             return
 
         filename = os.path.basename(event.src_path)
+        # Ensure filename is a string, not bytes
+        if isinstance(filename, (bytes, bytearray, memoryview)):
+            filename = str(filename, "utf-8")
+        filename = str(filename)  # Ensure it's a string
         if self.should_track_file(filename):
             # Convert the file's path to something relative to HOME
-            home_path = Path(str(event.src_path)).relative_to(Path.home())
+            if isinstance(event.src_path, (bytes, bytearray, memoryview)):
+                src_path_str = str(event.src_path, "utf-8")
+            else:
+                src_path_str = str(event.src_path)
+            home_path = Path(src_path_str).relative_to(Path.home())
             # Check if this file is already in a tracked directory structure
             if not is_in_tracked_directory(home_path):
                 # Automatically add the new file
                 add_dotfile(home_path, push=False, quiet=True)
-                print(f"Auto-added config file: {event.src_path}")
+                print(f"Auto-added config file: {src_path_str}")
 
-    def on_modified(self, event):
+    def on_modified(self, event: FileSystemEvent) -> None:
         # Reload config when it changes to pick up new patterns
-        if str(event.src_path).endswith("config.json") and ".dotkeep" in str(
-            event.src_path
-        ):
+        src_path_str = str(event.src_path)
+        if src_path_str.endswith("config.json") and ".dotkeep" in src_path_str:
             self.config = load_config()
             print("Configuration reloaded")
 
 
-def main():
+def main() -> None:
     observer = Observer()
     event_handler = DotkeepEventHandler()
     tracked_dirs = get_tracked_dirs()

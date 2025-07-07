@@ -4,12 +4,14 @@ Simplified CLI tests for dotkeep configuration functionality.
 
 import os
 import subprocess
+from pathlib import Path
+from typing import Dict, Optional
 
 import pytest
 
 
 @pytest.fixture
-def temp_home(tmp_path, monkeypatch):
+def temp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a temporary home directory for testing."""
     home = tmp_path / "home"
     home.mkdir()
@@ -17,7 +19,9 @@ def temp_home(tmp_path, monkeypatch):
     return home
 
 
-def run_dotkeep(*args, env=None):
+def run_dotkeep(
+    *args: str, env: Optional[Dict[str, str]] = None
+) -> subprocess.CompletedProcess[str]:
     """Helper function to run dotkeep CLI commands."""
     cmd = ["dotkeep"] + list(map(str, args))
     return subprocess.run(cmd, capture_output=True, text=True, env=env)
@@ -26,7 +30,7 @@ def run_dotkeep(*args, env=None):
 class TestConfigCommands:
     """Test configuration CLI commands."""
 
-    def test_config_show_all(self, temp_home):
+    def test_config_show_all(self, temp_home: Path) -> None:
         """Test showing all configuration."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -40,7 +44,7 @@ class TestConfigCommands:
         assert "include" in result.stdout
         assert "exclude" in result.stdout
 
-    def test_config_add_pattern(self, temp_home):
+    def test_config_add_pattern(self, temp_home: Path) -> None:
         """Test adding file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -54,7 +58,7 @@ class TestConfigCommands:
         result2 = run_dotkeep("config", "show", "file_patterns.include", env=env)
         assert "*.py" in result2.stdout
 
-    def test_config_list_patterns(self, temp_home):
+    def test_config_list_patterns(self, temp_home: Path) -> None:
         """Test listing file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -67,7 +71,7 @@ class TestConfigCommands:
         assert "Exclude patterns:" in result.stdout
         assert "+ .*" in result.stdout  # Include pattern format
 
-    def test_config_help(self, temp_home):
+    def test_config_help(self, temp_home: Path) -> None:
         """Test configuration help command."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
@@ -83,7 +87,7 @@ class TestConfigCommands:
 class TestDirectoryWithConfig:
     """Test directory handling with configuration."""
 
-    def test_add_directory_with_custom_patterns(self, temp_home):
+    def test_add_directory_with_custom_patterns(self, temp_home: Path) -> None:
         """Test adding directory with custom file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
