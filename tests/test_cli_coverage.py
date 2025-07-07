@@ -4,6 +4,7 @@ These tests focus on edge cases and error conditions not covered by existing tes
 """
 
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -11,6 +12,12 @@ from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+def strip_ansi_codes(text: str) -> str:
+    """Strip ANSI color codes from text."""
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 def run_dotkeep(
@@ -52,10 +59,8 @@ class TestCLIEdgeCases:
         # Try to add with push (should fail - no remote)
         result = run_dotkeep("add", ".bashrc", "--push", env=env)
         # Should succeed locally but push will fail
-        assert (
-            "Remote named 'origin' didn't exist" in result.stdout
-            or "Remote named 'origin' didn't exist" in result.stderr
-        )
+        combined_output = strip_ansi_codes(result.stdout + result.stderr)
+        assert "Remote named 'origin' didn't exist" in combined_output
 
     def test_delete_with_push(self, temp_home: Path) -> None:
         """Test delete command with --push flag when no remote exists."""
@@ -71,10 +76,8 @@ class TestCLIEdgeCases:
         # Try to delete with push (should fail - no remote)
         result = run_dotkeep("delete", ".vimrc", "--push", env=env)
         # Should succeed locally but push will fail
-        assert (
-            "Remote named 'origin' didn't exist" in result.stdout
-            or "Remote named 'origin' didn't exist" in result.stderr
-        )
+        combined_output = strip_ansi_codes(result.stdout + result.stderr)
+        assert "Remote named 'origin' didn't exist" in combined_output
 
     def test_restore_with_push(self, temp_home: Path) -> None:
         """Test restore command with --push flag when no remote exists."""
