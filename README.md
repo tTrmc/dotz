@@ -4,6 +4,10 @@
 [![Last Commit](https://img.shields.io/github/last-commit/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/issues)
 
+---
+
+> **dotkeep is a minimal, Git-backed dotfiles manager for Linux, focused on secure, easy, and portable configuration management across machines.**
+
 <div align="center">
   <img width="300" src="dotlogo.png" alt="dotkeep">
   <h3>
@@ -13,6 +17,35 @@
     <em>dotkeep</em> simplifies tracking, versioning, and synchronizing your configuration files across machines.
   </p>
 </div>
+
+---
+
+## Why dotkeep?
+
+Unlike generic Git workflows or manual symlink scripts, **dotkeep** automates dotfile management with:
+
+* **Symlinking** and pattern-based inclusion/exclusion
+* Safety-focused default rules to prevent accidental leaks
+* Simple, consistent CLI for setup, sync, and status
+
+**dotkeep** minimizes manual effort and reduces the risk of exposing sensitive data, while remaining fully Git-compatible and easy to adopt.
+
+---
+
+## Project Status
+
+⚠️ **Actively developed — features and APIs may change. Feedback and contributions are welcome.**
+
+---
+
+## Community
+
+[![Contributors welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/tTrmc/dotkeep/issues)
+[![Good First Issue](https://img.shields.io/github/issues/good-first-issue/tTrmc/dotkeep)](https://github.com/tTrmc/dotkeep/labels/good%20first%20issue)
+
+> Looking to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) and browse [good first issues](https://github.com/tTrmc/dotkeep/labels/good%20first%20issue).
+
+---
 
 ## Features
 
@@ -37,11 +70,13 @@
 ### For End Users (Recommended)
 
 **From PyPI:**
+
 ```bash
 pip install dotkeep
 ```
 
 **Using pipx (isolated environment):**
+
 ```bash
 # Install pipx if needed
 sudo apt install pipx           # Debian/Ubuntu
@@ -55,6 +90,7 @@ pipx install dotkeep
 ### For Developers
 
 **Quick setup:**
+
 ```bash
 git clone https://github.com/tTrmc/dotkeep.git
 cd dotkeep
@@ -62,6 +98,7 @@ cd dotkeep
 ```
 
 **Manual setup:**
+
 ```bash
 git clone https://github.com/tTrmc/dotkeep.git
 cd dotkeep
@@ -77,25 +114,28 @@ dotkeep --help
 ```
 
 **Requirements:**
-- Python 3.9 or newer
-- Git
+
+* Python 3.9 or newer
+* Git
 
 ---
 
->[!CAUTION]
->**NEVER use public Git repositories with dotkeep.** Your dotfiles often contain:
->- SSH keys and certificates
->- API tokens and passwords
->- Personal file paths and system information
->- Application configurations with sensitive data
+> \[!CAUTION]
+> **NEVER use public Git repositories with dotkeep.** Your dotfiles often contain:
 >
->**Always use private repositories** or consider excluding sensitive files with dotkeep's pattern configuration.
+> * SSH keys and certificates
+> * API tokens and passwords
+> * Personal file paths and system information
+> * Application configurations with sensitive data
+>
+> **Always use private repositories** or consider excluding sensitive files with dotkeep's pattern configuration.
 
 ---
 
 ## Quick Start
 
 ### Initialize your dotkeep repository
+
 ```bash
 # Local repository only
 dotkeep init
@@ -105,6 +145,7 @@ dotkeep init --remote git@github.com:yourusername/dotfiles-private.git
 ```
 
 ### Add your first dotfile
+
 ```bash
 # Add a single file
 dotkeep add .bashrc
@@ -117,6 +158,7 @@ dotkeep add .vimrc --push
 ```
 
 ### Sync across machines
+
 ```bash
 # Pull latest changes
 dotkeep pull
@@ -132,12 +174,14 @@ dotkeep push
 ### Repository Management
 
 **Initialize:**
+
 ```bash
 dotkeep init                                                    # Local only
 dotkeep init --remote git@github.com:user/dotfiles-private.git # With remote
 ```
 
 **Sync:**
+
 ```bash
 dotkeep pull    # Fetch and merge changes
 dotkeep push    # Push local commits
@@ -146,6 +190,7 @@ dotkeep push    # Push local commits
 ### File Management
 
 **Add files:**
+
 ```bash
 dotkeep add .bashrc              # Single file
 dotkeep add .config              # Directory (recursive by default)
@@ -154,12 +199,14 @@ dotkeep add .vimrc --push        # Add and push
 ```
 
 **Remove files:**
+
 ```bash
 dotkeep delete .vimrc            # Remove file
 dotkeep delete .vimrc --push     # Remove and push
 ```
 
 **Restore files:**
+
 ```bash
 dotkeep restore .vimrc           # Restore single file
 dotkeep restore .config          # Restore directory
@@ -177,11 +224,13 @@ dotkeep version       # Show version
 ### Advanced Features
 
 **File watching:**
+
 ```bash
 dotkeep watch    # Automatically add new dotfiles in tracked directories
 ```
 
 **Shell completion:**
+
 ```bash
 dotkeep --install-completion    # Enable tab completion
 ```
@@ -237,20 +286,22 @@ dotkeep uses configurable file patterns to determine which files to track. The c
 ### Default File Patterns
 
 **Include patterns** (files that will be tracked):
-- `.*` - All dotfiles (files starting with `.`)
-- `*.conf`, `*.config`, `*.cfg`, `*.ini` - Configuration files
-- `*.toml`, `*.yaml`, `*.yml`, `*.json` - Structured config files
+
+* `.*` - All dotfiles (files starting with `.`)
+* `*.conf`, `*.config`, `*.cfg`, `*.ini` - Configuration files
+* `*.toml`, `*.yaml`, `*.yml`, `*.json` - Structured config files
 
 **Exclude patterns** (files that will be ignored):
-- `.DS_Store`, `.Trash*` - System files
-- `.cache`, `.git`, `.svn` - Cache and VCS directories  
-- `*.log`, `*.tmp` - Temporary files
+
+* `.DS_Store`, `.Trash*` - System files
+* `.cache`, `.git`, `.svn` - Cache and VCS directories
+* `*.log`, `*.tmp` - Temporary files
 
 ### Search Settings
 
-- `recursive`: Search subdirectories recursively (default: `true`)
-- `case_sensitive`: Case-sensitive pattern matching (default: `false`)
-- `follow_symlinks`: Follow symbolic links during search (default: `false`)
+* `recursive`: Search subdirectories recursively (default: `true`)
+* `case_sensitive`: Case-sensitive pattern matching (default: `false`)
+* `follow_symlinks`: Follow symbolic links during search (default: `false`)
 
 ### Customizing Configuration
 
@@ -282,12 +333,12 @@ pytest
 
 The project includes comprehensive tests with **73 passing tests** covering:
 
-- **CLI commands**: All dotkeep commands and options
-- **Core functionality**: File management, Git operations, configuration
-- **Configuration management**: Pattern matching, settings, validation  
-- **File watching**: Automatic detection and tracking of new files
-- **Error handling**: Graceful handling of edge cases and failures
-- **Environment isolation**: Tests run in isolated temporary environments
+* **CLI commands**: All dotkeep commands and options
+* **Core functionality**: File management, Git operations, configuration
+* **Configuration management**: Pattern matching, settings, validation
+* **File watching**: Automatic detection and tracking of new files
+* **Error handling**: Graceful handling of edge cases and failures
+* **Environment isolation**: Tests run in isolated temporary environments
 
 ### Development Testing
 
