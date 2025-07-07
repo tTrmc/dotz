@@ -18,15 +18,15 @@ test:  ## Run tests
 test-cov:  ## Run tests with coverage
 	pytest --cov=dotkeep --cov-report=html --cov-report=term
 
+format:  ## Format code
+	black src tests
+	isort src tests
+
 lint:  ## Run linting tools
 	flake8 src tests
 	mypy src
 	black --check src tests
 	isort --check-only src tests
-
-format:  ## Format code
-	black src tests
-	isort src tests
 
 clean:  ## Clean build artifacts
 	rm -rf build/
