@@ -35,14 +35,21 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest --cov=dotkeep --cov-report=xml
+        pytest --cov=dotkeep --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       if: matrix.python-version == '3.11'
       with:
         file: ./coverage.xml
+        token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: true
+
+    - name: Upload test results to Codecov
+      if: ${{ !cancelled() && matrix.python-version == '3.11' }}
+      uses: codecov/test-results-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     runs-on: ubuntu-latest
@@ -66,7 +73,7 @@ jobs:
         black --check src tests
         isort --check-only src tests
         flake8 src tests
-        # mypy src  # Re-enabled after adding type annotations
+        mypy src
 
   build:
     runs-on: ubuntu-latest
