@@ -5,12 +5,12 @@ set -e
 
 echo "Setting up dotkeep development environment..."
 
-# Check if Python 3.8+ is available
+# Check if Python 3.9+ is available
 python_version=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1-2)
-required_version="3.8"
+required_version="3.9"
 
-if ! python3 -c "import sys; exit(not (sys.version_info >= (3, 8)))"; then
-    echo "ERROR: Python 3.8 or higher is required. Found: Python $python_version"
+if ! python3 -c "import sys; exit(not (sys.version_info >= (3, 9)))"; then
+    echo "ERROR: Python 3.9 or higher is required. Found: Python $python_version"
     exit 1
 fi
 

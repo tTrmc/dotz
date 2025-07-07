@@ -28,7 +28,7 @@
 * **Diagnostics**: Built-in `diagnose` command for troubleshooting.
 * **Shell completion**: Tab-completion for all commands and options.
 * **Robust & testable**: Comprehensive test suite with environment isolation.
-* **Portable**: Requires only Python 3.8+ and Git.
+* **Portable**: Requires only Python 3.9+ and Git.
 
 ---
 
@@ -77,7 +77,7 @@ dotkeep --help
 ```
 
 **Requirements:**
-- Python 3.8 or newer
+- Python 3.9 or newer
 - Git
 
 ---
