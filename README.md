@@ -33,8 +33,8 @@ Unlike generic Git workflows or manual symlink scripts, **dotkeep** automates do
 ---
 
 ## Project Status
-
-⚠️ **Actively developed — features and APIs may change. Feedback and contributions are welcome.**
+> [!NOTE]
+>**Actively developed — features and APIs may change. Feedback and contributions are welcome.**
 
 ---
 
@@ -120,7 +120,7 @@ dotkeep --help
 
 ---
 
-> \[!CAUTION]
+> [!CAUTION]
 > **NEVER use public Git repositories with dotkeep.** Your dotfiles often contain:
 >
 > * SSH keys and certificates
