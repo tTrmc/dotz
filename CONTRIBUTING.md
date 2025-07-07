@@ -1,21 +1,21 @@
-# Contributing to dotkeep
+# Contributing to loom
 
-Thank you forPlease [open an issue](https://github.com/tTrmc/dotkeep/issues) for any bugs you encounter:
+Thank you forPlease [open an issue](https://github.com/tTrmc/loom/issues) for any bugs you encounter:
 - Describe the steps to reproduce.
 - Include logs or stack traces if available.
 - Mention your environment (OS, Python version, etc.).
 
 ## Suggestions & Questions
 
-For feature ideas or general questions, [open an issue](https://github.com/tTrmc/dotkeep/issues). I'll do my best to respond promptly.terest in contributing to dotkeep! I welcome all pull requests, bug reports, and feature suggestions.
+For feature ideas or general questions, [open an issue](https://github.com/tTrmc/loom/issues). I'll do my best to respond promptly.terest in contributing to loom! I welcome all pull requests, bug reports, and feature suggestions.
 
 ## Getting Started
 
 1. Fork the repository on GitHub.
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/yourusername/dotkeep.git
-   cd dotkeep
+   git clone https://github.com/yourusername/loom.git
+   cd loom
    ```
 3. Set up the development environment:
    ```bash
@@ -80,13 +80,13 @@ Once your PR is approved, it will be merged into the main branch.
 
 ## Reporting Bugs
 
-Please [open an issue](https://github.com/<yourusername>/dotkeep/issues) for any bugs you encounter:
+Please [open an issue](https://github.com/<yourusername>/loom/issues) for any bugs you encounter:
 - Describe the steps to reproduce.
 - Include logs or stack traces if available.
 - Mention your environment (OS, Python version, etc.).
 
 ## Suggestions & Questions
 
-For feature ideas or general questions, [open an issue](https://github.com/<yourusername>/dotkeep/issues). I’ll do my best to respond promptly.
+For feature ideas or general questions, [open an issue](https://github.com/<yourusername>/loom/issues). I’ll do my best to respond promptly.
 
 I appreciate your contributions!

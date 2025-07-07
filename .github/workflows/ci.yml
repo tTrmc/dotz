@@ -35,7 +35,7 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest --cov=dotkeep --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
+        pytest --cov=loom --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4

@@ -1,55 +1,21 @@
-[![PyPI version](https://badge.fury.io/py/dotkeep.svg)](https://badge.fury.io/py/dotkeep)
+[![PyPI version](https://badge.fury.io/py/loom.svg)](https://badge.fury.io/py/loom)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
-[![CI](https://github.com/tTrmc/dotkeep/workflows/CI/badge.svg)](https://github.com/tTrmc/dotkeep/actions)
-[![Last Commit](https://img.shields.io/github/last-commit/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/commits/main)
-[![GitHub issues](https://img.shields.io/github/issues/tTrmc/dotkeep.svg)](https://github.com/tTrmc/dotkeep/issues)
-
----
-
-> **dotkeep is a minimal, Git-backed dotfiles manager for Linux, focused on secure, easy, and portable configuration management across machines.**
+[![CI](https://github.com/tTrmc/loom/workflows/CI/badge.svg)](https://github.com/tTrmc/loom/actions)
+[![Last Commit](https://img.shields.io/github/last-commit/tTrmc/loom.svg)](https://github.com/tTrmc/loom/commits/main)
+[![GitHub issues](https://img.shields.io/github/issues/tTrmc/loom.svg)](https://github.com/tTrmc/loom/issues)
 
 <div align="center">
-  <img width="300" src="dotlogo.png" alt="dotkeep">
   <h3>
     A minimal <strong>dotfiles</strong> manager for Linux, backed by Git.
   </h3>
   <p>
-    <em>dotkeep</em> simplifies tracking, versioning, and synchronizing your configuration files across machines.
+    <em>loom</em> simplifies tracking, versioning, and synchronizing your configuration files across machines.
   </p>
 </div>
 
----
-
-## Why dotkeep?
-
-Unlike generic Git workflows or manual symlink scripts, **dotkeep** automates dotfile management with:
-
-* **Symlinking** and pattern-based inclusion/exclusion
-* Safety-focused default rules to prevent accidental leaks
-* Simple, consistent CLI for setup, sync, and status
-
-**dotkeep** minimizes manual effort and reduces the risk of exposing sensitive data, while remaining fully Git-compatible and easy to adopt.
-
----
-
-## Project Status
-> [!NOTE]
->**Actively developed — features and APIs may change. Feedback and contributions are welcome.**
-
----
-
-## Community
-
-[![Contributors welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/tTrmc/dotkeep/issues)
-[![Good First Issue](https://img.shields.io/github/issues/good-first-issue/tTrmc/dotkeep)](https://github.com/tTrmc/dotkeep/labels/good%20first%20issue)
-
-> Looking to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) and browse [good first issues](https://github.com/tTrmc/dotkeep/labels/good%20first%20issue).
-
----
-
 ## Features
 
-* **Easy setup**: Initialize a local dotkeep repository with a single command.
+* **Easy setup**: Initialize a local loom repository with a single command.
 * **Git-based**: Provides full version history, branching, and remote synchronization.
 * **File management**: Add and remove dotfiles with automatic symlinking.
 * **Recursive directory support**: Add all dotfiles (optionally recursively) from a directory.
@@ -70,38 +36,34 @@ Unlike generic Git workflows or manual symlink scripts, **dotkeep** automates do
 ### For End Users (Recommended)
 
 **From PyPI:**
-
 ```bash
-pip install dotkeep
+pip install loom
 ```
 
 **Using pipx (isolated environment):**
-
 ```bash
 # Install pipx if needed
 sudo apt install pipx           # Debian/Ubuntu
 # or
 sudo pacman -S python-pipx      # Arch Linux
 
-# Install dotkeep
-pipx install dotkeep
+# Install loom
+pipx install loom
 ```
 
 ### For Developers
 
 **Quick setup:**
-
 ```bash
-git clone https://github.com/tTrmc/dotkeep.git
-cd dotkeep
+git clone https://github.com/tTrmc/loom.git
+cd loom
 ./setup-dev.sh  # Sets up virtual environment and installs dependencies
 ```
 
 **Manual setup:**
-
 ```bash
-git clone https://github.com/tTrmc/dotkeep.git
-cd dotkeep
+git clone https://github.com/tTrmc/loom.git
+cd loom
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,test]"
@@ -110,61 +72,56 @@ pip install -e ".[dev,test]"
 ### Verify Installation
 
 ```bash
-dotkeep --help
+loom --help
 ```
 
 **Requirements:**
-
-* Python 3.9 or newer
-* Git
+- Python 3.9 or newer
+- Git
 
 ---
 
-> [!CAUTION]
-> **NEVER use public Git repositories with dotkeep.** Your dotfiles often contain:
+>[!CAUTION]
+>**NEVER use public Git repositories with loom.** Your dotfiles often contain:
+>- SSH keys and certificates
+>- API tokens and passwords
+>- Personal file paths and system information
+>- Application configurations with sensitive data
 >
-> * SSH keys and certificates
-> * API tokens and passwords
-> * Personal file paths and system information
-> * Application configurations with sensitive data
->
-> **Always use private repositories** or consider excluding sensitive files with dotkeep's pattern configuration.
+>**Always use private repositories** or consider excluding sensitive files with loom's pattern configuration.
 
 ---
 
 ## Quick Start
 
-### Initialize your dotkeep repository
-
+### Initialize your loom repository
 ```bash
 # Local repository only
-dotkeep init
+loom init
 
 # With private remote repository (recommended)
-dotkeep init --remote git@github.com:yourusername/dotfiles-private.git
+loom init --remote git@github.com:yourusername/dotfiles-private.git
 ```
 
 ### Add your first dotfile
-
 ```bash
 # Add a single file
-dotkeep add .bashrc
+loom add .bashrc
 
 # Add all dotfiles in a directory
-dotkeep add .config
+loom add .config
 
 # Add and push to remote
-dotkeep add .vimrc --push
+loom add .vimrc --push
 ```
 
 ### Sync across machines
-
 ```bash
 # Pull latest changes
-dotkeep pull
+loom pull
 
 # Push your changes
-dotkeep push
+loom push
 ```
 
 ---
@@ -174,65 +131,58 @@ dotkeep push
 ### Repository Management
 
 **Initialize:**
-
 ```bash
-dotkeep init                                                    # Local only
-dotkeep init --remote git@github.com:user/dotfiles-private.git # With remote
+loom init                                                    # Local only
+loom init --remote git@github.com:user/dotfiles-private.git # With remote
 ```
 
 **Sync:**
-
 ```bash
-dotkeep pull    # Fetch and merge changes
-dotkeep push    # Push local commits
+loom pull    # Fetch and merge changes
+loom push    # Push local commits
 ```
 
 ### File Management
 
 **Add files:**
-
 ```bash
-dotkeep add .bashrc              # Single file
-dotkeep add .config              # Directory (recursive by default)
-dotkeep add .config --no-recursive  # Top-level files only
-dotkeep add .vimrc --push        # Add and push
+loom add .bashrc              # Single file
+loom add .config              # Directory (recursive by default)
+loom add .config --no-recursive  # Top-level files only
+loom add .vimrc --push        # Add and push
 ```
 
 **Remove files:**
-
 ```bash
-dotkeep delete .vimrc            # Remove file
-dotkeep delete .vimrc --push     # Remove and push
+loom delete .vimrc            # Remove file
+loom delete .vimrc --push     # Remove and push
 ```
 
 **Restore files:**
-
 ```bash
-dotkeep restore .vimrc           # Restore single file
-dotkeep restore .config          # Restore directory
+loom restore .vimrc           # Restore single file
+loom restore .config          # Restore directory
 ```
 
 ### Information Commands
 
 ```bash
-dotkeep status        # Show repository status
-dotkeep list-files    # List tracked files
-dotkeep diagnose      # Troubleshoot issues
-dotkeep version       # Show version
+loom status        # Show repository status
+loom list-files    # List tracked files
+loom diagnose      # Troubleshoot issues
+loom version       # Show version
 ```
 
 ### Advanced Features
 
 **File watching:**
-
 ```bash
-dotkeep watch    # Automatically add new dotfiles in tracked directories
+loom watch    # Automatically add new dotfiles in tracked directories
 ```
 
 **Shell completion:**
-
 ```bash
-dotkeep --install-completion    # Enable tab completion
+loom --install-completion    # Enable tab completion
 ```
 
 ### Configuration Management
@@ -240,14 +190,14 @@ dotkeep --install-completion    # Enable tab completion
 Manage file patterns and search settings:
 
 ```bash
-dotkeep config show              # Show current configuration
-dotkeep config list-patterns     # List file patterns
-dotkeep config add-pattern "*.py"           # Include Python files
-dotkeep config add-pattern "*.log" --type exclude  # Exclude log files
-dotkeep config remove-pattern "*.py"        # Remove pattern
-dotkeep config set search_settings.recursive false  # Disable recursion
-dotkeep config reset             # Reset to defaults
-dotkeep config help              # Show detailed help
+loom config show              # Show current configuration
+loom config list-patterns     # List file patterns
+loom config add-pattern "*.py"           # Include Python files
+loom config add-pattern "*.log" --type exclude  # Exclude log files
+loom config remove-pattern "*.py"        # Remove pattern
+loom config set search_settings.recursive false  # Disable recursion
+loom config reset             # Reset to defaults
+loom config help              # Show detailed help
 ```
 
 ---
@@ -255,9 +205,9 @@ dotkeep config help              # Show detailed help
 ## Project Structure
 
 ```
-dotkeep/
+loom/
 ├── src/
-│   └── dotkeep/
+│   └── loom/
 │       ├── __init__.py
 │       ├── cli.py          # Typer-based CLI entry point
 │       ├── core.py         # Core logic for dotfile management
@@ -275,47 +225,45 @@ dotkeep/
 └── .gitignore              # Files and directories to exclude
 ```
 
-The `.git` folder is created inside `~/.dotkeep/repo` once you initialize dotkeep.
+The `.git` folder is created inside `~/.loom/repo` once you initialize loom.
 
 ---
 
 ## Configuration
 
-dotkeep uses configurable file patterns to determine which files to track. The configuration is stored in `~/.dotkeep/config.json`.
+loom uses configurable file patterns to determine which files to track. The configuration is stored in `~/.loom/config.json`.
 
 ### Default File Patterns
 
 **Include patterns** (files that will be tracked):
-
-* `.*` - All dotfiles (files starting with `.`)
-* `*.conf`, `*.config`, `*.cfg`, `*.ini` - Configuration files
-* `*.toml`, `*.yaml`, `*.yml`, `*.json` - Structured config files
+- `.*` - All dotfiles (files starting with `.`)
+- `*.conf`, `*.config`, `*.cfg`, `*.ini` - Configuration files
+- `*.toml`, `*.yaml`, `*.yml`, `*.json` - Structured config files
 
 **Exclude patterns** (files that will be ignored):
-
-* `.DS_Store`, `.Trash*` - System files
-* `.cache`, `.git`, `.svn` - Cache and VCS directories
-* `*.log`, `*.tmp` - Temporary files
+- `.DS_Store`, `.Trash*` - System files
+- `.cache`, `.git`, `.svn` - Cache and VCS directories  
+- `*.log`, `*.tmp` - Temporary files
 
 ### Search Settings
 
-* `recursive`: Search subdirectories recursively (default: `true`)
-* `case_sensitive`: Case-sensitive pattern matching (default: `false`)
-* `follow_symlinks`: Follow symbolic links during search (default: `false`)
+- `recursive`: Search subdirectories recursively (default: `true`)
+- `case_sensitive`: Case-sensitive pattern matching (default: `false`)
+- `follow_symlinks`: Follow symbolic links during search (default: `false`)
 
 ### Customizing Configuration
 
-Use the `dotkeep config` commands to customize which files are tracked:
+Use the `loom config` commands to customize which files are tracked:
 
 ```bash
 # Add Python files to tracking
-dotkeep config add-pattern "*.py"
+loom config add-pattern "*.py"
 
 # Exclude compiled Python files  
-dotkeep config add-pattern "*.pyc" --type exclude
+loom config add-pattern "*.pyc" --type exclude
 
 # Disable recursive search
-dotkeep config set search_settings.recursive false
+loom config set search_settings.recursive false
 ```
 
 ---
@@ -333,12 +281,12 @@ pytest
 
 The project includes comprehensive tests with **73 passing tests** covering:
 
-* **CLI commands**: All dotkeep commands and options
-* **Core functionality**: File management, Git operations, configuration
-* **Configuration management**: Pattern matching, settings, validation
-* **File watching**: Automatic detection and tracking of new files
-* **Error handling**: Graceful handling of edge cases and failures
-* **Environment isolation**: Tests run in isolated temporary environments
+- **CLI commands**: All loom commands and options
+- **Core functionality**: File management, Git operations, configuration
+- **Configuration management**: Pattern matching, settings, validation  
+- **File watching**: Automatic detection and tracking of new files
+- **Error handling**: Graceful handling of edge cases and failures
+- **Environment isolation**: Tests run in isolated temporary environments
 
 ### Development Testing
 
@@ -347,7 +295,7 @@ For development, install with test dependencies:
 ```bash
 pip install -e ".[dev,test]"  # Install with all dependencies
 pytest -v                     # Run tests with verbose output
-pytest --cov=dotkeep          # Run tests with coverage report
+pytest --cov=loom          # Run tests with coverage report
 make test-cov                 # Run tests with HTML coverage report
 ```
 

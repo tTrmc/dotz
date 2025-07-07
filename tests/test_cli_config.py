@@ -1,5 +1,5 @@
 """
-Simplified CLI tests for dotkeep configuration functionality.
+Simplified CLI tests for loom configuration functionality.
 """
 
 import os
@@ -19,11 +19,11 @@ def temp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-def run_dotkeep(
+def run_loom(
     *args: str, env: Optional[Dict[str, str]] = None
 ) -> subprocess.CompletedProcess[str]:
-    """Helper function to run dotkeep CLI commands."""
-    cmd = ["dotkeep"] + list(map(str, args))
+    """Helper function to run loom CLI commands."""
+    cmd = ["loom"] + list(map(str, args))
     return subprocess.run(cmd, capture_output=True, text=True, env=env)
 
 
@@ -35,7 +35,7 @@ class TestConfigCommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "show", env=env)
+        result = run_loom("config", "show", env=env)
         assert result.returncode == 0
 
         # Should contain JSON configuration
@@ -50,12 +50,12 @@ class TestConfigCommands:
         env["HOME"] = str(temp_home)
 
         # Add include pattern
-        result = run_dotkeep("config", "add-pattern", "*.py", env=env)
+        result = run_loom("config", "add-pattern", "*.py", env=env)
         assert result.returncode == 0
         assert "✓ Added '*.py' to include patterns" in result.stdout
 
         # Verify the change
-        result2 = run_dotkeep("config", "show", "file_patterns.include", env=env)
+        result2 = run_loom("config", "show", "file_patterns.include", env=env)
         assert "*.py" in result2.stdout
 
     def test_config_list_patterns(self, temp_home: Path) -> None:
@@ -63,7 +63,7 @@ class TestConfigCommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "list-patterns", env=env)
+        result = run_loom("config", "list-patterns", env=env)
         assert result.returncode == 0
 
         # Should show patterns in readable format
@@ -76,7 +76,7 @@ class TestConfigCommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "help", env=env)
+        result = run_loom("config", "help", env=env)
         assert result.returncode == 0
 
         # Should show comprehensive help
@@ -91,10 +91,10 @@ class TestDirectoryWithConfig:
         """Test adding directory with custom file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Add Python files to include patterns
-        run_dotkeep("config", "add-pattern", "*.py", env=env)
+        run_loom("config", "add-pattern", "*.py", env=env)
 
         # Create a directory with various files
         project_dir = temp_home / "myproject"
@@ -105,11 +105,11 @@ class TestDirectoryWithConfig:
         (project_dir / ".gitignore").write_text("*.pyc")
 
         # Add the directory
-        result = run_dotkeep("add", "myproject", env=env)
+        result = run_loom("add", "myproject", env=env)
         assert result.returncode == 0
 
         # List files to see what was added
-        result2 = run_dotkeep("list-files", env=env)
+        result2 = run_loom("list-files", env=env)
 
         # Should include Python files, config files, and dotfiles
         assert "script.py" in result2.stdout

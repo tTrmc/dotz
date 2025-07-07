@@ -17,19 +17,19 @@ def get_home_dir() -> Path:
     return Path.home()
 
 
-def get_dotkeep_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
-    """Get all dotkeep-related paths based on home directory."""
+def get_loom_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
+    """Get all loom-related paths based on home directory."""
     if home_dir is None:
         home_dir = get_home_dir()
 
-    dotkeep_dir = home_dir / ".dotkeep"
-    work_tree = dotkeep_dir / "repo"
-    tracked_dirs_file = dotkeep_dir / "tracked_dirs.json"
-    config_file = dotkeep_dir / "config.json"
+    loom_dir = home_dir / ".loom"
+    work_tree = loom_dir / "repo"
+    tracked_dirs_file = loom_dir / "tracked_dirs.json"
+    config_file = loom_dir / "config.json"
 
     return {
         "home": home_dir,
-        "dotkeep_dir": dotkeep_dir,
+        "loom_dir": loom_dir,
         "work_tree": work_tree,
         "tracked_dirs_file": tracked_dirs_file,
         "config_file": config_file,
@@ -37,9 +37,9 @@ def get_dotkeep_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
 
 
 # Global paths - can be overridden for testing
-_paths = get_dotkeep_paths()
+_paths = get_loom_paths()
 HOME = _paths["home"]
-DOTKEEP_DIR = _paths["dotkeep_dir"]
+LOOM_DIR = _paths["loom_dir"]
 WORK_TREE = _paths["work_tree"]
 TRACKED_DIRS_FILE = _paths["tracked_dirs_file"]
 CONFIG_FILE = _paths["config_file"]
@@ -81,7 +81,7 @@ def ensure_repo() -> Repo:
         return Repo(str(WORK_TREE))
     except Exception:
         typer.secho(
-            "Error: dotkeep repository not initialized. Run `dotkeep init` first.",
+            "Error: loom repository not initialized. Run `loom init` first.",
             fg=typer.colors.RED,
             err=True,
         )
@@ -129,21 +129,21 @@ def remove_tracked_dir(dir_path: Path) -> None:
 
 
 def init_repo(remote: str = "", quiet: bool = False) -> bool:
-    if DOTKEEP_DIR.exists():
+    if LOOM_DIR.exists():
         if not quiet:
             typer.secho(
-                "dotkeep already initialised at ~/.dotkeep", fg=typer.colors.YELLOW
+                "loom already initialised at ~/.loom", fg=typer.colors.YELLOW
             )
         return False
 
     if not quiet:
-        typer.secho("Initialising dotkeep...", fg=typer.colors.WHITE)
-    DOTKEEP_DIR.mkdir()
+        typer.secho("Initialising loom...", fg=typer.colors.WHITE)
+    LOOM_DIR.mkdir()
     WORK_TREE.mkdir()
 
     repo = Repo.init(str(WORK_TREE))
-    repo.git.config("user.name", "dotkeep")
-    repo.git.config("user.email", "dotkeep@example.com")
+    repo.git.config("user.name", "loom")
+    repo.git.config("user.email", "loom@example.com")
     if not quiet:
         typer.secho("Creating initial commit...", fg=typer.colors.CYAN)
     repo.git.commit("--allow-empty", "-m", "Initial commit")
@@ -162,7 +162,7 @@ def init_repo(remote: str = "", quiet: bool = False) -> bool:
 
     if not quiet:
         typer.secho(
-            "Initialised dotkeep repository in ~/.dotkeep/repo", fg=typer.colors.GREEN
+            "Initialised loom repository in ~/.loom/repo", fg=typer.colors.GREEN
         )
     return True
 
@@ -171,7 +171,7 @@ def add_dotfile(
     path: Path, push: bool = False, quiet: bool = False, recursive: bool = True
 ) -> bool:
     """
-    Add a file or directory to dotkeep, then symlink it in your home directory.
+    Add a file or directory to loom, then symlink it in your home directory.
     Set quiet=True to suppress typer.secho output (for watcher).
     """
     repo = ensure_repo()
@@ -269,7 +269,7 @@ def delete_dotfile(path: Path, push: bool = False, quiet: bool = False) -> bool:
     if not src.is_symlink():
         if not quiet:
             typer.secho(
-                f"Error: {src} is not a symlink managed by dotkeep.",
+                f"Error: {src} is not a symlink managed by loom.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -281,7 +281,7 @@ def delete_dotfile(path: Path, push: bool = False, quiet: bool = False) -> bool:
     if not dest.exists():
         if not quiet:
             typer.secho(
-                f"Error: {dest} does not exist in the dotkeep repository.",
+                f"Error: {dest} does not exist in the loom repository.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -336,7 +336,7 @@ def restore_dotfile(path: Path, quiet: bool = False, push: bool = False) -> bool
     if not dest.exists():
         if not quiet:
             typer.secho(
-                f"Error: {rel} is not tracked by dotkeep.",
+                f"Error: {rel} is not tracked by loom.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -389,7 +389,7 @@ def pull_repo(quiet: bool = False) -> bool:
         if not quiet:
             typer.secho(
                 "Error: No 'origin' remote found. Please set one with "
-                "`dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
+                "`loom init --remote <URL>` or `git remote add origin <URL>`.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -406,7 +406,7 @@ def pull_repo(quiet: bool = False) -> bool:
         if "no tracking information" in msg.lower():
             typer.secho(
                 "Error: No tracking branch set for this branch.\n"
-                "Run: git -C ~/.dotkeep/repo branch "
+                "Run: git -C ~/.loom/repo branch "
                 "--set-upstream-to=origin/<branch> <branch>",
                 fg=typer.colors.RED,
                 err=True,
@@ -418,9 +418,9 @@ def pull_repo(quiet: bool = False) -> bool:
             typer.secho(
                 "Error: Local and remote branches have diverged.\n"
                 "You need to reconcile them. Try one of the following:\n"
-                "  git -C ~/.dotkeep/repo pull --rebase\n"
-                "  git -C ~/.dotkeep/repo pull --no-rebase\n"
-                "  git -C ~/.dotkeep/repo pull --ff-only",
+                "  git -C ~/.loom/repo pull --rebase\n"
+                "  git -C ~/.loom/repo pull --no-rebase\n"
+                "  git -C ~/.loom/repo pull --ff-only",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -439,7 +439,7 @@ def push_repo(quiet: bool = False) -> bool:
         if not quiet:
             typer.secho(
                 "Error: No 'origin' remote found. Please set one with "
-                "`dotkeep init --remote <URL>` or `git remote add origin <URL>`.",
+                "`loom init --remote <URL>` or `git remote add origin <URL>`.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -467,7 +467,7 @@ def push_repo(quiet: bool = False) -> bool:
                         typer.secho(
                             "Error: Push rejected (non-fast-forward). You may "
                             "need to pull first:\n"
-                            "  git -C ~/.dotkeep/repo pull --rebase\n"
+                            "  git -C ~/.loom/repo pull --rebase\n"
                             "Or resolve conflicts and try again.",
                             fg=typer.colors.RED,
                             err=True,
@@ -490,7 +490,7 @@ def push_repo(quiet: bool = False) -> bool:
         ):
             typer.secho(
                 "Error: No upstream branch set for this branch.\n"
-                "Run: git -C ~/.dotkeep/repo branch "
+                "Run: git -C ~/.loom/repo branch "
                 "--set-upstream-to=origin/<branch> <branch>",
                 fg=typer.colors.RED,
                 err=True,
@@ -524,7 +524,7 @@ def get_repo_status() -> Dict[str, List[str]]:
         except Exception:
             pass
 
-    # Dotfiles in $HOME not tracked by dotkeep
+    # Dotfiles in $HOME not tracked by loom
     config = load_config()
     home_config_files = find_config_files(HOME, config, recursive=False)
     home_config_file_names = [f.name for f in home_config_files]
@@ -583,7 +583,7 @@ def load_config() -> Dict[str, Any]:
 
 def save_config(config: Dict[str, Any]) -> None:
     """Save configuration to config file."""
-    DOTKEEP_DIR.mkdir(exist_ok=True)
+    LOOM_DIR.mkdir(exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
 
@@ -785,10 +785,10 @@ def reset_config(quiet: bool = False) -> bool:
 
 def update_paths(home_dir: Optional[Path] = None) -> None:
     """Update global paths. Useful for testing or when HOME changes."""
-    global HOME, DOTKEEP_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE
-    paths = get_dotkeep_paths(home_dir)
+    global HOME, LOOM_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE
+    paths = get_loom_paths(home_dir)
     HOME = paths["home"]
-    DOTKEEP_DIR = paths["dotkeep_dir"]
+    LOOM_DIR = paths["loom_dir"]
     WORK_TREE = paths["work_tree"]
     TRACKED_DIRS_FILE = paths["tracked_dirs_file"]
     CONFIG_FILE = paths["config_file"]

@@ -10,7 +10,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in dotkeep, please report it by emailing **salemmoustafa442@gmail.com**.
+If you discover a security vulnerability in loom, please report it by emailing **salemmoustafa442@gmail.com**.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
@@ -29,7 +29,7 @@ When reporting a vulnerability, please include:
 
 ## Security Considerations
 
-dotkeep manages sensitive configuration files that may contain:
+loom manages sensitive configuration files that may contain:
 - API keys and tokens
 - Database credentials
 - SSH keys
@@ -37,7 +37,7 @@ dotkeep manages sensitive configuration files that may contain:
 
 ### Best Practices for Users
 
-1. **Review files before adding**: Always review what files you're adding to dotkeep
+1. **Review files before adding**: Always review what files you're adding to loom
 2. **Use private repositories**: If syncing to a remote, ensure your repository is private
 3. **Rotate sensitive credentials**: Regularly rotate any credentials stored in config files
 4. **Limit repository access**: Only grant access to trusted collaborators
@@ -45,13 +45,13 @@ dotkeep manages sensitive configuration files that may contain:
 
 ### Security Features
 
-- dotkeep operates locally and only syncs when explicitly requested
+- loom operates locally and only syncs when explicitly requested
 - No automatic cloud syncing without user consent
 - Git-based versioning provides audit trail of all changes
 - Symlink-based approach preserves file permissions
 
 ## Scope
 
-This security policy applies to the dotkeep project hosted at https://github.com/tTrmc/dotkeep.
+This security policy applies to the loom project hosted at https://github.com/tTrmc/loom.
 
-Thank you for helping keep dotkeep secure!
+Thank you for helping keep loom secure!

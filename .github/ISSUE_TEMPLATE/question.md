@@ -1,6 +1,6 @@
 ---
 name: Question or Help
-about: Ask a question about using dotkeep
+about: Ask a question about using loom
 title: '[QUESTION] '
 labels: 'question'
 assignees: ''
@@ -18,7 +18,7 @@ List the steps or commands you've already attempted:
 
 **Environment:**
 - OS: [e.g. Ubuntu 22.04]
-- dotkeep version: [e.g. 0.3.0]
+- loom version: [e.g. 0.3.0]
 
 **Additional context**
 Add any other context, configuration, or examples that might help us assist you.

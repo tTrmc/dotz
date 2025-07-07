@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for dotkeep
+about: Suggest an idea for loom
 title: '[FEATURE] '
 labels: 'enhancement'
 assignees: ''

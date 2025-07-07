@@ -25,24 +25,24 @@ from .core import (
 )
 from .watcher import main as watcher_main
 
-app = typer.Typer(help="dotkeep - a Git-backed dot-files manager")
+app = typer.Typer(help="loom - a Git-backed dot-files manager")
 
 
 def get_cli_paths() -> Tuple[Path, Path, Path]:
     """Get CLI-related paths based on current home directory."""
     home = get_home_dir()
-    dotkeep_dir = home / ".dotkeep"
-    work_tree = dotkeep_dir / "repo"
-    return home, dotkeep_dir, work_tree
+    loom_dir = home / ".loom"
+    work_tree = loom_dir / "repo"
+    return home, loom_dir, work_tree
 
 
-HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
+HOME, LOOM_DIR, WORK_TREE = get_cli_paths()
 
 
 def refresh_cli_paths() -> None:
     """Refresh CLI paths when HOME environment changes."""
-    global HOME, DOTKEEP_DIR, WORK_TREE
-    HOME, DOTKEEP_DIR, WORK_TREE = get_cli_paths()
+    global HOME, LOOM_DIR, WORK_TREE
+    HOME, LOOM_DIR, WORK_TREE = get_cli_paths()
 
 
 @app.command()
@@ -61,9 +61,9 @@ def init(
     ] = False,
 ) -> None:
     if not non_interactive and not remote:
-        typer.secho("dotkeep Interactive Setup", fg=typer.colors.CYAN, bold=True)
+        typer.secho("loom Interactive Setup", fg=typer.colors.CYAN, bold=True)
         typer.echo(
-            "Welcome! Let's configure your dotkeep repository for managing dotfiles.\n"
+            "Welcome! Let's configure your loom repository for managing dotfiles.\n"
         )
 
         # Remote URL configuration
@@ -118,7 +118,7 @@ def init(
         )
 
         typer.echo()
-        typer.secho("Initializing dotkeep repository...", fg=typer.colors.CYAN)
+        typer.secho("Initializing loom repository...", fg=typer.colors.CYAN)
     else:
         setup_dotfiles = False
 
@@ -160,7 +160,7 @@ def init(
                 typer.echo(f"  • {f}")
 
             if typer.confirm(
-                f"\nAdd these {len(found_files)} files to dotkeep?", default=True
+                f"\nAdd these {len(found_files)} files to loom?", default=True
             ):
                 added_count = 0
                 for dotfile in found_files:
@@ -190,7 +190,7 @@ def init(
                 "No common dotfiles found in your home directory.",
                 fg=typer.colors.YELLOW,
             )
-            typer.echo("You can add dotfiles later with: dotkeep add <filename>")
+            typer.echo("You can add dotfiles later with: loom add <filename>")
 
     # Show completion message
     typer.echo()
@@ -201,19 +201,19 @@ def init(
             "Next steps:",
             fg=typer.colors.CYAN,
         )
-        typer.echo("  • Add more dotfiles: dotkeep add <filename>")
-        typer.echo("  • Push to remote: dotkeep push")
-        typer.echo("  • Check status: dotkeep status")
+        typer.echo("  • Add more dotfiles: loom add <filename>")
+        typer.echo("  • Push to remote: loom push")
+        typer.echo("  • Check status: loom status")
     else:
         typer.secho(
             "Next steps:",
             fg=typer.colors.CYAN,
         )
-        typer.echo("  • Add dotfiles: dotkeep add <filename>")
+        typer.echo("  • Add dotfiles: loom add <filename>")
         typer.echo(
-            "  • Add remote later: git -C ~/.dotkeep/repo remote add origin <url>"
+            "  • Add remote later: git -C ~/.loom/repo remote add origin <url>"
         )
-        typer.echo("  • Check status: dotkeep status")
+        typer.echo("  • Check status: loom status")
 
 
 @app.command()
@@ -239,7 +239,7 @@ def add(
         bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
     ] = False,
 ) -> None:
-    """Add a file or directory to dotkeep, then symlink it in your home directory."""
+    """Add a file or directory to loom, then symlink it in your home directory."""
     success = add_dotfile(path, push=push, quiet=quiet, recursive=recursive)
     if not success:
         raise typer.Exit(code=1)
@@ -256,7 +256,7 @@ def delete(
     ] = False,
 ) -> None:
     """
-    Remove a dotkeep-managed file or directory and delete the symlink in your
+    Remove a loom-managed file or directory and delete the symlink in your
     home directory.
     """
     success = delete_dotfile(path, push=push, quiet=quiet)
@@ -267,12 +267,12 @@ def delete(
 @app.command()
 def status() -> None:
     """
-    Show the status of your dotkeep repo (untracked, modified, staged), and
-    dotfiles in $HOME not tracked by dotkeep.
+    Show the status of your loom repo (untracked, modified, staged), and
+    dotfiles in $HOME not tracked by loom.
     """
     status = get_repo_status()
 
-    typer.secho("Status of dotkeep repository:", fg=typer.colors.WHITE)
+    typer.secho("Status of loom repository:", fg=typer.colors.WHITE)
 
     if not status["untracked"] and not status["modified"] and not status["staged"]:
         typer.secho("✓ No changes", fg=typer.colors.GREEN)
@@ -297,7 +297,7 @@ def status() -> None:
 
     if status["untracked_home_dotfiles"]:
         typer.secho(
-            "Dotfiles in $HOME not tracked by dotkeep:", fg=typer.colors.MAGENTA
+            "Dotfiles in $HOME not tracked by loom:", fg=typer.colors.MAGENTA
         )
         for f in status["untracked_home_dotfiles"]:
             typer.secho(f"  - {f}", fg=typer.colors.MAGENTA)
@@ -306,14 +306,14 @@ def status() -> None:
 @app.command()
 def list_files() -> None:
     """
-    List all files currently tracked by dotkeep.
+    List all files currently tracked by loom.
     """
     tracked_files = list_tracked_files()
     if not tracked_files:
-        typer.secho("No files tracked by dotkeep.", fg=typer.colors.YELLOW)
+        typer.secho("No files tracked by loom.", fg=typer.colors.YELLOW)
         return
 
-    typer.secho("Files tracked by dotkeep:", fg=typer.colors.WHITE)
+    typer.secho("Files tracked by loom:", fg=typer.colors.WHITE)
     for f in tracked_files:
         typer.secho(f"  - {f}", fg=typer.colors.YELLOW)
 
@@ -334,7 +334,7 @@ def restore(
     ] = False,
 ) -> None:
     """
-    Restore a dotfile or directory from the dotkeep repository to your home directory.
+    Restore a dotfile or directory from the loom repository to your home directory.
     Overwrites any existing file or symlink at that location.
     """
     success = restore_dotfile(path, quiet=quiet, push=push)
@@ -349,7 +349,7 @@ def pull(
     ] = False,
 ) -> None:
     """
-    Pull the latest changes from the 'origin' remote into the local dotkeep repository.
+    Pull the latest changes from the 'origin' remote into the local loom repository.
     """
     success = pull_repo(quiet=quiet)
     if not success:
@@ -385,8 +385,8 @@ def watch() -> None:
 
 @app.command()
 def version() -> None:
-    """Show dotkeep version."""
-    typer.secho("dotkeep version 0.3.0", fg=typer.colors.GREEN)
+    """Show loom version."""
+    typer.secho("loom version 0.3.0", fg=typer.colors.GREEN)
 
 
 @app.command()
@@ -394,31 +394,31 @@ def completion() -> None:
     """
     Show instructions for enabling shell completion.
     """
-    typer.echo("Run: dotkeep --install-completion")
+    typer.echo("Run: loom --install-completion")
 
 
 @app.command()
 def diagnose() -> None:
     """
-    Diagnose common dotkeep and git issues and print helpful advice.
+    Diagnose common loom and git issues and print helpful advice.
     """
     from git import InvalidGitRepositoryError
 
-    typer.secho("Running dotkeep diagnostics...\n", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Running loom diagnostics...\n", fg=typer.colors.WHITE, bold=True)
 
     # Check repo existence
-    if not DOTKEEP_DIR.exists() or not WORK_TREE.exists():
-        typer.secho("ERROR: dotkeep repo not initialized.", fg=typer.colors.RED)
-        typer.secho("Run: dotkeep init", fg=typer.colors.YELLOW)
+    if not LOOM_DIR.exists() or not WORK_TREE.exists():
+        typer.secho("ERROR: loom repo not initialized.", fg=typer.colors.RED)
+        typer.secho("Run: loom init", fg=typer.colors.YELLOW)
         return
 
     # Check if .git exists
     git_dir = WORK_TREE / ".git"
     if not git_dir.exists():
         typer.secho(
-            "ERROR: No .git directory found in dotkeep repo.", fg=typer.colors.RED
+            "ERROR: No .git directory found in loom repo.", fg=typer.colors.RED
         )
-        typer.secho("Try re-initializing with: dotkeep init", fg=typer.colors.YELLOW)
+        typer.secho("Try re-initializing with: loom init", fg=typer.colors.YELLOW)
         return
 
     # Try loading the repo
@@ -426,7 +426,7 @@ def diagnose() -> None:
         repo = Repo(str(WORK_TREE))
     except InvalidGitRepositoryError:
         typer.secho(
-            "ERROR: Invalid git repository in dotkeep repo.", fg=typer.colors.RED
+            "ERROR: Invalid git repository in loom repo.", fg=typer.colors.RED
         )
         return
 
@@ -435,7 +435,7 @@ def diagnose() -> None:
     if not remotes:
         typer.secho("WARNING: No git remote set.", fg=typer.colors.YELLOW)
         typer.secho(
-            "Set one with: git -C ~/.dotkeep/repo remote add origin <url>",
+            "Set one with: git -C ~/.loom/repo remote add origin <url>",
             fg=typer.colors.YELLOW,
         )
     else:
@@ -454,7 +454,7 @@ def diagnose() -> None:
                 fg=typer.colors.YELLOW,
             )
             typer.secho(
-                f"Set upstream with: git -C ~/.dotkeep/repo branch "
+                f"Set upstream with: git -C ~/.loom/repo branch "
                 f"--set-upstream-to=origin/{branch.name} {branch.name}",
                 fg=typer.colors.YELLOW,
             )
@@ -472,20 +472,20 @@ def diagnose() -> None:
     # Check for uncommitted changes
     if repo.is_dirty(untracked_files=True):
         typer.secho(
-            "WARNING: There are uncommitted changes in your dotkeep repo.",
+            "WARNING: There are uncommitted changes in your loom repo.",
             fg=typer.colors.YELLOW,
         )
-        typer.secho("Run: dotkeep status", fg=typer.colors.YELLOW)
+        typer.secho("Run: loom status", fg=typer.colors.YELLOW)
     else:
         typer.secho("✓ No uncommitted changes.", fg=typer.colors.GREEN)
 
     # Check tracked directories
-    tracked_dirs_file = DOTKEEP_DIR / "tracked_dirs.json"
+    tracked_dirs_file = LOOM_DIR / "tracked_dirs.json"
     if not tracked_dirs_file.exists() or not json.loads(
         tracked_dirs_file.read_text() or "[]"
     ):
         typer.secho("WARNING: No tracked directories found.", fg=typer.colors.YELLOW)
-        typer.secho("Add one with: dotkeep add <directory>", fg=typer.colors.YELLOW)
+        typer.secho("Add one with: loom add <directory>", fg=typer.colors.YELLOW)
     else:
         dirs = json.loads(tracked_dirs_file.read_text())
         typer.secho(f"✓ Tracked directories: {', '.join(dirs)}", fg=typer.colors.GREEN)
@@ -494,7 +494,7 @@ def diagnose() -> None:
 
 
 # Configuration management commands
-config_app = typer.Typer(help="Manage dotkeep configuration")
+config_app = typer.Typer(help="Manage loom configuration")
 app.add_typer(config_app, name="config")
 
 
@@ -608,7 +608,7 @@ def config_list_patterns() -> None:
 @config_app.command("help")
 def config_help() -> None:
     """Show detailed help for configuration management."""
-    typer.secho("Dotkeep Configuration Help", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Loom Configuration Help", fg=typer.colors.WHITE, bold=True)
     typer.secho("=" * 50, fg=typer.colors.WHITE)
 
     typer.secho("\nFile Patterns:", fg=typer.colors.YELLOW, bold=True)
@@ -626,14 +626,14 @@ def config_help() -> None:
     typer.echo("  follow_symlinks: Whether to follow symbolic links")
 
     typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
-    typer.echo("  dotkeep config add-pattern '*.py'        # Track Python files")
-    typer.echo("  dotkeep config add-pattern '.env*'       # Track environment files")
-    typer.echo("  dotkeep config add-pattern '*.log' -t exclude  # Ignore log files")
+    typer.echo("  loom config add-pattern '*.py'        # Track Python files")
+    typer.echo("  loom config add-pattern '.env*'       # Track environment files")
+    typer.echo("  loom config add-pattern '*.log' -t exclude  # Ignore log files")
     typer.echo(
-        "  dotkeep config set search_settings.recursive false  "
+        "  loom config set search_settings.recursive false  "
         "# Disable recursive search"
     )
-    typer.echo("  dotkeep config show file_patterns.include  # Show include patterns")
+    typer.echo("  loom config show file_patterns.include  # Show include patterns")
 
     typer.secho("\nDefault patterns include:", fg=typer.colors.CYAN)
     typer.echo("  Dotfiles (.*), config files (*.conf, *.config, *.cfg, *.ini)")
@@ -644,7 +644,7 @@ def config_help() -> None:
     typer.echo("  Temporary files (*.log, *.tmp)")
 
     typer.secho("\nConfiguration is stored in:", fg=typer.colors.MAGENTA)
-    typer.echo("  ~/.dotkeep/config.json")
+    typer.echo("  ~/.loom/config.json")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 """
-Core functionality tests for dotkeep.
+Core functionality tests for loom.
 Tests the core module functions like add_dotfile, init_repo, etc.
 """
 
@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import pytest
 
-import dotkeep.core as core
-from dotkeep.core import (
+import loom.core as core
+from loom.core import (
     DEFAULT_CONFIG,
     add_dotfile,
     add_file_pattern,
@@ -30,25 +30,25 @@ from dotkeep.core import (
 
 
 class TestCoreBasicFunctionality:
-    """Test basic dotkeep core functionality."""
+    """Test basic loom core functionality."""
 
     def test_init_repo(self, temp_home: Path) -> None:
         """Test repository initialization."""
         result = init_repo(quiet=True)
         assert result is True
 
-        dotkeep_dir = temp_home / ".dotkeep"
-        work_tree = dotkeep_dir / "repo"
-        assert dotkeep_dir.exists()
+        loom_dir = temp_home / ".loom"
+        work_tree = loom_dir / "repo"
+        assert loom_dir.exists()
         assert work_tree.exists()
 
         # Second init should return False
         result2 = init_repo(quiet=True)
         assert result2 is False
 
-    def test_add_single_dotfile(self, initialized_dotkeep: Path) -> None:
+    def test_add_single_dotfile(self, initialized_loom: Path) -> None:
         """Test adding a single dotfile."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Create a dotfile
         dotfile = home / ".bashrc"
@@ -60,12 +60,12 @@ class TestCoreBasicFunctionality:
 
         # Check that file was moved and symlinked
         assert dotfile.is_symlink()
-        work_tree = home / ".dotkeep" / "repo"
+        work_tree = home / ".loom" / "repo"
         assert (work_tree / ".bashrc").exists()
 
-    def test_add_directory_recursive(self, initialized_dotkeep: Path) -> None:
+    def test_add_directory_recursive(self, initialized_loom: Path) -> None:
         """Test adding a directory with dotfiles recursively."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Create a directory with dotfiles
         config_dir = home / ".config"
@@ -82,7 +82,7 @@ class TestCoreBasicFunctionality:
         assert result is True
 
         # Check files were added based on default patterns
-        repo_dir = home / ".dotkeep" / "repo"
+        repo_dir = home / ".loom" / "repo"
         assert (repo_dir / ".config" / ".gitconfig").exists()
         assert (repo_dir / ".config" / "app.conf").exists()  # matches *.conf pattern
         assert (repo_dir / ".config" / "subdir" / ".hidden").exists()
@@ -96,11 +96,11 @@ class TestConfigurationSystem:
 
         # Patch paths
         original_config_file = core.CONFIG_FILE
-        original_dotkeep_dir = core.DOTKEEP_DIR
+        original_loom_dir = core.LOOM_DIR
 
         try:
-            core.DOTKEEP_DIR = temp_home / ".dotkeep"
-            core.CONFIG_FILE = core.DOTKEEP_DIR / "config.json"
+            core.LOOM_DIR = temp_home / ".loom"
+            core.CONFIG_FILE = core.LOOM_DIR / "config.json"
 
             # Ensure no config file exists
             if core.CONFIG_FILE.exists():
@@ -110,7 +110,7 @@ class TestConfigurationSystem:
             assert config == DEFAULT_CONFIG
         finally:
             core.CONFIG_FILE = original_config_file
-            core.DOTKEEP_DIR = original_dotkeep_dir
+            core.LOOM_DIR = original_loom_dir
 
     def test_save_and_load_config(self, temp_home: Path) -> None:
         """Test saving and loading custom configuration."""
@@ -316,7 +316,7 @@ class TestErrorHandling:
     def test_load_config_with_invalid_json(self, temp_home: Path) -> None:
         """Test loading config when JSON is invalid."""
         # Create invalid config file
-        config_file = temp_home / ".dotkeep" / "config.json"
+        config_file = temp_home / ".loom" / "config.json"
         config_file.parent.mkdir(exist_ok=True)
         config_file.write_text("invalid json {")
 

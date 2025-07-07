@@ -1,4 +1,4 @@
-# Makefile for dotkeep development
+# Makefile for loom development
 
 .PHONY: help install install-dev test test-cov lint format clean build upload
 
@@ -16,7 +16,7 @@ test:  ## Run tests
 	pytest
 
 test-cov:  ## Run tests with coverage
-	pytest --cov=dotkeep --cov-report=html --cov-report=term
+	pytest --cov=loom --cov-report=html --cov-report=term
 
 format:  ## Format code
 	black src tests

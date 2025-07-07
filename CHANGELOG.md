@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Note**: This project was renamed from "dotkeep" to "loom" starting with version 0.4.0. 
+> Historical entries below may reference the old "dotkeep" command name.
+
 ## [Unreleased]
+
+### Changed
+- **BREAKING**: Project renamed from "dotkeep" to "loom"
+- Command changed from `dotkeep` to `loom`
+- Configuration directory changed from `~/.dotkeep` to `~/.loom`
+- Package name changed from `dotkeep` to `loom`
 
 ### Added
 - Future features will be listed here

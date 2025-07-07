@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dotkeep"
+name = "loom"
 version = "0.3.0"
-description = "dotkeep is a minimal, Git-backed dotfiles manager for Linux"
+description = "loom is a minimal, Git-backed dotfiles manager for Linux"
 requires-python = ">=3.9"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -53,14 +53,14 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tTrmc/dotkeep"
-Repository = "https://github.com/tTrmc/dotkeep"
-Documentation = "https://github.com/tTrmc/dotkeep#readme"
-Issues = "https://github.com/tTrmc/dotkeep/issues"
-Changelog = "https://github.com/tTrmc/dotkeep/releases"
+Homepage = "https://github.com/tTrmc/loom"
+Repository = "https://github.com/tTrmc/loom"
+Documentation = "https://github.com/tTrmc/loom#readme"
+Issues = "https://github.com/tTrmc/loom/issues"
+Changelog = "https://github.com/tTrmc/loom/releases"
 
 [project.scripts]
-dotkeep = "dotkeep.cli:app"
+loom = "loom.cli:app"
 
 # Tool configurations
 [tool.setuptools]
@@ -70,7 +70,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-dotkeep = ["py.typed"]
+loom = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -155,7 +155,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "dotkeep.*",
+    "loom.*",
 ]
 ignore_missing_imports = true
 

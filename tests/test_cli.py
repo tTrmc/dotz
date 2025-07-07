@@ -1,5 +1,5 @@
 """
-CLI tests for dotkeep.
+CLI tests for loom.
 Tests the command-line interface and integration with core functionality.
 """
 
@@ -21,17 +21,17 @@ def temp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    dotkeep = home / ".dotkeep"
-    if dotkeep.exists():
-        shutil.rmtree(dotkeep)
+    loom = home / ".loom"
+    if loom.exists():
+        shutil.rmtree(loom)
     return home
 
 
-def run_dotkeep(
+def run_loom(
     *args: str, env: Optional[Dict[str, str]] = None
 ) -> subprocess.CompletedProcess[str]:
-    """Helper function to run dotkeep CLI commands."""
-    cmd = ["dotkeep"] + list(map(str, args))
+    """Helper function to run loom CLI commands."""
+    cmd = ["loom"] + list(map(str, args))
     return subprocess.run(cmd, capture_output=True, text=True, env=env)
 
 
@@ -43,13 +43,13 @@ class TestBasicCLICommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("init", "--non-interactive", env=env)
+        result = run_loom("init", "--non-interactive", env=env)
         assert result.returncode == 0
-        assert "Initialising dotkeep..." in result.stdout
+        assert "Initialising loom..." in result.stdout
         assert "Created empty initial commit" in result.stdout
 
         # Second init should warn and exit
-        result2 = run_dotkeep("init", "--non-interactive", env=env)
+        result2 = run_loom("init", "--non-interactive", env=env)
         assert result2.returncode != 0
         assert "already initialised" in result2.stdout
 
@@ -57,37 +57,37 @@ class TestBasicCLICommands:
         """Test add, list-files, and status commands."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create a fake dotfile
         dotfile = temp_home / ".bashrc"
         dotfile.write_text("export TEST=1\n")
 
         # Add the file
-        result = run_dotkeep("add", ".bashrc", env=env)
+        result = run_loom("add", ".bashrc", env=env)
         assert result.returncode == 0
         assert "Added .bashrc" in result.stdout
 
         # List files
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        result2 = run_dotkeep("list-files", env=env)
+        result2 = run_loom("list-files", env=env)
         assert ".bashrc" in result2.stdout
 
         # Status should show no changes
-        result3 = run_dotkeep("status", env=env)
+        result3 = run_loom("status", env=env)
         assert "No changes" in result3.stdout
 
     def test_restore_and_delete(self, temp_home: Path) -> None:
         """Test restore and delete commands."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create and add a dotfile
         dotfile = temp_home / ".vimrc"
         dotfile.write_text("set number\n")
-        run_dotkeep("add", ".vimrc", env=env)
+        run_loom("add", ".vimrc", env=env)
 
         # Remove the symlink to simulate accidental deletion
         symlink = temp_home / ".vimrc"
@@ -95,30 +95,30 @@ class TestBasicCLICommands:
             symlink.unlink()
 
         # Restore the file
-        result = run_dotkeep("restore", ".vimrc", env=env)
+        result = run_loom("restore", ".vimrc", env=env)
         assert result.returncode == 0
         assert "✓ Restored .vimrc" in result.stdout
         assert (temp_home / ".vimrc").exists()
 
-        # Delete the file from dotkeep
-        result2 = run_dotkeep("delete", ".vimrc", env=env)
+        # Delete the file from loom
+        result2 = run_loom("delete", ".vimrc", env=env)
         assert result2.returncode == 0
         assert "✓ Removed .vimrc" in result2.stdout
 
         # Now restore should fail
-        result3 = run_dotkeep("restore", ".vimrc", env=env)
+        result3 = run_loom("restore", ".vimrc", env=env)
         assert result3.returncode != 0
         output = result3.stdout + result3.stderr
-        assert "is not tracked by dotkeep" in output
+        assert "is not tracked by loom" in output
 
     def test_add_nonexistent_file(self, temp_home: Path) -> None:
         """Test adding a file that doesn't exist."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Try to add a file that doesn't exist
-        result = run_dotkeep("add", ".nonexistent", env=env)
+        result = run_loom("add", ".nonexistent", env=env)
         assert result.returncode != 0
         assert "not found" in result.stderr or "not found" in result.stdout
 
@@ -131,7 +131,7 @@ class TestConfigCLICommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "show", env=env)
+        result = run_loom("config", "show", env=env)
         assert result.returncode == 0
 
         # Should contain JSON configuration
@@ -145,7 +145,7 @@ class TestConfigCLICommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "show", "file_patterns.include", env=env)
+        result = run_loom("config", "show", "file_patterns.include", env=env)
         assert result.returncode == 0
 
         # Should show the include patterns array
@@ -157,7 +157,7 @@ class TestConfigCLICommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "show", "nonexistent.key", env=env)
+        result = run_loom("config", "show", "nonexistent.key", env=env)
         assert result.returncode == 1
         assert "not found" in result.stderr
 
@@ -167,14 +167,14 @@ class TestConfigCLICommands:
         env["HOME"] = str(temp_home)
 
         # Set a boolean value
-        result = run_dotkeep(
+        result = run_loom(
             "config", "set", "search_settings.recursive", "false", env=env
         )
         assert result.returncode == 0
         assert "✓ Set search_settings.recursive = False" in result.stdout
 
         # Verify the change
-        result2 = run_dotkeep("config", "show", "search_settings.recursive", env=env)
+        result2 = run_loom("config", "show", "search_settings.recursive", env=env)
         assert "False" in result2.stdout or "false" in result2.stdout
 
     def test_config_add_pattern(self, temp_home: Path) -> None:
@@ -183,22 +183,22 @@ class TestConfigCLICommands:
         env["HOME"] = str(temp_home)
 
         # Add include pattern
-        result = run_dotkeep("config", "add-pattern", "*.py", env=env)
+        result = run_loom("config", "add-pattern", "*.py", env=env)
         assert result.returncode == 0
         assert "✓ Added '*.py' to include patterns" in result.stdout
 
         # Add exclude pattern
-        result2 = run_dotkeep(
+        result2 = run_loom(
             "config", "add-pattern", "*.pyc", "--type", "exclude", env=env
         )
         assert result2.returncode == 0
         assert "✓ Added '*.pyc' to exclude patterns" in result2.stdout
 
         # Verify the changes
-        result3 = run_dotkeep("config", "show", "file_patterns.include", env=env)
+        result3 = run_loom("config", "show", "file_patterns.include", env=env)
         assert "*.py" in result3.stdout
 
-        result4 = run_dotkeep("config", "show", "file_patterns.exclude", env=env)
+        result4 = run_loom("config", "show", "file_patterns.exclude", env=env)
         assert "*.pyc" in result4.stdout
 
     def test_config_remove_pattern(self, temp_home: Path) -> None:
@@ -207,15 +207,15 @@ class TestConfigCLICommands:
         env["HOME"] = str(temp_home)
 
         # First add a pattern
-        run_dotkeep("config", "add-pattern", "*.test", env=env)
+        run_loom("config", "add-pattern", "*.test", env=env)
 
         # Then remove it
-        result = run_dotkeep("config", "remove-pattern", "*.test", env=env)
+        result = run_loom("config", "remove-pattern", "*.test", env=env)
         assert result.returncode == 0
         assert "✓ Removed '*.test' from include patterns" in result.stdout
 
         # Try to remove non-existent pattern
-        result2 = run_dotkeep("config", "remove-pattern", "*.nonexistent", env=env)
+        result2 = run_loom("config", "remove-pattern", "*.nonexistent", env=env)
         assert result2.returncode == 1  # Should fail when pattern not found
         assert "not found" in result2.stdout
 
@@ -224,7 +224,7 @@ class TestConfigCLICommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "list-patterns", env=env)
+        result = run_loom("config", "list-patterns", env=env)
         assert result.returncode == 0
 
         # Should show patterns in readable format
@@ -240,19 +240,19 @@ class TestConfigCLICommands:
         env["HOME"] = str(temp_home)
 
         # Make some changes
-        run_dotkeep("config", "add-pattern", "*.custom", env=env)
-        run_dotkeep("config", "set", "search_settings.recursive", "false", env=env)
+        run_loom("config", "add-pattern", "*.custom", env=env)
+        run_loom("config", "set", "search_settings.recursive", "false", env=env)
 
         # Reset with confirmation
-        result = run_dotkeep("config", "reset", "--yes", env=env)
+        result = run_loom("config", "reset", "--yes", env=env)
         assert result.returncode == 0
         assert "✓ Configuration reset to defaults" in result.stdout
 
         # Verify reset worked
-        result2 = run_dotkeep("config", "show", "file_patterns.include", env=env)
+        result2 = run_loom("config", "show", "file_patterns.include", env=env)
         assert "*.custom" not in result2.stdout
 
-        result3 = run_dotkeep("config", "show", "search_settings.recursive", env=env)
+        result3 = run_loom("config", "show", "search_settings.recursive", env=env)
         assert "True" in result3.stdout or "true" in result3.stdout
 
     def test_config_help(self, temp_home: Path) -> None:
@@ -260,15 +260,15 @@ class TestConfigCLICommands:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "help", env=env)
+        result = run_loom("config", "help", env=env)
         assert result.returncode == 0
 
         # Should show comprehensive help
-        assert "Dotkeep Configuration Help" in result.stdout
+        assert "Loom Configuration Help" in result.stdout
         assert "File Patterns:" in result.stdout
         assert "Search Settings:" in result.stdout
         assert "Examples:" in result.stdout
-        assert "~/.dotkeep/config.json" in result.stdout
+        assert "~/.loom/config.json" in result.stdout
 
 
 class TestDirectoryHandling:
@@ -278,10 +278,10 @@ class TestDirectoryHandling:
         """Test adding directory with custom file patterns."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Add Python files to include patterns
-        run_dotkeep("config", "add-pattern", "*.py", env=env)
+        run_loom("config", "add-pattern", "*.py", env=env)
 
         # Create a directory with various files
         project_dir = temp_home / "myproject"
@@ -292,11 +292,11 @@ class TestDirectoryHandling:
         (project_dir / ".gitignore").write_text("*.pyc")
 
         # Add the directory
-        result = run_dotkeep("add", "myproject", env=env)
+        result = run_loom("add", "myproject", env=env)
         assert result.returncode == 0
 
         # List files to see what was added
-        result2 = run_dotkeep("list-files", env=env)
+        result2 = run_loom("list-files", env=env)
 
         # Should include Python files, config files, and dotfiles
         assert "script.py" in result2.stdout
@@ -309,10 +309,10 @@ class TestDirectoryHandling:
         """Test that exclude patterns work correctly."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Add log files to exclude patterns
-        run_dotkeep("config", "add-pattern", "*.log", "--type", "exclude", env=env)
+        run_loom("config", "add-pattern", "*.log", "--type", "exclude", env=env)
 
         # Create directory with log files
         logs_dir = temp_home / "logs"
@@ -322,11 +322,11 @@ class TestDirectoryHandling:
         (logs_dir / "config.conf").write_text("config content")
 
         # Add the directory
-        result = run_dotkeep("add", "logs", env=env)
+        result = run_loom("add", "logs", env=env)
         assert result.returncode == 0
 
         # List files to see what was added
-        result2 = run_dotkeep("list-files", env=env)
+        result2 = run_loom("list-files", env=env)
 
         # Should include config files but not log files
         assert "config.conf" in result2.stdout
@@ -341,13 +341,13 @@ class TestIntegrationScenarios:
         """Test workflow for tracking Python project files."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Configure for Python project
-        run_dotkeep("config", "add-pattern", "*.py", env=env)
-        run_dotkeep("config", "add-pattern", "requirements*.txt", env=env)
-        run_dotkeep("config", "add-pattern", "pyproject.toml", env=env)
-        run_dotkeep("config", "add-pattern", "*.pyc", "--type", "exclude", env=env)
+        run_loom("config", "add-pattern", "*.py", env=env)
+        run_loom("config", "add-pattern", "requirements*.txt", env=env)
+        run_loom("config", "add-pattern", "pyproject.toml", env=env)
+        run_loom("config", "add-pattern", "*.pyc", "--type", "exclude", env=env)
 
         # Create Python project structure
         project = temp_home / "myapp"
@@ -360,11 +360,11 @@ class TestIntegrationScenarios:
         (project / ".gitignore").write_text("*.pyc")
 
         # Add the project
-        result = run_dotkeep("add", "myapp", env=env)
+        result = run_loom("add", "myapp", env=env)
         assert result.returncode == 0
 
         # Verify what was tracked
-        result2 = run_dotkeep("list-files", env=env)
+        result2 = run_loom("list-files", env=env)
         assert "main.py" in result2.stdout
         assert "requirements.txt" in result2.stdout
         assert "pyproject.toml" in result2.stdout
@@ -376,10 +376,10 @@ class TestIntegrationScenarios:
         """Test workflow for tracking only configuration files."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Remove dotfiles pattern, keep only config files
-        run_dotkeep("config", "remove-pattern", ".*", env=env)
+        run_loom("config", "remove-pattern", ".*", env=env)
 
         # Create directory with mixed files
         configs = temp_home / "configs"
@@ -390,11 +390,11 @@ class TestIntegrationScenarios:
         (configs / "readme.txt").write_text("readme")
 
         # Add the directory
-        result = run_dotkeep("add", "configs", env=env)
+        result = run_loom("add", "configs", env=env)
         assert result.returncode == 0
 
         # Verify only config files were tracked (not dotfiles)
-        result2 = run_dotkeep("list-files", env=env)
+        result2 = run_loom("list-files", env=env)
         assert "app.conf" in result2.stdout
         assert "settings.json" in result2.stdout
         assert ".bashrc" not in result2.stdout  # pattern removed
@@ -405,7 +405,7 @@ def test_add_directory_symlinks_only_dotfiles(temp_home: Path) -> None:
     """Test that adding a directory symlinks only dotfiles inside it."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
 
     # Create a directory with dotfiles and non-dotfiles
     config_dir = temp_home / "dotdir"
@@ -415,7 +415,7 @@ def test_add_directory_symlinks_only_dotfiles(temp_home: Path) -> None:
     (config_dir / "notdot").write_text("notdot")
 
     # Add the directory
-    result = run_dotkeep("add", "dotdir", env=env)
+    result = run_loom("add", "dotdir", env=env)
     assert result.returncode == 0
     assert "✓ Added dotfile dotdir/.dot1" in result.stdout
     assert "✓ Added dotfile dotdir/.dot2" in result.stdout
@@ -426,23 +426,23 @@ def test_add_directory_symlinks_only_dotfiles(temp_home: Path) -> None:
     assert not (config_dir / "notdot").is_symlink()
 
     # The symlinks should point to the repo
-    dotkeep_repo = temp_home / ".dotkeep" / "repo"
-    assert (config_dir / ".dot1").resolve() == dotkeep_repo / "dotdir" / ".dot1"
-    assert (config_dir / ".dot2").resolve() == dotkeep_repo / "dotdir" / ".dot2"
+    loom_repo = temp_home / ".loom" / "repo"
+    assert (config_dir / ".dot1").resolve() == loom_repo / "dotdir" / ".dot1"
+    assert (config_dir / ".dot2").resolve() == loom_repo / "dotdir" / ".dot2"
 
 
 def test_add_empty_directory(temp_home: Path) -> None:
     """Test adding an empty directory."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
 
     # Create an empty directory
     empty_dir = temp_home / ".empty_config"
     empty_dir.mkdir()
 
     # Add the empty directory
-    result = run_dotkeep("add", ".empty_config", env=env)
+    result = run_loom("add", ".empty_config", env=env)
     assert result.returncode == 0
     assert "No config files found in .empty_config." in result.stdout
 
@@ -460,7 +460,7 @@ def test_add_directory_with_subdirectories_symlinks_config_files(
     """
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
 
     # Create a complex directory structure
     base_dir = temp_home / "complexapp"
@@ -477,7 +477,7 @@ def test_add_directory_with_subdirectories_symlinks_config_files(
     (plugins_dir / ".pluginrc").write_text("plugin config\n")
 
     # Add the entire directory
-    result = run_dotkeep("add", "complexapp", env=env)
+    result = run_loom("add", "complexapp", env=env)
     assert result.returncode == 0
     assert "✓ Added dotfile complexapp/.mainrc" in result.stdout
     assert "✓ Added dotfile complexapp/main.conf" in result.stdout
@@ -501,81 +501,81 @@ def test_add_single_file_still_works(temp_home: Path) -> None:
     """Ensure that adding single files still works as before."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
 
     # Create a single dotfile
     dotfile = temp_home / ".gitconfig"
     dotfile.write_text("[user]\nname = Test User\n")
 
     # Add the single file
-    result = run_dotkeep("add", ".gitconfig", env=env)
+    result = run_loom("add", ".gitconfig", env=env)
     assert result.returncode == 0
     assert "✓ Added .gitconfig" in result.stdout
 
     # Verify it's tracked and symlinked correctly
-    result2 = run_dotkeep("list-files", env=env)
+    result2 = run_loom("list-files", env=env)
     assert ".gitconfig" in result2.stdout
     assert (temp_home / ".gitconfig").is_symlink()
 
 
 def test_delete_directory_symlinks(temp_home: Path) -> None:
-    """Test deleting a directory managed by dotkeep (dotfiles inside)."""
+    """Test deleting a directory managed by loom (dotfiles inside)."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
 
     # Create and add a directory with dotfiles
     test_dir = temp_home / "test_dir"
     test_dir.mkdir()
     (test_dir / ".file1").write_text("content1")
     (test_dir / ".file2").write_text("content2")
-    run_dotkeep("add", "test_dir", env=env)
+    run_loom("add", "test_dir", env=env)
 
     # Verify dotfiles are symlinked
     assert (test_dir / ".file1").is_symlink()
     assert (test_dir / ".file2").is_symlink()
 
     # Delete the dotfile
-    result = run_dotkeep("delete", "test_dir/.file1", env=env)
+    result = run_loom("delete", "test_dir/.file1", env=env)
     assert result.returncode == 0
     assert "✓ Removed test_dir/.file1" in result.stdout
     assert not (test_dir / ".file1").exists()
 
 
 def test_restore_directory_symlinks_dotfiles(temp_home: Path) -> None:
-    """Test restoring a directory managed by dotkeep (dotfiles inside)."""
+    """Test restoring a directory managed by loom (dotfiles inside)."""
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
 
     # Create and add a directory with dotfiles
     test_dir = temp_home / "restore_test"
     test_dir.mkdir()
     (test_dir / ".configrc").write_text("important config")
-    run_dotkeep("add", "restore_test", env=env)
+    run_loom("add", "restore_test", env=env)
 
     # Remove the symlink (simulate accidental deletion)
     (test_dir / ".configrc").unlink()
 
     # Restore the dotfile
-    result = run_dotkeep("restore", "restore_test/.configrc", env=env)
+    result = run_loom("restore", "restore_test/.configrc", env=env)
     assert result.returncode == 0
     assert "✓ Restored restore_test/.configrc" in result.stdout
 
     # Verify it's restored as a symlink and file is accessible
     assert (test_dir / ".configrc").is_symlink()
-    dotkeep_repo = temp_home / ".dotkeep" / "repo"
+    loom_repo = temp_home / ".loom" / "repo"
     assert (
         test_dir / ".configrc"
-    ).resolve() == dotkeep_repo / "restore_test" / ".configrc"
+    ).resolve() == loom_repo / "restore_test" / ".configrc"
     assert (test_dir / ".configrc").read_text() == "important config"
 
 
 def test_pull_no_remote(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
-    result = run_dotkeep("pull", env=env)
+    run_loom("init", "--non-interactive", env=env)
+    result = run_loom("pull", env=env)
     assert result.returncode != 0
     assert (
         "No 'origin' remote found" in result.stdout
@@ -586,8 +586,8 @@ def test_pull_no_remote(temp_home: Path) -> None:
 def test_push_no_remote(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
-    result = run_dotkeep("push", env=env)
+    run_loom("init", "--non-interactive", env=env)
+    result = run_loom("push", env=env)
     assert result.returncode != 0
     assert (
         "No 'origin' remote found" in result.stdout
@@ -598,27 +598,27 @@ def test_push_no_remote(temp_home: Path) -> None:
 def test_version_command(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    result = run_dotkeep("version", env=env)
+    result = run_loom("version", env=env)
     assert result.returncode == 0
-    assert "dotkeep version" in result.stdout
+    assert "loom version" in result.stdout
 
 
 def test_completion_command(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    result = run_dotkeep("completion", env=env)
+    result = run_loom("completion", env=env)
     assert result.returncode == 0
-    assert "dotkeep --install-completion" in result.stdout
+    assert "loom --install-completion" in result.stdout
 
 
 def test_diagnose_command(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    result = run_dotkeep("diagnose", env=env)
+    result = run_loom("diagnose", env=env)
     assert result.returncode == 0
     assert "diagnostics" in result.stdout.lower()
     assert (
-        "dotkeep repo not initialized" in result.stdout
+        "loom repo not initialized" in result.stdout
         or "No .git directory found" in result.stdout
         or "✓ Created empty initial commit" in result.stdout
         or "✓ No uncommitted changes." in result.stdout
@@ -628,11 +628,11 @@ def test_diagnose_command(temp_home: Path) -> None:
 def test_add_and_status_untracked_home_dotfiles(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
     # Create a dotfile but don't add it
     dotfile = temp_home / ".zshrc"
     dotfile.write_text("export ZSH=1\n")
-    result = run_dotkeep("status", env=env)
+    result = run_loom("status", env=env)
     assert ".zshrc" in result.stdout
 
 
@@ -645,23 +645,23 @@ def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(
     """
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
     d = temp_home / "mydir"
     d.mkdir()
     (d / ".a").write_text("a")
     (d / ".b").write_text("b")
-    run_dotkeep("add", "mydir", env=env)
+    run_loom("add", "mydir", env=env)
     # Delete both dotfiles
-    run_dotkeep("delete", "mydir/.a", env=env)
-    run_dotkeep("delete", "mydir/.b", env=env)
+    run_loom("delete", "mydir/.a", env=env)
+    run_loom("delete", "mydir/.b", env=env)
 
     # Current behavior: tracked_dirs.json still contains mydir
     # (automatic cleanup when directory becomes empty is not implemented)
 
     # Helper to read tracked_dirs.json
     def get_tracked_dirs() -> List[str]:
-        dotkeep_dir = temp_home / ".dotkeep"
-        tracked_dirs_file = dotkeep_dir / "tracked_dirs.json"
+        loom_dir = temp_home / ".loom"
+        tracked_dirs_file = loom_dir / "tracked_dirs.json"
         if not tracked_dirs_file.exists():
             return []
         with open(tracked_dirs_file) as f:
@@ -675,42 +675,42 @@ def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(
 def test_restore_nonexistent_file(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
-    result = run_dotkeep("restore", ".doesnotexist", env=env)
+    run_loom("init", "--non-interactive", env=env)
+    result = run_loom("restore", ".doesnotexist", env=env)
     assert result.returncode != 0
     assert (
-        "not tracked by dotkeep" in result.stdout
-        or "not tracked by dotkeep" in result.stderr
+        "not tracked by loom" in result.stdout
+        or "not tracked by loom" in result.stderr
     )
 
 
 def test_delete_non_symlink(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
     # Create a file but don't add it
     f = temp_home / ".notalink"
     f.write_text("hi")
-    result = run_dotkeep("delete", ".notalink", env=env)
+    result = run_loom("delete", ".notalink", env=env)
     assert result.returncode != 0
     assert (
-        "is not a symlink managed by dotkeep" in result.stdout
-        or "is not a symlink managed by dotkeep" in result.stderr
+        "is not a symlink managed by loom" in result.stdout
+        or "is not a symlink managed by loom" in result.stderr
     )
 
 
 def test_watcher_starts_and_exits(temp_home: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(temp_home)
-    run_dotkeep("init", "--non-interactive", env=env)
+    run_loom("init", "--non-interactive", env=env)
     # Add a tracked dir so watcher doesn't exit immediately
     d = temp_home / "watchdir"
     d.mkdir()
-    run_dotkeep("add", "watchdir", env=env)
+    run_loom("add", "watchdir", env=env)
     # Start watcher in a subprocess and kill it after a short time
 
     proc = subprocess.Popen(
-        ["dotkeep", "watch"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        ["loom", "watch"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     time.sleep(2)
     proc.send_signal(signal.SIGINT)

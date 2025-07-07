@@ -1,5 +1,5 @@
 """
-Additional tests to improve coverage for dotkeep core functionality.
+Additional tests to improve coverage for loom core functionality.
 These tests focus on edge cases and error conditions not covered by existing tests.
 """
 
@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from git import GitCommandError
 
-import dotkeep.core as core
-from dotkeep.core import (
+import loom.core as core
+from loom.core import (
     add_dotfile,
     count_files_in_directory,
     delete_dotfile,
@@ -62,13 +62,13 @@ class TestCoreEdgeCases:
         count = count_files_in_directory(empty_dir)
         assert count == 0
 
-    def test_save_tracked_dir_new_file(self, initialized_dotkeep: Path) -> None:
+    def test_save_tracked_dir_new_file(self, initialized_loom: Path) -> None:
         """Test saving tracked directory when file doesn't exist."""
-        test_dir = initialized_dotkeep / "newdir"
+        test_dir = initialized_loom / "newdir"
         test_dir.mkdir()
 
         # Remove tracked_dirs.json if it exists
-        tracked_file = initialized_dotkeep / ".dotkeep" / "tracked_dirs.json"
+        tracked_file = initialized_loom / ".loom" / "tracked_dirs.json"
         if tracked_file.exists():
             tracked_file.unlink()
 
@@ -81,22 +81,22 @@ class TestCoreEdgeCases:
         assert str(test_dir) in tracked
 
     def test_remove_tracked_dir_nonexistent_file(
-        self, initialized_dotkeep: Path
+        self, initialized_loom: Path
     ) -> None:
         """Test removing tracked directory when file doesn't exist."""
-        test_dir = initialized_dotkeep / "testdir"
+        test_dir = initialized_loom / "testdir"
 
         # Ensure file doesn't exist
-        tracked_file = initialized_dotkeep / ".dotkeep" / "tracked_dirs.json"
+        tracked_file = initialized_loom / ".loom" / "tracked_dirs.json"
         if tracked_file.exists():
             tracked_file.unlink()
 
         # Should not raise error
         remove_tracked_dir(test_dir)
 
-    def test_add_dotfile_already_symlinked(self, initialized_dotkeep: Path) -> None:
+    def test_add_dotfile_already_symlinked(self, initialized_loom: Path) -> None:
         """Test adding a file that's already properly symlinked."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Create a dotfile and add it normally
         dotfile = home / ".testrc"
@@ -108,19 +108,19 @@ class TestCoreEdgeCases:
         result2 = add_dotfile(Path(".testrc"), quiet=True)
         assert result2 is True
 
-    def test_add_dotfile_invalid_type(self, initialized_dotkeep: Path) -> None:
+    def test_add_dotfile_invalid_type(self, initialized_loom: Path) -> None:
         """Test adding something that's not a file or directory."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Test with a non-existent path that would fail the exists check first
         nonexistent = Path(".nonexistent")
         result = add_dotfile(nonexistent, quiet=True)
         assert result is False
 
-    def test_delete_dotfile_not_in_repo(self, initialized_dotkeep: Path) -> None:
+    def test_delete_dotfile_not_in_repo(self, initialized_loom: Path) -> None:
         """Test deleting a symlink that doesn't exist in repo."""
-        home = initialized_dotkeep
-        repo_dir = home / ".dotkeep" / "repo"
+        home = initialized_loom
+        repo_dir = home / ".loom" / "repo"
 
         # Create a symlink pointing to a non-existent repo file
         fake_target = repo_dir / ".fake"
@@ -130,9 +130,9 @@ class TestCoreEdgeCases:
         result = delete_dotfile(Path(".fake"), quiet=True)
         assert result is False
 
-    def test_restore_dotfile_existing_file(self, initialized_dotkeep: Path) -> None:
+    def test_restore_dotfile_existing_file(self, initialized_loom: Path) -> None:
         """Test restoring when a regular file exists at target location."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Add a dotfile first
         dotfile = home / ".restoretest"
@@ -149,10 +149,10 @@ class TestCoreEdgeCases:
         assert dotfile.is_symlink()
 
     def test_restore_dotfile_existing_directory(
-        self, initialized_dotkeep: Path
+        self, initialized_loom: Path
     ) -> None:
         """Test restoring when a directory exists at target location."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Add a dotfile first
         dotfile = home / ".restoredirtest"
@@ -169,19 +169,19 @@ class TestCoreEdgeCases:
         assert result is True
         assert dotfile.is_symlink()
 
-    def test_pull_repo_no_origin(self, initialized_dotkeep: Path) -> None:
+    def test_pull_repo_no_origin(self, initialized_loom: Path) -> None:
         """Test pulling when no origin remote exists."""
         result = pull_repo(quiet=True)
         assert result is False
 
-    def test_pull_repo_no_tracking_branch(self, initialized_dotkeep: Path) -> None:
+    def test_pull_repo_no_tracking_branch(self, initialized_loom: Path) -> None:
         """Test pulling when no tracking branch is set."""
         repo = ensure_repo()
         repo.create_remote("origin", "https://github.com/fake/repo.git")
 
         # Mock the pull method by patching the Remote class
         with (
-            patch("dotkeep.core.GitCommandError", GitCommandError),
+            patch("loom.core.GitCommandError", GitCommandError),
             patch("git.Remote.pull") as mock_pull,
         ):
             mock_pull.side_effect = GitCommandError(
@@ -190,26 +190,26 @@ class TestCoreEdgeCases:
             result = pull_repo(quiet=True)
             assert result is False
 
-    def test_pull_repo_divergent_branches(self, initialized_dotkeep: Path) -> None:
+    def test_pull_repo_divergent_branches(self, initialized_loom: Path) -> None:
         """Test pulling when branches have diverged."""
         repo = ensure_repo()
         repo.create_remote("origin", "https://github.com/fake/repo.git")
 
         # Mock the pull method by patching the Remote class
         with (
-            patch("dotkeep.core.GitCommandError", GitCommandError),
+            patch("loom.core.GitCommandError", GitCommandError),
             patch("git.Remote.pull") as mock_pull,
         ):
             mock_pull.side_effect = GitCommandError("git pull", "divergent branches")
             result = pull_repo(quiet=True)
             assert result is False
 
-    def test_push_repo_no_origin(self, initialized_dotkeep: Path) -> None:
+    def test_push_repo_no_origin(self, initialized_loom: Path) -> None:
         """Test pushing when no origin remote exists."""
         result = push_repo(quiet=True)
         assert result is False
 
-    def test_push_repo_non_fast_forward(self, initialized_dotkeep: Path) -> None:
+    def test_push_repo_non_fast_forward(self, initialized_loom: Path) -> None:
         """Test pushing when push is rejected (non-fast-forward)."""
         repo = ensure_repo()
         repo.create_remote("origin", "https://github.com/fake/repo.git")
@@ -224,7 +224,7 @@ class TestCoreEdgeCases:
             result = push_repo(quiet=True)
             assert result is False
 
-    def test_push_repo_git_command_error(self, initialized_dotkeep: Path) -> None:
+    def test_push_repo_git_command_error(self, initialized_loom: Path) -> None:
         """Test pushing when git command fails."""
         repo = ensure_repo()
         repo.create_remote("origin", "https://github.com/fake/repo.git")
@@ -234,13 +234,13 @@ class TestCoreEdgeCases:
             result = push_repo(quiet=True)
             assert result is False
 
-    def test_get_repo_status_with_remote(self, initialized_dotkeep: Path) -> None:
+    def test_get_repo_status_with_remote(self, initialized_loom: Path) -> None:
         """Test getting repo status when remote exists."""
         repo = ensure_repo()
         repo.create_remote("origin", "https://github.com/fake/repo.git")
 
         # Create some changes
-        test_file = initialized_dotkeep / ".statustest"
+        test_file = initialized_loom / ".statustest"
         test_file.write_text("content")
         add_dotfile(Path(".statustest"), quiet=True)
 
@@ -251,9 +251,9 @@ class TestCoreEdgeCases:
         assert "unpushed" in status
         assert "untracked_home_dotfiles" in status
 
-    def test_find_config_files_follow_symlinks(self, initialized_dotkeep: Path) -> None:
+    def test_find_config_files_follow_symlinks(self, initialized_loom: Path) -> None:
         """Test finding config files with follow_symlinks setting."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Create config with follow_symlinks=True
         config = load_config()
@@ -270,9 +270,9 @@ class TestCoreEdgeCases:
         symlink_found = any(f.name == "symlinked.conf" for f in found)
         assert symlink_found
 
-    def test_find_config_files_ignore_symlinks(self, initialized_dotkeep: Path) -> None:
+    def test_find_config_files_ignore_symlinks(self, initialized_loom: Path) -> None:
         """Test finding config files with follow_symlinks=False."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Create config with follow_symlinks=False (default)
         config = load_config()
@@ -289,9 +289,9 @@ class TestCoreEdgeCases:
         symlink_found = any(f.name == "symlinked2.conf" for f in found)
         assert not symlink_found
 
-    def test_load_config_key_error(self, initialized_dotkeep: Path) -> None:
+    def test_load_config_key_error(self, initialized_loom: Path) -> None:
         """Test loading config with JSON decode error."""
-        config_file = initialized_dotkeep / ".dotkeep" / "config.json"
+        config_file = initialized_loom / ".loom" / "config.json"
 
         # Create invalid JSON
         with open(config_file, "w") as f:
@@ -315,7 +315,7 @@ class TestCoreEdgeCases:
 
         # Verify paths were updated
         assert core.HOME == new_home
-        assert core.DOTKEEP_DIR == new_home / ".dotkeep"
+        assert core.LOOM_DIR == new_home / ".loom"
 
         # Restore original paths
         update_paths(original_home)
@@ -324,9 +324,9 @@ class TestCoreEdgeCases:
 class TestCorePushPullWithPush:
     """Test push/pull scenarios with actual push parameter."""
 
-    def test_add_dotfile_with_push_success(self, initialized_dotkeep: Path) -> None:
+    def test_add_dotfile_with_push_success(self, initialized_loom: Path) -> None:
         """Test adding dotfile with push=True when push succeeds."""
-        home = initialized_dotkeep
+        home = initialized_loom
         repo = ensure_repo()
         repo.create_remote("origin", "https://github.com/fake/repo.git")
 
@@ -343,9 +343,9 @@ class TestCorePushPullWithPush:
             result = add_dotfile(Path(".pushtest"), push=True, quiet=True)
             assert result is True
 
-    def test_add_dotfile_with_push_failure(self, initialized_dotkeep: Path) -> None:
+    def test_add_dotfile_with_push_failure(self, initialized_loom: Path) -> None:
         """Test adding dotfile with push=True when push fails."""
-        home = initialized_dotkeep
+        home = initialized_loom
         repo = ensure_repo()
         repo.create_remote("origin", "https://github.com/fake/repo.git")
 
@@ -357,9 +357,9 @@ class TestCorePushPullWithPush:
             result = add_dotfile(Path(".pushfailtest"), push=True, quiet=True)
             assert result is False
 
-    def test_delete_dotfile_with_push_success(self, initialized_dotkeep: Path) -> None:
+    def test_delete_dotfile_with_push_success(self, initialized_loom: Path) -> None:
         """Test deleting dotfile with push=True when push succeeds."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Add file first
         dotfile = home / ".deletetest"
@@ -380,9 +380,9 @@ class TestCorePushPullWithPush:
             result = delete_dotfile(Path(".deletetest"), push=True, quiet=True)
             assert result is True
 
-    def test_restore_dotfile_with_push_success(self, initialized_dotkeep: Path) -> None:
+    def test_restore_dotfile_with_push_success(self, initialized_loom: Path) -> None:
         """Test restoring dotfile with push=True when push succeeds."""
-        home = initialized_dotkeep
+        home = initialized_loom
 
         # Add file first
         dotfile = home / ".restoretest2"

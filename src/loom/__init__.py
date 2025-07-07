@@ -1,7 +1,7 @@
 """
-dotkeep - A minimal, Git-backed dotfiles manager for Linux.
+loom - A minimal, Git-backed dotfiles manager for Linux.
 
-dotkeep simplifies tracking, versioning, and synchronizing your configuration
+loom simplifies tracking, versioning, and synchronizing your configuration
 files across machines using Git and automatic symlinking.
 """
 

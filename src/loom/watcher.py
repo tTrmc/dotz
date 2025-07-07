@@ -15,32 +15,32 @@ def get_watcher_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
     if home_dir is None:
         home_dir = get_home_dir()
 
-    dotkeep_dir = home_dir / ".dotkeep"
+    loom_dir = home_dir / ".loom"
 
     return {
         "home": home_dir,
-        "dotkeep_dir": dotkeep_dir,
+        "loom_dir": loom_dir,
     }
 
 
 # Global paths - can be overridden for testing
 _paths = get_watcher_paths()
 HOME = _paths["home"]
-DOTKEEP_DIR = _paths["dotkeep_dir"]
+LOOM_DIR = _paths["loom_dir"]
 
 
 def update_watcher_paths(home_dir: Optional[Path] = None) -> None:
     """Update global watcher paths. Useful for testing."""
-    global HOME, DOTKEEP_DIR
+    global HOME, LOOM_DIR
     paths = get_watcher_paths(home_dir)
     HOME = paths["home"]
-    DOTKEEP_DIR = paths["dotkeep_dir"]
+    LOOM_DIR = paths["loom_dir"]
 
 
 def is_in_tracked_directory(relative_path: Path) -> bool:
     """
     Return True if 'relative_path' (inside HOME) is under a directory already
-    tracked by dotkeep.
+    tracked by loom.
     """
     repo = ensure_repo()
     tracked_items = set(repo.git.ls_files().splitlines())
@@ -55,7 +55,7 @@ def is_in_tracked_directory(relative_path: Path) -> bool:
 
 
 def get_tracked_dirs() -> List[str]:
-    tracked_file = DOTKEEP_DIR / "tracked_dirs.json"
+    tracked_file = LOOM_DIR / "tracked_dirs.json"
     if not tracked_file.exists():
         return []
     with open(tracked_file, "r") as f:
@@ -63,7 +63,7 @@ def get_tracked_dirs() -> List[str]:
         return data if isinstance(data, list) else []
 
 
-class DotkeepEventHandler(FileSystemEventHandler):
+class LoomEventHandler(FileSystemEventHandler):
     def __init__(self) -> None:
         super().__init__()
         self.config = load_config()
@@ -106,17 +106,17 @@ class DotkeepEventHandler(FileSystemEventHandler):
     def on_modified(self, event: FileSystemEvent) -> None:
         # Reload config when it changes to pick up new patterns
         src_path_str = str(event.src_path)
-        if src_path_str.endswith("config.json") and ".dotkeep" in src_path_str:
+        if src_path_str.endswith("config.json") and ".loom" in src_path_str:
             self.config = load_config()
             print("Configuration reloaded")
 
 
 def main() -> None:
     observer = Observer()
-    event_handler = DotkeepEventHandler()
+    event_handler = LoomEventHandler()
     tracked_dirs = get_tracked_dirs()
     if not tracked_dirs:
-        print("No tracked directories. Add one with dotkeep add <dir>")
+        print("No tracked directories. Add one with loom add <dir>")
         return
     for d in tracked_dirs:
         observer.schedule(event_handler, d, recursive=True)

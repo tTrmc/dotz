@@ -1,5 +1,5 @@
 """
-Additional tests to improve coverage for dotkeep CLI functionality.
+Additional tests to improve coverage for loom CLI functionality.
 These tests focus on edge cases and error conditions not covered by existing tests.
 """
 
@@ -20,11 +20,11 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
-def run_dotkeep(
+def run_loom(
     *args: str, env: Optional[Dict[str, str]] = None
 ) -> subprocess.CompletedProcess[str]:
-    """Helper function to run dotkeep CLI commands."""
-    cmd = ["dotkeep"] + list(map(str, args))
+    """Helper function to run loom CLI commands."""
+    cmd = ["loom"] + list(map(str, args))
     return subprocess.run(cmd, capture_output=True, text=True, env=env)
 
 
@@ -36,7 +36,7 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep(
+        result = run_loom(
             "init",
             "--remote",
             "https://github.com/user/dotfiles.git",
@@ -50,14 +50,14 @@ class TestCLIEdgeCases:
         """Test add command with --push flag when no remote exists."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create a dotfile
         dotfile = temp_home / ".bashrc"
         dotfile.write_text("export TEST=1")
 
         # Try to add with push (should fail - no remote)
-        result = run_dotkeep("add", ".bashrc", "--push", env=env)
+        result = run_loom("add", ".bashrc", "--push", env=env)
         # Should succeed locally but push will fail
         combined_output = strip_ansi_codes(result.stdout + result.stderr)
         assert "Remote named 'origin' didn't exist" in combined_output
@@ -66,15 +66,15 @@ class TestCLIEdgeCases:
         """Test delete command with --push flag when no remote exists."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create and add a dotfile
         dotfile = temp_home / ".vimrc"
         dotfile.write_text("set number")
-        run_dotkeep("add", ".vimrc", env=env)
+        run_loom("add", ".vimrc", env=env)
 
         # Try to delete with push (should fail - no remote)
-        result = run_dotkeep("delete", ".vimrc", "--push", env=env)
+        result = run_loom("delete", ".vimrc", "--push", env=env)
         # Should succeed locally but push will fail
         combined_output = strip_ansi_codes(result.stdout + result.stderr)
         assert "Remote named 'origin' didn't exist" in combined_output
@@ -83,21 +83,21 @@ class TestCLIEdgeCases:
         """Test restore command with --push flag when no remote exists."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create and add a dotfile
         dotfile = temp_home / ".gitconfig"
         dotfile.write_text("[user]\\nname = Test")
-        run_dotkeep("add", ".gitconfig", env=env)
+        run_loom("add", ".gitconfig", env=env)
 
         # Remove the symlink
         dotfile.unlink()
 
         # Try to restore with push (should fail - file not tracked)
-        result = run_dotkeep("restore", ".gitconfig", "--push", env=env)
-        # Should fail because file is not tracked by dotkeep
+        result = run_loom("restore", ".gitconfig", "--push", env=env)
+        # Should fail because file is not tracked by loom
         assert (
-            "is not tracked by dotkeep" in result.stderr
+            "is not tracked by loom" in result.stderr
             or "not found" in result.stderr.lower()
         )
 
@@ -105,7 +105,7 @@ class TestCLIEdgeCases:
         """Test adding directory with --no-recursive flag."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create directory with subdirectories
         config_dir = temp_home / "myconfig"
@@ -117,11 +117,11 @@ class TestCLIEdgeCases:
         (sub_dir / ".subrc").write_text("sub config")
 
         # Add with --no-recursive
-        result = run_dotkeep("add", "myconfig", "--no-recursive", env=env)
+        result = run_loom("add", "myconfig", "--no-recursive", env=env)
         assert result.returncode == 0
 
         # Check that only top-level files were added
-        result2 = run_dotkeep("list-files", env=env)
+        result2 = run_loom("list-files", env=env)
         assert ".mainrc" in result2.stdout
         # Should not be added due to --no-recursive
         assert ".subrc" not in result2.stdout
@@ -131,7 +131,7 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("config", "set", "test_key", "{invalid json", env=env)
+        result = run_loom("config", "set", "test_key", "{invalid json", env=env)
         assert result.returncode != 0
         assert "Invalid JSON" in result.stderr or "Invalid JSON" in result.stdout
 
@@ -140,7 +140,7 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep(
+        result = run_loom(
             "config", "add-pattern", "*.test", "--type", "invalid", env=env
         )
         assert result.returncode != 0
@@ -150,7 +150,7 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep(
+        result = run_loom(
             "config", "remove-pattern", "*.test", "--type", "invalid", env=env
         )
         assert result.returncode != 0
@@ -162,7 +162,7 @@ class TestCLIEdgeCases:
 
         # Run reset without --yes, should ask for confirmation
         process = subprocess.Popen(
-            ["dotkeep", "config", "reset"],
+            ["loom", "config", "reset"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -186,28 +186,28 @@ class TestCLIEdgeCases:
         """Test status command with --help flag."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create some untracked dotfiles
         (temp_home / ".bashrc").write_text("bash config")
         (temp_home / ".vimrc").write_text("vim config")
 
-        result = run_dotkeep("status", "--help", env=env)
+        result = run_loom("status", "--help", env=env)
         assert result.returncode == 0
-        assert "Show the status of your dotkeep repo" in result.stdout
+        assert "Show the status of your loom repo" in result.stdout
 
     def test_list_files_help(self, temp_home: Path) -> None:
         """Test list-files command with --help flag."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Add a file
         dotfile = temp_home / ".testrc"
         dotfile.write_text("test config")
-        run_dotkeep("add", ".testrc", env=env)
+        run_loom("add", ".testrc", env=env)
 
-        result = run_dotkeep("list-files", "--help", env=env)
+        result = run_loom("list-files", "--help", env=env)
         assert result.returncode == 0
 
     def test_diagnose_no_repo(self, temp_home: Path) -> None:
@@ -215,7 +215,7 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("diagnose", env=env)
+        result = run_loom("diagnose", env=env)
         assert result.returncode == 0
         assert "not initialized" in result.stdout.lower()
 
@@ -224,7 +224,7 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("watch", "--help", env=env)
+        result = run_loom("watch", "--help", env=env)
         assert result.returncode == 0
         assert "watch" in result.stdout.lower()
 
@@ -233,26 +233,26 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("invalid_command", env=env)
+        result = run_loom("invalid_command", env=env)
         assert result.returncode != 0
 
     def test_add_file_already_exists_in_repo(self, temp_home: Path) -> None:
         """Test adding a file that already exists in repo but not as symlink."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create a file and add it
         dotfile = temp_home / ".duplicatetest"
         dotfile.write_text("original")
-        run_dotkeep("add", ".duplicatetest", env=env)
+        run_loom("add", ".duplicatetest", env=env)
 
         # Remove symlink and create a regular file with different content
         dotfile.unlink()
         dotfile.write_text("modified")
 
         # Try to add again
-        result = run_dotkeep("add", ".duplicatetest", env=env)
+        result = run_loom("add", ".duplicatetest", env=env)
         assert result.returncode == 0
         assert dotfile.is_symlink()
 
@@ -261,21 +261,21 @@ class TestCLIEdgeCases:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
 
-        result = run_dotkeep("--help", env=env)
+        result = run_loom("--help", env=env)
         assert result.returncode == 0
-        assert "dotkeep" in result.stdout.lower()
+        assert "loom" in result.stdout.lower()
 
     def test_add_empty_file(self, temp_home: Path) -> None:
         """Test adding an empty file."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create empty file
         empty_file = temp_home / ".empty"
         empty_file.touch()
 
-        result = run_dotkeep("add", ".empty", env=env)
+        result = run_loom("add", ".empty", env=env)
         assert result.returncode == 0
         assert empty_file.is_symlink()
 
@@ -285,29 +285,29 @@ class TestCLIEdgeCases:
         env["HOME"] = str(temp_home)
 
         # Test showing nested object
-        result = run_dotkeep("config", "show", "search_settings", env=env)
+        result = run_loom("config", "show", "search_settings", env=env)
         assert result.returncode == 0
         assert "recursive" in result.stdout
 
         # Test showing array
-        result2 = run_dotkeep("config", "show", "file_patterns.include", env=env)
+        result2 = run_loom("config", "show", "file_patterns.include", env=env)
         assert result2.returncode == 0
 
     def test_long_running_command_interrupt(self, temp_home: Path) -> None:
         """Test interrupting a long-running command (watch)."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Add a directory so watch doesn't exit immediately
         test_dir = temp_home / "watchdir"
         test_dir.mkdir()
-        run_dotkeep("add", "watchdir", env=env)
+        run_loom("add", "watchdir", env=env)
 
         # This test is hard to do properly in unit tests
         # We just verify the command exists and can be called
         # The actual interruption testing is done in integration tests
-        result = run_dotkeep("watch", "--help", env=env)
+        result = run_loom("watch", "--help", env=env)
         assert result.returncode == 0
 
 
@@ -318,23 +318,23 @@ class TestCLIErrorConditions:
         """Test add command when git operations fail."""
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
-        run_dotkeep("init", "--non-interactive", env=env)
+        run_loom("init", "--non-interactive", env=env)
 
         # Create a file
         dotfile = temp_home / ".giterror"
         dotfile.write_text("content")
 
         # Make the git repo corrupted by removing the .git directory after init
-        dotkeep_config_dir = temp_home / ".config" / "dotkeep"
-        if dotkeep_config_dir.exists():
+        loom_config_dir = temp_home / ".config" / "loom"
+        if loom_config_dir.exists():
             # Remove the git directory to simulate a corrupted repo
             import shutil
 
-            git_dir = dotkeep_config_dir / ".git"
+            git_dir = loom_config_dir / ".git"
             if git_dir.exists():
                 shutil.rmtree(git_dir)
 
-        result = run_dotkeep("add", ".giterror", env=env)
+        result = run_loom("add", ".giterror", env=env)
         # Should handle error gracefully - either return error or succeed despite issues
         # The key is that it doesn't crash
         assert result.returncode in [0, 1]  # Allow both success and failure
