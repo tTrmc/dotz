@@ -131,9 +131,7 @@ def remove_tracked_dir(dir_path: Path) -> None:
 def init_repo(remote: str = "", quiet: bool = False) -> bool:
     if LOOM_DIR.exists():
         if not quiet:
-            typer.secho(
-                "loom already initialised at ~/.loom", fg=typer.colors.YELLOW
-            )
+            typer.secho("loom already initialised at ~/.loom", fg=typer.colors.YELLOW)
         return False
 
     if not quiet:

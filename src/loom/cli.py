@@ -210,9 +210,7 @@ def init(
             fg=typer.colors.CYAN,
         )
         typer.echo("  • Add dotfiles: loom add <filename>")
-        typer.echo(
-            "  • Add remote later: git -C ~/.loom/repo remote add origin <url>"
-        )
+        typer.echo("  • Add remote later: git -C ~/.loom/repo remote add origin <url>")
         typer.echo("  • Check status: loom status")
 
 
@@ -296,9 +294,7 @@ def status() -> None:
             typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
 
     if status["untracked_home_dotfiles"]:
-        typer.secho(
-            "Dotfiles in $HOME not tracked by loom:", fg=typer.colors.MAGENTA
-        )
+        typer.secho("Dotfiles in $HOME not tracked by loom:", fg=typer.colors.MAGENTA)
         for f in status["untracked_home_dotfiles"]:
             typer.secho(f"  - {f}", fg=typer.colors.MAGENTA)
 
@@ -415,9 +411,7 @@ def diagnose() -> None:
     # Check if .git exists
     git_dir = WORK_TREE / ".git"
     if not git_dir.exists():
-        typer.secho(
-            "ERROR: No .git directory found in loom repo.", fg=typer.colors.RED
-        )
+        typer.secho("ERROR: No .git directory found in loom repo.", fg=typer.colors.RED)
         typer.secho("Try re-initializing with: loom init", fg=typer.colors.YELLOW)
         return
 
@@ -425,9 +419,7 @@ def diagnose() -> None:
     try:
         repo = Repo(str(WORK_TREE))
     except InvalidGitRepositoryError:
-        typer.secho(
-            "ERROR: Invalid git repository in loom repo.", fg=typer.colors.RED
-        )
+        typer.secho("ERROR: Invalid git repository in loom repo.", fg=typer.colors.RED)
         return
 
     # Check for remotes

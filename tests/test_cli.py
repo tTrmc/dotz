@@ -679,8 +679,7 @@ def test_restore_nonexistent_file(temp_home: Path) -> None:
     result = run_loom("restore", ".doesnotexist", env=env)
     assert result.returncode != 0
     assert (
-        "not tracked by loom" in result.stdout
-        or "not tracked by loom" in result.stderr
+        "not tracked by loom" in result.stdout or "not tracked by loom" in result.stderr
     )
 
 

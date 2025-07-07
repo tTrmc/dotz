@@ -80,9 +80,7 @@ class TestCoreEdgeCases:
             tracked = json.load(f)
         assert str(test_dir) in tracked
 
-    def test_remove_tracked_dir_nonexistent_file(
-        self, initialized_loom: Path
-    ) -> None:
+    def test_remove_tracked_dir_nonexistent_file(self, initialized_loom: Path) -> None:
         """Test removing tracked directory when file doesn't exist."""
         test_dir = initialized_loom / "testdir"
 
@@ -148,9 +146,7 @@ class TestCoreEdgeCases:
         assert result is True
         assert dotfile.is_symlink()
 
-    def test_restore_dotfile_existing_directory(
-        self, initialized_loom: Path
-    ) -> None:
+    def test_restore_dotfile_existing_directory(self, initialized_loom: Path) -> None:
         """Test restoring when a directory exists at target location."""
         home = initialized_loom
 

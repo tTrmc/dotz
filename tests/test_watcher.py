@@ -316,9 +316,7 @@ class TestWatcherWithCustomConfig:
             mock_event_py.src_path = str(home / "main.py")
 
             with patch("os.path.islink", return_value=False):
-                with patch(
-                    "loom.watcher.is_in_tracked_directory", return_value=False
-                ):
+                with patch("loom.watcher.is_in_tracked_directory", return_value=False):
                     handler.on_created(mock_event_py)
 
             # Should track Python file
