@@ -1,338 +1,654 @@
-"""
-Core functionality tests for loom.
-Tests the core module functions like add_dotfile, init_repo, etc.
-"""
+"""Tests for loom.core module."""
 
+import json
+import os
+import shutil
 from pathlib import Path
-from typing import Any, Dict, List
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
+import typer
+from click.exceptions import Exit
+from git import GitCommandError, Repo
 
-import loom.core as core
-from loom.core import (
-    DEFAULT_CONFIG,
-    add_dotfile,
-    add_file_pattern,
-    find_config_files,
-    get_config_value,
-    init_repo,
-    load_config,
-    matches_patterns,
-    remove_file_pattern,
-    reset_config,
-    save_config,
-    set_config_value,
-)
+from loom import core
+from tests.conftest import assert_symlink_correct, create_test_files
 
 
-class TestCoreBasicFunctionality:
-    """Test basic loom core functionality."""
+class TestPathHelpers:
+    """Test path-related helper functions."""
 
-    def test_init_repo(self, temp_home: Path) -> None:
-        """Test repository initialization."""
-        result = init_repo(quiet=True)
-        assert result is True
+    def test_get_home_dir_respects_env(self, temp_home: Path) -> None:
+        """Test that get_home_dir respects HOME environment variable."""
+        assert core.get_home_dir() == temp_home
 
+    def test_get_loom_paths(self, temp_home: Path) -> None:
+        """Test loom path generation."""
+        paths = core.get_loom_paths(temp_home)
+
+        assert paths["home"] == temp_home
+        assert paths["loom_dir"] == temp_home / ".loom"
+        assert paths["work_tree"] == temp_home / ".loom" / "repo"
+        assert paths["tracked_dirs_file"] == temp_home / ".loom" / "tracked_dirs.json"
+        assert paths["config_file"] == temp_home / ".loom" / "config.json"
+        assert paths["backup_dir"] == temp_home / ".loom" / "backups"
+
+    def test_update_paths(self, temp_home: Path) -> None:
+        """Test updating global paths."""
+        old_home = core.HOME
+        core.update_paths(temp_home)
+
+        assert core.HOME == temp_home
+        assert core.LOOM_DIR == temp_home / ".loom"
+        assert core.WORK_TREE == temp_home / ".loom" / "repo"
+
+
+class TestUtilityFunctions:
+    """Test utility functions."""
+
+    def test_count_files_in_directory_single_file(self, temp_home: Path) -> None:
+        """Test counting files for a single file."""
+        test_file = temp_home / "test.txt"
+        test_file.write_text("content")
+
+        assert core.count_files_in_directory(test_file) == 1
+
+    def test_count_files_in_directory_with_files(self, temp_home: Path) -> None:
+        """Test counting files in a directory."""
+        test_dir = temp_home / "test_dir"
+        test_dir.mkdir()
+
+        (test_dir / "file1.txt").write_text("content1")
+        (test_dir / "file2.txt").write_text("content2")
+
+        subdir = test_dir / "subdir"
+        subdir.mkdir()
+        (subdir / "file3.txt").write_text("content3")
+
+        assert core.count_files_in_directory(test_dir) == 3
+
+    def test_count_files_in_directory_empty(self, temp_home: Path) -> None:
+        """Test counting files in an empty directory."""
+        test_dir = temp_home / "empty_dir"
+        test_dir.mkdir()
+
+        assert core.count_files_in_directory(test_dir) == 0
+
+
+class TestTrackedDirectories:
+    """Test tracked directory management."""
+
+    def test_save_tracked_dir(self, temp_home: Path) -> None:
+        """Test saving a tracked directory."""
         loom_dir = temp_home / ".loom"
-        work_tree = loom_dir / "repo"
-        assert loom_dir.exists()
-        assert work_tree.exists()
+        loom_dir.mkdir()
 
-        # Second init should return False
-        result2 = init_repo(quiet=True)
-        assert result2 is False
+        test_dir = Path(".config")
+        core.save_tracked_dir(test_dir)
 
-    def test_add_single_dotfile(self, initialized_loom: Path) -> None:
+        tracked_file = loom_dir / "tracked_dirs.json"
+        assert tracked_file.exists()
+
+        with open(tracked_file) as f:
+            data = json.load(f)
+
+        assert str(test_dir) in data
+
+    def test_save_tracked_dir_duplicate(self, temp_home: Path) -> None:
+        """Test that duplicate directories are not saved."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
+
+        test_dir = Path(".config")
+
+        # Save twice
+        core.save_tracked_dir(test_dir)
+        core.save_tracked_dir(test_dir)
+
+        tracked_file = loom_dir / "tracked_dirs.json"
+        with open(tracked_file) as f:
+            data = json.load(f)
+
+        # Should only appear once
+        assert data.count(str(test_dir)) == 1
+
+    def test_remove_tracked_dir(self, temp_home: Path) -> None:
+        """Test removing a tracked directory."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
+
+        test_dir = Path(".config")
+
+        # Save then remove
+        core.save_tracked_dir(test_dir)
+        core.remove_tracked_dir(test_dir)
+
+        tracked_file = loom_dir / "tracked_dirs.json"
+        with open(tracked_file) as f:
+            data = json.load(f)
+
+        assert str(test_dir) not in data
+
+    def test_remove_tracked_dir_nonexistent(self, temp_home: Path) -> None:
+        """Test removing a directory that's not tracked."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
+
+        # Create empty tracked dirs file
+        tracked_file = loom_dir / "tracked_dirs.json"
+        tracked_file.write_text("[]")
+
+        test_dir = Path(".nonexistent")
+        core.remove_tracked_dir(test_dir)  # Should not raise
+
+
+class TestRepoManagement:
+    """Test repository management functions."""
+
+    def test_ensure_repo_success(self, initialized_loom: Path) -> None:
+        """Test successful repo access."""
+        repo = core.ensure_repo()
+        assert isinstance(repo, Repo)
+
+    def test_ensure_repo_failure(self, temp_home: Path) -> None:
+        """Test repo access failure."""
+        # No loom directory exists
+        with pytest.raises((SystemExit, typer.Exit)):
+            core.ensure_repo()
+
+    def test_init_repo_basic(self, temp_home: Path) -> None:
+        """Test basic repository initialization."""
+        success = core.init_repo(quiet=True)
+
+        assert success
+        assert (temp_home / ".loom").exists()
+        assert (temp_home / ".loom" / "repo").exists()
+        assert (temp_home / ".loom" / "config.json").exists()
+        assert (temp_home / ".loom" / "tracked_dirs.json").exists()
+        assert (temp_home / ".loom" / "backups").exists()
+
+    def test_init_repo_with_remote(self, temp_home: Path) -> None:
+        """Test repository initialization with remote."""
+        remote_url = "https://github.com/user/dotfiles.git"
+
+        with patch("loom.core.Repo") as mock_repo_class:
+            mock_repo = Mock()
+            mock_repo_class.init.return_value = mock_repo
+            mock_repo.create_remote.return_value = None
+            mock_repo.index.add.return_value = None
+            mock_repo.index.commit.return_value = None
+
+            success = core.init_repo(remote=remote_url, quiet=True)
+
+            assert success
+            mock_repo.create_remote.assert_called_once_with("origin", remote_url)
+
+    def test_init_repo_already_exists(self, initialized_loom: Path) -> None:
+        """Test initialization when repo already exists."""
+        success = core.init_repo(quiet=True)
+        assert not success  # Should fail if already exists
+
+
+class TestDotfileManagement:
+    """Test dotfile add/delete/restore operations."""
+
+    def test_add_dotfile_single_file(
+        self, initialized_loom: Path, sample_dotfile: Path
+    ) -> None:
         """Test adding a single dotfile."""
-        home = initialized_loom
+        relative_path = Path(".bashrc")
+        success = core.add_dotfile(relative_path, quiet=True)
 
-        # Create a dotfile
-        dotfile = home / ".bashrc"
-        dotfile.write_text("export TEST=1\n")
+        assert success
 
-        # Add the file
-        result = add_dotfile(Path(".bashrc"), quiet=True)
-        assert result is True
+        # Check file was copied to loom repo
+        loom_file = core.WORK_TREE / ".bashrc"
+        assert loom_file.exists()
+        assert loom_file.read_text() == sample_dotfile.read_text()
 
-        # Check that file was moved and symlinked
-        assert dotfile.is_symlink()
-        work_tree = home / ".loom" / "repo"
-        assert (work_tree / ".bashrc").exists()
+        # Check symlink was created
+        assert_symlink_correct(sample_dotfile, loom_file)
 
-    def test_add_directory_recursive(self, initialized_loom: Path) -> None:
-        """Test adding a directory with dotfiles recursively."""
-        home = initialized_loom
+    def test_add_dotfile_directory(
+        self, initialized_loom: Path, sample_config_dir: Path
+    ) -> None:
+        """Test adding a directory of dotfiles."""
+        relative_path = Path(".config")
+        success = core.add_dotfile(relative_path, quiet=True, recursive=True)
 
-        # Create a directory with dotfiles
-        config_dir = home / ".config"
-        config_dir.mkdir()
-        (config_dir / ".gitconfig").write_text("config content")
-        (config_dir / "app.conf").write_text("app config")
+        assert success
 
-        sub_dir = config_dir / "subdir"
-        sub_dir.mkdir()
-        (sub_dir / ".hidden").write_text("hidden file")
+        # Check directory was copied
+        loom_dir = core.WORK_TREE / ".config"
+        assert loom_dir.exists()
+        assert (loom_dir / "app.conf").exists()
+        assert (loom_dir / "settings.json").exists()
 
-        # Add the directory
-        result = add_dotfile(Path(".config"), recursive=True, quiet=True)
-        assert result is True
+        # Check symlink was created
+        assert_symlink_correct(sample_config_dir, loom_dir)
 
-        # Check files were added based on default patterns
-        repo_dir = home / ".loom" / "repo"
-        assert (repo_dir / ".config" / ".gitconfig").exists()
-        assert (repo_dir / ".config" / "app.conf").exists()  # matches *.conf pattern
-        assert (repo_dir / ".config" / "subdir" / ".hidden").exists()
+    def test_add_dotfile_nonexistent(self, initialized_loom: Path) -> None:
+        """Test adding a non-existent file."""
+        relative_path = Path(".nonexistent")
+        success = core.add_dotfile(relative_path, quiet=True)
+
+        assert not success
+
+    def test_delete_dotfile(self, initialized_loom: Path, sample_dotfile: Path) -> None:
+        """Test deleting a dotfile."""
+        relative_path = Path(".bashrc")
+
+        # First add the file
+        core.add_dotfile(relative_path, quiet=True)
+
+        # Then delete it
+        success = core.delete_dotfile([relative_path], quiet=True)
+
+        assert success
+
+        # Check file was removed from loom repo
+        loom_file = core.WORK_TREE / ".bashrc"
+        assert not loom_file.exists()
+
+        # Check symlink was removed
+        assert not sample_dotfile.is_symlink()
+
+    def test_restore_dotfile(self, initialized_loom: Path, temp_home: Path) -> None:
+        """Test restoring a dotfile."""
+        # Create a file in loom repo
+        loom_file = core.WORK_TREE / ".vimrc"
+        loom_file.write_text("set number\n")
+
+        # Add to git
+        repo = core.ensure_repo()
+        repo.index.add([".vimrc"])
+        repo.index.commit("Add vimrc")
+
+        relative_path = Path(".vimrc")
+        success = core.restore_dotfile(relative_path, quiet=True)
+
+        assert success
+
+        # Check symlink was created
+        home_file = temp_home / ".vimrc"
+        assert_symlink_correct(home_file, loom_file)
+
+    def test_restore_dotfile_nonexistent(self, initialized_loom: Path) -> None:
+        """Test restoring a non-existent dotfile."""
+        relative_path = Path(".nonexistent")
+        success = core.restore_dotfile(relative_path, quiet=True)
+
+        assert not success
 
 
-class TestConfigurationSystem:
-    """Test the configuration system functionality."""
+class TestConfigManagement:
+    """Test configuration management."""
 
-    def test_load_default_config(self, temp_home: Path) -> None:
+    def test_load_config_default(self, temp_home: Path) -> None:
         """Test loading default configuration."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
 
-        # Patch paths
-        original_config_file = core.CONFIG_FILE
-        original_loom_dir = core.LOOM_DIR
+        config = core.load_config()
+        assert config == core.DEFAULT_CONFIG
 
-        try:
-            core.LOOM_DIR = temp_home / ".loom"
-            core.CONFIG_FILE = core.LOOM_DIR / "config.json"
+    def test_load_config_existing(
+        self, initialized_loom: Path, config_data: dict
+    ) -> None:
+        """Test loading existing configuration."""
+        config_file = core.CONFIG_FILE
+        config_file.write_text(json.dumps(config_data))
 
-            # Ensure no config file exists
-            if core.CONFIG_FILE.exists():
-                core.CONFIG_FILE.unlink()
+        config = core.load_config()
+        assert config == config_data
 
-            config = load_config()
-            assert config == DEFAULT_CONFIG
-        finally:
-            core.CONFIG_FILE = original_config_file
-            core.LOOM_DIR = original_loom_dir
+    def test_save_config(self, temp_home: Path, config_data: dict) -> None:
+        """Test saving configuration."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
 
-    def test_save_and_load_config(self, temp_home: Path) -> None:
-        """Test saving and loading custom configuration."""
-        custom_config: Dict[str, Any] = {
-            "file_patterns": {"include": ["*.py", "*.txt"], "exclude": ["*.pyc"]},
-            "search_settings": {
-                "recursive": False,
-                "case_sensitive": True,
-                "follow_symlinks": True,
-            },
-        }
+        core.save_config(config_data)
 
-        save_config(custom_config)
-        loaded_config = load_config()
+        config_file = loom_dir / "config.json"
+        assert config_file.exists()
 
-        # Should merge with defaults
-        assert "*.py" in loaded_config["file_patterns"]["include"]
-        assert "*.txt" in loaded_config["file_patterns"]["include"]
-        assert loaded_config["search_settings"]["recursive"] is False
-        assert loaded_config["search_settings"]["case_sensitive"] is True
+        with open(config_file) as f:
+            saved_config = json.load(f)
 
-    def test_get_config_value(self, temp_home: Path) -> None:
-        """Test getting configuration values by key path."""
-        # Reset to defaults first to ensure predictable state
-        reset_config(quiet=True)
-        config = load_config()
+        assert saved_config == config_data
 
-        # Test getting nested values
-        include_patterns = get_config_value("file_patterns.include", quiet=True)
-        assert isinstance(include_patterns, list)
-        assert ".*" in include_patterns  # dotfiles pattern
+    def test_get_config_value(self, initialized_loom: Path) -> None:
+        """Test getting configuration values."""
+        value = core.get_config_value("file_patterns.include", quiet=True)
+        assert isinstance(value, list)
+        assert ".*" in value
 
-        # Test getting top-level values
-        file_patterns = get_config_value("file_patterns", quiet=True)
-        assert isinstance(file_patterns, dict)
-        assert "include" in file_patterns
+    def test_get_config_value_nonexistent(self, initialized_loom: Path) -> None:
+        """Test getting non-existent configuration value."""
+        value = core.get_config_value("nonexistent.key", quiet=True)
+        assert value is None
 
-        # Test non-existent key
-        result = get_config_value("nonexistent.key", quiet=True)
-        assert result is None
-
-    def test_set_config_value(self, temp_home: Path) -> None:
+    def test_set_config_value(self, initialized_loom: Path) -> None:
         """Test setting configuration values."""
-        # Test setting boolean
-        result = set_config_value("search_settings.recursive", "false", quiet=True)
-        assert result is True
+        success = core.set_config_value(
+            "search_settings.recursive", "false", quiet=True
+        )
+        assert success
 
-        config = load_config()
-        assert config["search_settings"]["recursive"] is False
+        value = core.get_config_value("search_settings.recursive", quiet=True)
+        assert value is False
 
-        # Test setting string
-        result = set_config_value("test_key", "test_value", quiet=True)
-        assert result is True
+    def test_add_file_pattern(self, initialized_loom: Path) -> None:
+        """Test adding file patterns."""
+        pattern = "*.xml"
+        success = core.add_file_pattern(pattern, "include", quiet=True)
 
-        config = load_config()
-        assert config["test_key"] == "test_value"
+        assert success
 
-    def test_add_remove_file_pattern(self, temp_home: Path) -> None:
-        """Test adding and removing file patterns."""
-        try:
-            # Add include pattern
-            result = add_file_pattern("*.py", "include", quiet=True)
-            assert result is True
+        config = core.load_config()
+        assert pattern in config["file_patterns"]["include"]
 
-            config = load_config()
-            assert "*.py" in config["file_patterns"]["include"]
+    def test_remove_file_pattern(self, initialized_loom: Path) -> None:
+        """Test removing file patterns."""
+        pattern = ".*"  # This should exist by default
+        success = core.remove_file_pattern(pattern, "include", quiet=True)
 
-            # Add duplicate pattern (should succeed but not add duplicate)
-            result = add_file_pattern("*.py", "include", quiet=True)
-            assert result is True
+        assert success
 
-            # Add exclude pattern
-            result = add_file_pattern("*.pyc", "exclude", quiet=True)
-            assert result is True
+        config = core.load_config()
+        assert pattern not in config["file_patterns"]["include"]
 
-            config = load_config()
-            assert "*.pyc" in config["file_patterns"]["exclude"]
-
-            # Remove pattern
-            result = remove_file_pattern("*.py", "include", quiet=True)
-            assert result is True
-
-            config = load_config()
-            assert "*.py" not in config["file_patterns"]["include"]
-
-            # Remove non-existent pattern
-            result = remove_file_pattern("*.nonexistent", "include", quiet=True)
-            assert result is False
-        finally:
-            # Always reset to defaults to avoid test pollution
-            reset_config(quiet=True)
-
-    def test_reset_config(self, temp_home: Path) -> None:
+    def test_reset_config(self, initialized_loom: Path) -> None:
         """Test resetting configuration to defaults."""
-        # Modify config
-        set_config_value("search_settings.recursive", "false", quiet=True)
-        add_file_pattern("*.custom", "include", quiet=True)
+        # Modify config first
+        core.set_config_value("search_settings.recursive", "false", quiet=True)
 
         # Reset
-        result = reset_config(quiet=True)
-        assert result is True
+        success = core.reset_config(quiet=True)
+        assert success
 
-        # Check it's back to defaults
-        config = load_config()
-        assert config == DEFAULT_CONFIG
+        # Check it's back to default
+        config = core.load_config()
+        assert config == core.DEFAULT_CONFIG
 
 
 class TestPatternMatching:
-    """Test file pattern matching functionality."""
+    """Test file pattern matching."""
 
-    def test_matches_patterns_basic(self) -> None:
-        """Test basic pattern matching."""
-        include: List[str] = [".*", "*.conf"]
-        exclude: List[str] = ["*.log"]
+    def test_matches_patterns_include_only(self) -> None:
+        """Test pattern matching with include patterns only."""
+        include_patterns = ["*.txt", "*.md"]
+        exclude_patterns = []
 
-        # Should match dotfiles
-        assert matches_patterns(".bashrc", include, exclude, False)
-        assert matches_patterns(".gitconfig", include, exclude, False)
+        assert core.matches_patterns(
+            "readme.txt", include_patterns, exclude_patterns, False
+        )
+        assert core.matches_patterns(
+            "notes.md", include_patterns, exclude_patterns, False
+        )
+        assert not core.matches_patterns(
+            "script.py", include_patterns, exclude_patterns, False
+        )
 
-        # Should match config files
-        assert matches_patterns("app.conf", include, exclude, False)
-        assert matches_patterns("nginx.conf", include, exclude, False)
+    def test_matches_patterns_exclude(self) -> None:
+        """Test pattern matching with exclude patterns."""
+        include_patterns = ["*"]
+        exclude_patterns = ["*.log", "*.tmp"]
 
-        # Should not match excluded files
-        assert not matches_patterns("error.log", include, exclude, False)
+        assert core.matches_patterns(
+            "readme.txt", include_patterns, exclude_patterns, False
+        )
+        assert not core.matches_patterns(
+            "debug.log", include_patterns, exclude_patterns, False
+        )
+        assert not core.matches_patterns(
+            "temp.tmp", include_patterns, exclude_patterns, False
+        )
 
-        # Should not match unincluded files
-        assert not matches_patterns("readme.txt", include, exclude, False)
-
-    def test_matches_patterns_case_sensitivity(self) -> None:
-        """Test case sensitivity in pattern matching."""
-        include: List[str] = ["*.CONF"]
-        exclude: List[str] = []
-
-        # Case insensitive (default)
-        assert matches_patterns("app.conf", include, exclude, False)
-        assert matches_patterns("app.CONF", include, exclude, False)
+    def test_matches_patterns_case_sensitive(self) -> None:
+        """Test case-sensitive pattern matching."""
+        include_patterns = ["*.TXT"]
+        exclude_patterns = []
 
         # Case sensitive
-        assert not matches_patterns("app.conf", include, exclude, True)
-        assert matches_patterns("app.CONF", include, exclude, True)
+        assert core.matches_patterns(
+            "readme.TXT", include_patterns, exclude_patterns, True
+        )
+        assert not core.matches_patterns(
+            "readme.txt", include_patterns, exclude_patterns, True
+        )
+
+        # Case insensitive
+        assert core.matches_patterns(
+            "readme.TXT", include_patterns, exclude_patterns, False
+        )
+        assert core.matches_patterns(
+            "readme.txt", include_patterns, exclude_patterns, False
+        )
 
     def test_find_config_files(self, temp_home: Path) -> None:
-        """Test finding files matching configuration patterns."""
-        # Create test directory with various files
-        test_dir = temp_home / "test"
-        test_dir.mkdir()
+        """Test finding configuration files."""
+        # Create test directory structure
+        test_files = {
+            ".bashrc": "# bashrc",
+            ".config/app.conf": "[section]\nkey=value",
+            ".config/settings.json": '{"theme": "dark"}',
+            ".cache/data.txt": "cache data",
+            "document.pdf": "binary data",
+        }
+        create_test_files(temp_home, test_files)
 
-        # Test files that should be found
-        (test_dir / ".bashrc").write_text("content")
-        (test_dir / ".gitignore").write_text("content")
-        (test_dir / "app.conf").write_text("content")
-        (test_dir / "settings.json").write_text("content")
+        # Find config files
+        test_config = {
+            "file_patterns": {
+                "include": [".*", "*.conf", "*.json"],
+                "exclude": [".cache"],
+            },
+            "search_settings": {
+                "recursive": True,
+                "case_sensitive": False,
+                "follow_symlinks": False,
+            },
+        }
+        config_files = core.find_config_files(temp_home, test_config, recursive=True)
 
-        # Test files that should NOT be found
-        (test_dir / "readme.txt").write_text("content")
-        (test_dir / "backup.log").write_text("content")
+        # Convert to relative paths for easier testing
+        relative_files = [str(f.relative_to(temp_home)) for f in config_files]
 
-        # Test with default config
-        config = load_config()
-        found = find_config_files(test_dir, config, recursive=False)
-        found_names = [f.name for f in found]
-
-        # Should find dotfiles and config files
-        assert ".bashrc" in found_names
-        assert ".gitignore" in found_names
-        assert "app.conf" in found_names
-        assert "settings.json" in found_names
-
-        # Should not find non-config files
-        assert "readme.txt" not in found_names
-        assert "backup.log" not in found_names
-
-    def test_find_config_files_recursive(self, temp_home: Path) -> None:
-        """Test recursive file finding."""
-        # Create nested directory structure
-        test_dir = temp_home / "test"
-        test_dir.mkdir()
-        sub_dir = test_dir / "subdir"
-        sub_dir.mkdir()
-
-        (test_dir / ".bashrc").write_text("content")
-        (sub_dir / "app.conf").write_text("content")
-
-        config = load_config()
-
-        # Non-recursive
-        found = find_config_files(test_dir, config, recursive=False)
-        found_names = [f.name for f in found]
-        assert ".bashrc" in found_names
-        assert "app.conf" not in found_names
-
-        # Recursive
-        found = find_config_files(test_dir, config, recursive=True)
-        found_names = [f.name for f in found]
-        assert ".bashrc" in found_names
-        assert "app.conf" in found_names
+        assert ".bashrc" in relative_files
+        assert ".config/app.conf" in relative_files
+        assert ".config/settings.json" in relative_files
+        assert ".cache/data.txt" not in relative_files  # Excluded
+        assert "document.pdf" not in relative_files  # Not matching include patterns
 
 
-class TestErrorHandling:
-    """Test error handling and edge cases."""
+class TestRepoOperations:
+    """Test repository operations like push, pull, status."""
 
-    def test_load_config_with_invalid_json(self, temp_home: Path) -> None:
-        """Test loading config when JSON is invalid."""
-        # Create invalid config file
-        config_file = temp_home / ".loom" / "config.json"
-        config_file.parent.mkdir(exist_ok=True)
-        config_file.write_text("invalid json {")
+    def test_list_tracked_files(
+        self, initialized_loom: Path, sample_dotfile: Path
+    ) -> None:
+        """Test listing tracked files."""
+        # Add a file first
+        core.add_dotfile(Path(".bashrc"), quiet=True)
 
-        # Should fall back to defaults
-        with patch("typer.secho"):  # Suppress warning output
-            config = load_config()
-        assert config == DEFAULT_CONFIG
+        tracked_files = core.list_tracked_files()
+        assert ".bashrc" in tracked_files
 
-    def test_set_config_value_invalid_json(self, temp_home: Path) -> None:
-        """Test setting config value with invalid JSON."""
-        result = set_config_value("test_key", "{invalid json", quiet=True)
-        assert result is False
+    def test_get_repo_status_clean(self, initialized_loom: Path) -> None:
+        """Test repo status when clean."""
+        status = core.get_repo_status()
 
-    def test_add_pattern_invalid_type(self, temp_home: Path) -> None:
-        """Test adding pattern with invalid type."""
-        result = add_file_pattern("*.py", "invalid_type", quiet=True)
-        assert result is False
+        assert status["untracked"] == []
+        assert status["modified"] == []
+        assert status["staged"] == []
 
-    def test_remove_pattern_invalid_type(self, temp_home: Path) -> None:
-        """Test removing pattern with invalid type."""
-        result = remove_file_pattern("*.py", "invalid_type", quiet=True)
-        assert result is False
+    @patch("loom.core.typer.confirm")
+    def test_push_repo_no_remote(self, mock_confirm, initialized_loom: Path) -> None:
+        """Test pushing when no remote is configured."""
+        mock_confirm.return_value = False
+        success = core.push_repo(quiet=True)
+        assert not success  # Should fail with no remote
+
+    def test_pull_repo_no_remote(self, initialized_loom: Path) -> None:
+        """Test pulling when no remote is configured."""
+        success = core.pull_repo(quiet=True)
+        assert not success  # Should fail with no remote
+
+
+class TestBackupManagement:
+    """Test backup creation and restoration."""
+
+    def test_create_backup(self, initialized_loom: Path, sample_dotfile: Path) -> None:
+        """Test creating a backup."""
+        backup_path = core.create_backup(sample_dotfile, operation="test", quiet=True)
+
+        assert backup_path is not None
+        assert backup_path.exists()
+        assert backup_path.read_text() == sample_dotfile.read_text()
+        assert "test" in backup_path.name
+
+    def test_create_backup_directory(
+        self, initialized_loom: Path, sample_config_dir: Path
+    ) -> None:
+        """Test creating a backup of a directory."""
+        backup_path = core.create_backup(
+            sample_config_dir, operation="test", quiet=True
+        )
+
+        assert backup_path is not None
+        assert backup_path.exists()
+        assert backup_path.is_file()  # Should be a tar archive
+
+    def test_list_backups(self, initialized_loom: Path, sample_dotfile: Path) -> None:
+        """Test listing backups."""
+        # Create a backup
+        core.create_backup(sample_dotfile, operation="test", quiet=True)
+
+        backups = core.list_backups()
+        assert len(backups) >= 1
+        assert any("test" in backup.name for backup in backups)
+
+    def test_restore_from_backup(self, initialized_loom: Path, temp_home: Path) -> None:
+        """Test restoring from backup."""
+        # Create original file
+        original_file = temp_home / ".vimrc"
+        original_file.write_text("original content")
+
+        # Create backup
+        backup_path = core.create_backup(original_file, operation="test", quiet=True)
+
+        # Modify original
+        original_file.write_text("modified content")
+
+        # Restore from backup
+        success = core.restore_from_backup(backup_path, quiet=True)
+
+        assert success
+        assert original_file.read_text() == "original content"
+
+
+class TestSymlinkValidation:
+    """Test symlink validation and repair."""
+
+    def test_validate_symlinks_all_good(
+        self, initialized_loom: Path, sample_dotfile: Path
+    ) -> None:
+        """Test validation when all symlinks are correct."""
+        # Add file to create proper symlink
+        core.add_dotfile(Path(".bashrc"), quiet=True)
+
+        results = core.validate_symlinks(quiet=True)
+
+        assert results is not None
+        assert len(results.get("broken", [])) == 0
+        assert len(results.get("missing", [])) == 0
+        assert len(results.get("wrong_target", [])) == 0
+
+    def test_validate_symlinks_broken(
+        self, initialized_loom: Path, temp_home: Path
+    ) -> None:
+        """Test validation with broken symlinks."""
+        # Create a broken symlink
+        broken_link = temp_home / ".broken"
+        broken_link.symlink_to("/nonexistent/path")
+
+        # Add it to loom repo manually to simulate a broken state
+        loom_file = core.WORK_TREE / ".broken"
+        loom_file.write_text("content")
+        repo = core.ensure_repo()
+        repo.index.add([".broken"])
+        repo.index.commit("Add broken file")
+
+        results = core.validate_symlinks(quiet=True)
+
+        assert results is not None
+        assert ".broken" in results.get("broken", [])
+
+    def test_validate_symlinks_repair(
+        self, initialized_loom: Path, temp_home: Path
+    ) -> None:
+        """Test repairing broken symlinks."""
+        # Create file in loom repo
+        loom_file = core.WORK_TREE / ".testfile"
+        loom_file.write_text("test content")
+        repo = core.ensure_repo()
+        repo.index.add([".testfile"])
+        repo.index.commit("Add test file")
+
+        # Create broken symlink in home
+        home_file = temp_home / ".testfile"
+        home_file.symlink_to("/nonexistent")
+
+        results = core.validate_symlinks(repair=True, quiet=True)
+
+        assert results is not None
+        # After repair, the symlink should be fixed
+        assert_symlink_correct(home_file, loom_file)
+
+
+class TestCloneAndRestore:
+    """Test cloning repositories and restoring all dotfiles."""
+
+    @patch("loom.core.Repo.clone_from")
+    def test_clone_repo(self, mock_clone, temp_home: Path) -> None:
+        """Test cloning a repository."""
+        mock_repo = Mock()
+        mock_clone.return_value = mock_repo
+        mock_repo.git.ls_files.return_value = ".bashrc\n.vimrc"
+
+        remote_url = "https://github.com/user/dotfiles.git"
+        success = core.clone_repo(remote_url, quiet=True)
+
+        assert success
+        mock_clone.assert_called_once()
+
+    def test_restore_all_dotfiles(
+        self, initialized_loom: Path, temp_home: Path
+    ) -> None:
+        """Test restoring all tracked dotfiles."""
+        # Add some files to loom repo
+        test_files = {
+            ".bashrc": "# bashrc content",
+            ".vimrc": "set number",
+            ".config/app.conf": "[section]\nkey=value",
+        }
+
+        for file_path, content in test_files.items():
+            loom_file = core.WORK_TREE / file_path
+            loom_file.parent.mkdir(parents=True, exist_ok=True)
+            loom_file.write_text(content)
+
+        repo = core.ensure_repo()
+        repo.index.add(list(test_files.keys()))
+        repo.index.commit("Add test files")
+
+        success = core.restore_all_dotfiles(quiet=True)
+
+        assert success
+
+        # Check all files were restored as symlinks
+        for file_path in test_files.keys():
+            home_file = temp_home / file_path
+            loom_file = core.WORK_TREE / file_path
+            assert_symlink_correct(home_file, loom_file)

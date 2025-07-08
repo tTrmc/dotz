@@ -1,495 +1,406 @@
-"""
-Tests for the loom watcher functionality.
-Tests the file system watcher with the new configuration system.
-"""
+"""Tests for loom.watcher module."""
 
+import json
 import os
-import shutil
-import subprocess
 from pathlib import Path
-from typing import Dict, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, patch
 
 import pytest
+from watchdog.events import FileCreatedEvent, FileModifiedEvent
 
-from loom.core import add_dotfile, init_repo, save_tracked_dir
-from loom.watcher import LoomEventHandler, get_tracked_dirs
-
-
-@pytest.fixture
-def temp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Create a temporary home directory for testing."""
-    home = tmp_path / "home"
-    home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
-
-    # Clean up any existing .loom directory
-    loom = home / ".loom"
-    if loom.exists():
-        shutil.rmtree(loom)
-
-    return home
+from loom import watcher
+from tests.conftest import create_test_files
 
 
-@pytest.fixture
-def initialized_loom(temp_home: Path) -> Path:
-    """Create an initialized loom repository."""
-    init_repo(quiet=True)
-    return temp_home
+class TestWatcherPaths:
+    """Test watcher path management."""
+
+    def test_get_watcher_paths(self, temp_home: Path) -> None:
+        """Test watcher path generation."""
+        paths = watcher.get_watcher_paths(temp_home)
+
+        assert paths["home"] == temp_home
+        assert paths["loom_dir"] == temp_home / ".loom"
+
+    def test_update_watcher_paths(self, temp_home: Path) -> None:
+        """Test updating watcher paths."""
+        watcher.update_watcher_paths(temp_home)
+
+        assert watcher.HOME == temp_home
+        assert watcher.LOOM_DIR == temp_home / ".loom"
 
 
-class TestWatcherEventHandler:
-    """Test the watcher event handler functionality."""
+class TestTrackedDirectories:
+    """Test tracked directory functions."""
 
-    def test_handler_initialization(self, initialized_loom: Path) -> None:
-        """Test that the event handler initializes correctly."""
-        handler = LoomEventHandler()
-        assert handler.config is not None
-        assert "file_patterns" in handler.config
-        assert "search_settings" in handler.config
+    def test_get_tracked_dirs_empty(self, temp_home: Path) -> None:
+        """Test getting tracked dirs when file doesn't exist."""
+        watcher.update_watcher_paths(temp_home)
+        tracked_dirs = watcher.get_tracked_dirs()
 
-    def test_should_track_file_dotfiles(self, initialized_loom: Path) -> None:
-        """Test that dotfiles are tracked by default."""
-        handler = LoomEventHandler()
+        assert tracked_dirs == []
 
-        # Should track dotfiles
-        assert handler.should_track_file(".bashrc")
-        assert handler.should_track_file(".gitconfig")
-        assert handler.should_track_file(".vimrc")
+    def test_get_tracked_dirs_with_data(self, temp_home: Path) -> None:
+        """Test getting tracked dirs with existing data."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
 
-    def test_should_track_file_config_files(self, initialized_loom: Path) -> None:
-        """Test that config files are tracked by default."""
-        handler = LoomEventHandler()
+        tracked_dirs_data = ["/home/user/.config", "/home/user/.local"]
+        tracked_file = loom_dir / "tracked_dirs.json"
+        tracked_file.write_text(json.dumps(tracked_dirs_data))
 
-        # Should track config files
-        assert handler.should_track_file("app.conf")
-        assert handler.should_track_file("settings.config")
-        assert handler.should_track_file("config.yaml")
-        assert handler.should_track_file("data.json")
-        assert handler.should_track_file("pyproject.toml")
+        watcher.update_watcher_paths(temp_home)
+        tracked_dirs = watcher.get_tracked_dirs()
 
-    def test_should_not_track_excluded_files(self, initialized_loom: Path) -> None:
-        """Test that excluded files are not tracked."""
-        handler = LoomEventHandler()
+        assert tracked_dirs == tracked_dirs_data
 
-        # Should not track excluded files
-        assert not handler.should_track_file("error.log")
-        assert not handler.should_track_file("temp.tmp")
-        assert not handler.should_track_file(".DS_Store")
-        assert not handler.should_track_file(".cache")
+    def test_get_tracked_dirs_invalid_json(self, temp_home: Path) -> None:
+        """Test getting tracked dirs with invalid JSON."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
 
-    def test_config_reload_on_modification(self, initialized_loom: Path) -> None:
-        """Test that config is reloaded when config file changes."""
-        handler = LoomEventHandler()
+        tracked_file = loom_dir / "tracked_dirs.json"
+        tracked_file.write_text("not valid json")
 
-        # Mock event for config file modification
-        mock_event = MagicMock()
-        mock_event.src_path = str(initialized_loom / ".loom" / "config.json")
+        watcher.update_watcher_paths(temp_home)
+        tracked_dirs = watcher.get_tracked_dirs()
 
-        # Should reload config without error
+        assert tracked_dirs == []
+
+    def test_get_tracked_dirs_non_list(self, temp_home: Path) -> None:
+        """Test getting tracked dirs when data is not a list."""
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
+
+        tracked_file = loom_dir / "tracked_dirs.json"
+        tracked_file.write_text('{"not": "a list"}')
+
+        watcher.update_watcher_paths(temp_home)
+        tracked_dirs = watcher.get_tracked_dirs()
+
+        assert tracked_dirs == []
+
+
+class TestIsInTrackedDirectory:
+    """Test checking if files are in tracked directories."""
+
+    @patch("loom.watcher.ensure_repo")
+    def test_is_in_tracked_directory_true(
+        self, mock_ensure_repo, temp_home: Path
+    ) -> None:
+        """Test file is in tracked directory."""
+        mock_repo = Mock()
+        mock_repo.git.ls_files.return_value = ".config\n.config/app.conf"
+        mock_ensure_repo.return_value = mock_repo
+
+        result = watcher.is_in_tracked_directory(Path(".config/new_file.txt"))
+
+        assert result is True
+
+    @patch("loom.watcher.ensure_repo")
+    def test_is_in_tracked_directory_false(
+        self, mock_ensure_repo, temp_home: Path
+    ) -> None:
+        """Test file is not in tracked directory."""
+        mock_repo = Mock()
+        mock_repo.git.ls_files.return_value = ".bashrc\n.vimrc"
+        mock_ensure_repo.return_value = mock_repo
+
+        result = watcher.is_in_tracked_directory(Path(".config/new_file.txt"))
+
+        assert result is False
+
+    @patch("loom.watcher.ensure_repo")
+    def test_is_in_tracked_directory_parent_match(
+        self, mock_ensure_repo, temp_home: Path
+    ) -> None:
+        """Test file's parent directory is tracked."""
+        mock_repo = Mock()
+        mock_repo.git.ls_files.return_value = ".config"
+        mock_ensure_repo.return_value = mock_repo
+
+        result = watcher.is_in_tracked_directory(Path(".config/subdir/deep/file.txt"))
+
+        assert result is True
+
+
+class TestLoomEventHandler:
+    """Test the LoomEventHandler class."""
+
+    def setup_method(self) -> None:
+        """Set up event handler for tests."""
         with patch("loom.watcher.load_config") as mock_load:
-            mock_load.return_value = {"test": "config"}
-            handler.on_modified(mock_event)
-            mock_load.assert_called_once()
+            mock_load.return_value = {
+                "file_patterns": {
+                    "include": [".*", "*.conf", "*.json"],
+                    "exclude": [".cache", "*.log"],
+                },
+                "search_settings": {"case_sensitive": False},
+            }
+            self.handler = watcher.LoomEventHandler()
 
+    def test_should_track_file_match(self) -> None:
+        """Test file matching include patterns."""
+        assert self.handler.should_track_file(".bashrc") is True
+        assert self.handler.should_track_file("app.conf") is True
+        assert self.handler.should_track_file("settings.json") is True
 
-class TestWatcherIntegration:
-    """Test watcher integration with the core functionality."""
+    def test_should_track_file_exclude(self) -> None:
+        """Test file matching exclude patterns."""
+        assert self.handler.should_track_file(".cache") is False
+        assert self.handler.should_track_file("debug.log") is False
 
-    def test_get_tracked_dirs_empty(self, initialized_loom: Path) -> None:
-        """Test getting tracked directories when none exist."""
-        import loom.core as core
-        import loom.watcher as watcher
-
-        home = initialized_loom
-
-        # Patch paths in both modules
-        original_core_home = core.HOME
-        original_core_loom_dir = core.LOOM_DIR
-        original_core_work_tree = core.WORK_TREE
-        original_core_tracked_dirs_file = core.TRACKED_DIRS_FILE
-        original_watcher_home = watcher.HOME
-        original_watcher_loom_dir = watcher.LOOM_DIR
-
-        try:
-            # Set up temporary paths in both modules
-            core.HOME = home
-            core.LOOM_DIR = home / ".loom"
-            core.WORK_TREE = core.LOOM_DIR / "repo"
-            core.TRACKED_DIRS_FILE = core.LOOM_DIR / "tracked_dirs.json"
-            watcher.HOME = home
-            watcher.LOOM_DIR = home / ".loom"
-
-            # Ensure tracked_dirs.json doesn't exist or is empty
-            tracked_dirs_file = core.TRACKED_DIRS_FILE
-            if tracked_dirs_file.exists():
-                tracked_dirs_file.unlink()
-
-            dirs = get_tracked_dirs()
-            assert dirs == []
-        finally:
-            # Restore original paths
-            core.HOME = original_core_home
-            core.LOOM_DIR = original_core_loom_dir
-            core.WORK_TREE = original_core_work_tree
-            core.TRACKED_DIRS_FILE = original_core_tracked_dirs_file
-            watcher.HOME = original_watcher_home
-            watcher.LOOM_DIR = original_watcher_loom_dir
-
-    def test_get_tracked_dirs_with_data(self, initialized_loom: Path) -> None:
-        """Test getting tracked directories when they exist."""
-        home = initialized_loom
-
-        # Add some tracked directories
-        test_dir1 = home / "config1"
-        test_dir2 = home / "config2"
-        test_dir1.mkdir()
-        test_dir2.mkdir()
-
-        save_tracked_dir(test_dir1)
-        save_tracked_dir(test_dir2)
-
-        dirs = get_tracked_dirs()
-        assert str(test_dir1) in dirs
-        assert str(test_dir2) in dirs
+    def test_should_track_file_no_match(self) -> None:
+        """Test file not matching include patterns."""
+        assert self.handler.should_track_file("document.pdf") is False
+        assert self.handler.should_track_file("script.py") is False
 
     @patch("loom.watcher.add_dotfile")
-    def test_on_created_tracks_matching_file(
-        self, mock_add_dotfile: MagicMock, initialized_loom: Path
+    @patch("loom.watcher.is_in_tracked_directory")
+    @patch("os.path.islink")
+    def test_on_created_file_tracked(
+        self, mock_islink, mock_is_tracked, mock_add, temp_home: Path
     ) -> None:
-        """Test that on_created tracks files matching patterns."""
-        home = initialized_loom
-        handler = LoomEventHandler()
+        """Test handling file creation that should be tracked."""
+        mock_islink.return_value = False  # Not a symlink
+        mock_is_tracked.return_value = False  # Not already tracked
+        mock_add.return_value = True
 
-        # Create a test file that should be tracked
-        test_file = home / "test.conf"
-        test_file.write_text("config content")
+        # Create event for a dotfile
+        event = FileCreatedEvent(str(temp_home / ".new_config"))
+        event.is_directory = False
 
-        # Mock event
-        mock_event = MagicMock()
-        mock_event.is_directory = False
-        mock_event.src_path = str(test_file)
-
-        with patch("os.path.islink", return_value=False):
-            with patch("loom.watcher.is_in_tracked_directory", return_value=False):
-                handler.on_created(mock_event)
+        with patch("pathlib.Path.home", return_value=temp_home):
+            self.handler.on_created(event)
 
         # Should have called add_dotfile
-        mock_add_dotfile.assert_called_once()
-        call_args = mock_add_dotfile.call_args[0]
-        assert call_args[0] == Path("test.conf")
+        mock_add.assert_called_once()
 
     @patch("loom.watcher.add_dotfile")
-    def test_on_created_ignores_non_matching_file(
-        self, mock_add_dotfile: MagicMock, initialized_loom: Path
+    @patch("loom.watcher.is_in_tracked_directory")
+    @patch("os.path.islink")
+    def test_on_created_file_already_tracked(
+        self, mock_islink, mock_is_tracked, mock_add, temp_home: Path
     ) -> None:
-        """Test that on_created ignores files not matching patterns."""
-        home = initialized_loom
-        handler = LoomEventHandler()
+        """Test handling file creation for already tracked file."""
+        mock_islink.return_value = False  # Not a symlink
+        mock_is_tracked.return_value = True  # Already tracked
 
-        # Create a test file that should not be tracked
-        test_file = home / "readme.txt"
-        test_file.write_text("readme content")
+        # Create event for a dotfile
+        event = FileCreatedEvent(str(temp_home / ".new_config"))
+        event.is_directory = False
 
-        # Mock event
-        mock_event = MagicMock()
-        mock_event.is_directory = False
-        mock_event.src_path = str(test_file)
-
-        with patch("os.path.islink", return_value=False):
-            handler.on_created(mock_event)
+        with patch("pathlib.Path.home", return_value=temp_home):
+            self.handler.on_created(event)
 
         # Should not have called add_dotfile
-        mock_add_dotfile.assert_not_called()
+        mock_add.assert_not_called()
 
     @patch("loom.watcher.add_dotfile")
-    def test_on_created_ignores_symlinks(
-        self, mock_add_dotfile: MagicMock, initialized_loom: Path
+    @patch("os.path.islink")
+    def test_on_created_symlink_ignored(
+        self, mock_islink, mock_add, temp_home: Path
     ) -> None:
-        """Test that on_created ignores symlink creation events."""
-        home = initialized_loom
-        handler = LoomEventHandler()
+        """Test that symlink creation is ignored."""
+        mock_islink.return_value = True  # Is a symlink
 
-        # Mock event for symlink
-        mock_event = MagicMock()
-        mock_event.is_directory = False
-        mock_event.src_path = str(home / ".bashrc")
+        # Create event for a symlink
+        event = FileCreatedEvent(str(temp_home / ".symlink"))
+        event.is_directory = False
 
-        with patch("os.path.islink", return_value=True):
-            handler.on_created(mock_event)
+        self.handler.on_created(event)
 
-        # Should not have called add_dotfile for symlinks
-        mock_add_dotfile.assert_not_called()
+        # Should not have called add_dotfile
+        mock_add.assert_not_called()
+
+    def test_on_created_directory_ignored(self, temp_home: Path) -> None:
+        """Test that directory creation is ignored."""
+        with patch("loom.watcher.add_dotfile") as mock_add:
+            # Create event for a directory
+            event = FileCreatedEvent(str(temp_home / ".new_dir"))
+            event.is_directory = True
+
+            self.handler.on_created(event)
+
+            # Should not have called add_dotfile
+            mock_add.assert_not_called()
 
     @patch("loom.watcher.add_dotfile")
-    def test_on_created_ignores_directories(
-        self, mock_add_dotfile: MagicMock, initialized_loom: Path
+    @patch("loom.watcher.is_in_tracked_directory")
+    @patch("os.path.islink")
+    def test_on_created_file_not_tracked(
+        self, mock_islink, mock_is_tracked, mock_add, temp_home: Path
     ) -> None:
-        """Test that on_created ignores directory creation events."""
-        handler = LoomEventHandler()
+        """Test handling file creation for file that shouldn't be tracked."""
+        mock_islink.return_value = False  # Not a symlink
+        mock_is_tracked.return_value = False  # Not already tracked
 
-        # Mock event for directory
-        mock_event = MagicMock()
-        mock_event.is_directory = True
-        mock_event.src_path = str(initialized_loom / "new_dir")
+        # Create event for a non-matching file
+        event = FileCreatedEvent(str(temp_home / "document.pdf"))
+        event.is_directory = False
 
-        handler.on_created(mock_event)
+        with patch("pathlib.Path.home", return_value=temp_home):
+            self.handler.on_created(event)
 
-        # Should not have called add_dotfile for directories
-        mock_add_dotfile.assert_not_called()
+        # Should not have called add_dotfile (doesn't match patterns)
+        mock_add.assert_not_called()
+
+    @patch("loom.watcher.load_config")
+    def test_on_modified_config_reload(self, mock_load, temp_home: Path) -> None:
+        """Test config reload when config file is modified."""
+        new_config = {
+            "file_patterns": {"include": ["*.new"], "exclude": []},
+            "search_settings": {"case_sensitive": True},
+        }
+        mock_load.return_value = new_config
+
+        # Create event for config file modification
+        config_path = str(temp_home / ".loom" / "config.json")
+        event = FileModifiedEvent(config_path)
+
+        self.handler.on_modified(event)
+
+        # Config should have been reloaded
+        mock_load.assert_called_once()
+        assert self.handler.config == new_config
+
+    def test_on_modified_non_config(self, temp_home: Path) -> None:
+        """Test that non-config file modifications don't reload config."""
+        old_config = self.handler.config
+
+        with patch("loom.watcher.load_config") as mock_load:
+            # Create event for non-config file
+            event = FileModifiedEvent(str(temp_home / ".bashrc"))
+
+            self.handler.on_modified(event)
+
+            # Config should not have been reloaded
+            mock_load.assert_not_called()
+            assert self.handler.config == old_config
+
+    def test_on_created_bytes_filename(self, temp_home: Path) -> None:
+        """Test handling file creation with bytes filename."""
+        with (
+            patch("loom.watcher.add_dotfile") as mock_add,
+            patch("loom.watcher.is_in_tracked_directory") as mock_is_tracked,
+            patch("os.path.islink") as mock_islink,
+            patch("os.path.basename") as mock_basename,
+        ):
+
+            mock_islink.return_value = False
+            mock_is_tracked.return_value = False
+            mock_basename.return_value = b".bashrc"  # Return bytes
+            mock_add.return_value = True
+
+            event = FileCreatedEvent(str(temp_home / ".bashrc"))
+            event.is_directory = False
+
+            with patch("pathlib.Path.home", return_value=temp_home):
+                # Should not raise an exception
+                self.handler.on_created(event)
 
 
-class TestWatcherWithCustomConfig:
-    """Test watcher behavior with custom configuration."""
+class TestWatcherMain:
+    """Test the main watcher function."""
 
-    def test_custom_patterns_respected(self, initialized_loom: Path) -> None:
-        """Test that custom file patterns are respected by the watcher."""
-        from loom.core import add_file_pattern, remove_file_pattern, reset_config
-
-        try:
-            # Modify configuration to track Python files and exclude dotfiles
-            remove_file_pattern(".*", "include", quiet=True)
-            add_file_pattern("*.py", "include", quiet=True)
-
-            # Create new handler (should pick up new config)
-            handler = LoomEventHandler()
-
-            # Should now track Python files but not dotfiles
-            assert handler.should_track_file("script.py")
-            assert handler.should_track_file("main.py")
-            assert not handler.should_track_file(".bashrc")
-            assert not handler.should_track_file(".gitconfig")
-        finally:
-            # Reset config to avoid test pollution
-            reset_config(quiet=True)
-
-    def test_case_sensitivity_config(self, initialized_loom: Path) -> None:
-        """Test that case sensitivity configuration is respected."""
-        from loom.core import add_file_pattern, reset_config, set_config_value
-
-        try:
-            # Start with clean config
-            reset_config(quiet=True)
-
-            # Set case sensitive matching and add uppercase pattern
-            set_config_value("search_settings.case_sensitive", "true", quiet=True)
-            add_file_pattern("*.CONF", "include", quiet=True)
-
-            # Create new handler
-            handler = LoomEventHandler()
-
-            # Should be case sensitive now
-            assert handler.should_track_file("app.CONF")
-            # This test might fail if fnmatch doesn't handle case sensitivity properly
-            # Let's check if at least the uppercase works
-            assert handler.should_track_file("app.CONF")
-        finally:
-            # Reset config to avoid test pollution
-            reset_config(quiet=True)
-
-    @patch("loom.watcher.add_dotfile")
-    def test_watcher_with_python_config(
-        self, mock_add_dotfile: MagicMock, initialized_loom: Path
+    @patch("loom.watcher.Observer")
+    @patch("loom.watcher.get_tracked_dirs")
+    def test_main_no_tracked_dirs(
+        self, mock_get_dirs, mock_observer_class, temp_home: Path
     ) -> None:
-        """Test watcher with Python project configuration."""
-        from loom.core import add_file_pattern, reset_config
+        """Test main function when no directories are tracked."""
+        mock_get_dirs.return_value = []
 
-        try:
-            # Configure for Python project
-            add_file_pattern("*.py", "include", quiet=True)
-            add_file_pattern("requirements*.txt", "include", quiet=True)
-            add_file_pattern("*.pyc", "exclude", quiet=True)
+        with patch("builtins.print") as mock_print:
+            watcher.main()
 
-            home = initialized_loom
-            handler = LoomEventHandler()
+            mock_print.assert_called_with(
+                "No tracked directories. Add one with loom add <dir>"
+            )
 
-            # Create Python files
-            (home / "main.py").write_text("print('hello')")
-            (home / "requirements.txt").write_text("requests==2.0.0")
-            (home / "compiled.pyc").write_text("bytecode")
+    @patch("loom.watcher.Observer")
+    @patch("loom.watcher.get_tracked_dirs")
+    @patch("time.sleep")
+    def test_main_with_tracked_dirs(
+        self, mock_sleep, mock_get_dirs, mock_observer_class, temp_home: Path
+    ) -> None:
+        """Test main function with tracked directories."""
+        mock_get_dirs.return_value = ["/home/user/.config", "/home/user/.local"]
+        mock_observer = Mock()
+        mock_observer_class.return_value = mock_observer
 
-            # Test Python file tracking
-            mock_event_py = MagicMock()
-            mock_event_py.is_directory = False
-            mock_event_py.src_path = str(home / "main.py")
+        # Simulate KeyboardInterrupt after one sleep
+        mock_sleep.side_effect = KeyboardInterrupt()
 
-            with patch("os.path.islink", return_value=False):
-                with patch("loom.watcher.is_in_tracked_directory", return_value=False):
-                    handler.on_created(mock_event_py)
+        watcher.main()
 
-            # Should track Python file
-            assert mock_add_dotfile.called
+        # Should have scheduled directories for watching
+        assert mock_observer.schedule.call_count == 2
+        mock_observer.start.assert_called_once()
+        mock_observer.stop.assert_called_once()
+        mock_observer.join.assert_called_once()
 
-            # Reset mock
-            mock_add_dotfile.reset_mock()
+    @patch("loom.watcher.Observer")
+    @patch("loom.watcher.get_tracked_dirs")
+    @patch("time.sleep")
+    def test_main_keyboard_interrupt(
+        self, mock_sleep, mock_get_dirs, mock_observer_class, temp_home: Path
+    ) -> None:
+        """Test main function handles KeyboardInterrupt properly."""
+        mock_get_dirs.return_value = ["/home/user/.config"]
+        mock_observer = Mock()
+        mock_observer_class.return_value = mock_observer
 
-            # Test excluded file
-            mock_event_pyc = MagicMock()
-            mock_event_pyc.is_directory = False
-            mock_event_pyc.src_path = str(home / "compiled.pyc")
+        # Simulate KeyboardInterrupt
+        mock_sleep.side_effect = KeyboardInterrupt()
 
-            with patch("os.path.islink", return_value=False):
-                handler.on_created(mock_event_pyc)
+        # Should not raise exception
+        watcher.main()
 
-            # Should not track .pyc file (excluded)
-            mock_add_dotfile.assert_not_called()
-        finally:
-            # Reset config to avoid test pollution
-            reset_config(quiet=True)
-
-
-class TestWatcherCLIIntegration:
-    """Test watcher CLI integration."""
-
-    def run_loom(
-        self, *args: str, env: Optional[Dict[str, str]] = None
-    ) -> subprocess.CompletedProcess[str]:
-        """Helper to run loom commands."""
-        cmd = ["loom"] + list(map(str, args))
-        return subprocess.run(cmd, capture_output=True, text=True, env=env)
-
-    def test_watcher_no_tracked_dirs(self, initialized_loom: Path) -> None:
-        """Test watcher behavior when no directories are tracked."""
-        env = os.environ.copy()
-        env["HOME"] = str(initialized_loom)
-
-        # Try to run watcher (should exit quickly with no tracked dirs)
-        result = self.run_loom("watch", env=env)
-
-        # Should indicate no tracked directories
-        assert "No tracked directories" in result.stdout or result.returncode != 0
-
-    def test_watcher_with_tracked_dir(self, initialized_loom: Path) -> None:
-        """Test watcher with a tracked directory."""
-        import loom.core as core
-        import loom.watcher as watcher
-
-        home = initialized_loom
-        env = os.environ.copy()
-        env["HOME"] = str(home)
-
-        # Patch paths in both modules
-        original_core_home = core.HOME
-        original_core_loom_dir = core.LOOM_DIR
-        original_core_work_tree = core.WORK_TREE
-        original_core_tracked_dirs_file = core.TRACKED_DIRS_FILE
-        original_core_config_file = core.CONFIG_FILE
-        original_watcher_home = watcher.HOME
-        original_watcher_loom_dir = watcher.LOOM_DIR
-
-        try:
-            # Set up temporary paths in both modules
-            core.HOME = home
-            core.LOOM_DIR = home / ".loom"
-            core.WORK_TREE = core.LOOM_DIR / "repo"
-            core.TRACKED_DIRS_FILE = core.LOOM_DIR / "tracked_dirs.json"
-            core.CONFIG_FILE = core.LOOM_DIR / "config.json"
-            watcher.HOME = home
-            watcher.LOOM_DIR = home / ".loom"
-
-            # Clear any existing tracked dirs first
-            if core.TRACKED_DIRS_FILE.exists():
-                core.TRACKED_DIRS_FILE.unlink()
-
-            # Initialize repo if needed
-            if not core.LOOM_DIR.exists():
-                init_repo(quiet=True)
-            elif not core.WORK_TREE.exists():
-                # LOOM_DIR exists but WORK_TREE doesn't, create it
-                core.WORK_TREE.mkdir(exist_ok=True)
-
-            # Add a tracked directory
-            test_dir = home / "watchtest"
-            test_dir.mkdir()
-            (test_dir / ".testrc").write_text("test config")
-
-            self.run_loom("add", "watchtest", env=env)
-
-            # Verify directory is tracked
-            dirs = get_tracked_dirs()
-            assert str(test_dir) in dirs
-        finally:
-            # Restore original paths
-            core.HOME = original_core_home
-            core.LOOM_DIR = original_core_loom_dir
-            core.WORK_TREE = original_core_work_tree
-            core.TRACKED_DIRS_FILE = original_core_tracked_dirs_file
-            core.CONFIG_FILE = original_core_config_file
-            watcher.HOME = original_watcher_home
-            watcher.LOOM_DIR = original_watcher_loom_dir
-
-        # Note: We can't easily test the actual watching behavior in unit tests
-        # since it requires real file system events and background processes.
-        # This would be better tested in integration tests.
+        mock_observer.stop.assert_called_once()
+        mock_observer.join.assert_called_once()
 
 
-class TestWatcherErrorHandling:
-    """Test watcher error handling scenarios."""
+class TestIntegration:
+    """Integration tests for watcher functionality."""
 
-    def test_handler_with_corrupted_config(self, initialized_loom: Path) -> None:
-        """Test that handler handles corrupted config gracefully."""
-        home = initialized_loom
+    def test_event_handler_with_real_config(self, temp_home: Path) -> None:
+        """Test event handler with real configuration loading."""
+        # Create loom directory and config
+        loom_dir = temp_home / ".loom"
+        loom_dir.mkdir()
 
-        # Ensure .loom directory exists
-        loom_dir = home / ".loom"
-        loom_dir.mkdir(exist_ok=True)
+        config = {
+            "file_patterns": {"include": [".*", "*.txt"], "exclude": ["*.log"]},
+            "search_settings": {"case_sensitive": False},
+        }
 
-        # Create corrupted config file
         config_file = loom_dir / "config.json"
-        config_file.write_text("invalid json {")
+        config_file.write_text(json.dumps(config))
 
-        # Should still initialize with defaults
-        with patch("typer.secho"):  # Suppress warning output
-            handler = LoomEventHandler()
+        with patch("loom.watcher.LOOM_DIR", loom_dir):
+            handler = watcher.LoomEventHandler()
 
-        # Should have default config structure
-        assert "file_patterns" in handler.config
-        assert "include" in handler.config["file_patterns"]
-        assert "exclude" in handler.config["file_patterns"]
-        assert "search_settings" in handler.config
-        # Should have some default include patterns
-        assert len(handler.config["file_patterns"]["include"]) > 0
+            # Test file matching
+            assert handler.should_track_file(".bashrc") is True
+            assert handler.should_track_file("notes.txt") is True
+            assert handler.should_track_file("debug.log") is False
 
-    def test_handler_with_missing_config_keys(self, initialized_loom: Path) -> None:
-        """Test handler with incomplete configuration."""
-        from loom.core import reset_config, save_config
+    @patch("loom.watcher.ensure_repo")
+    def test_tracked_directory_check_integration(
+        self, mock_ensure_repo, temp_home: Path
+    ) -> None:
+        """Test tracked directory checking with realistic scenarios."""
+        # Mock repo with some tracked files
+        mock_repo = Mock()
+        mock_repo.git.ls_files.return_value = (
+            ".config\n" ".config/app/settings.json\n" ".bashrc\n" ".vimrc"
+        )
+        mock_ensure_repo.return_value = mock_repo
 
-        # Start with clean state
-        reset_config(quiet=True)
-
-        # Save incomplete config (only partial file_patterns)
-        incomplete_config = {"file_patterns": {"include": ["*.test"]}}
-        save_config(incomplete_config)
-
-        handler = LoomEventHandler()
-
-        # Should merge with defaults - the include should contain our pattern
-        # but exclude should still exist from defaults
-        assert "file_patterns" in handler.config
-        assert "search_settings" in handler.config
-        assert "*.test" in handler.config["file_patterns"]["include"]
-        # Note: due to the way update() works, exclude may not exist if only
-        # include was saved
-        # Let's just check that the config has the basic structure
-        assert isinstance(handler.config["file_patterns"], dict)
-
-
-# Integration test that requires actual file watching
-# This is more of a manual/integration test since it's hard to reliably test
-# file system watching in unit tests
-@pytest.mark.slow
-class TestWatcherRealFileSystem:
-    """Integration tests that use real file system watching."""
-
-    @pytest.mark.skip(reason="Integration test - requires manual verification")
-    def test_real_file_watching(self, initialized_loom: Path) -> None:
-        """
-        This is a template for integration testing real file watching.
-        Should be run manually or in integration test suite.
-        """
-        # This would require:
-        # 1. Starting the watcher in a background process
-        # 2. Creating files that match patterns
-        # 3. Verifying they get added automatically
-        # 4. Stopping the watcher
-        pass
+        # Test various file paths
+        assert watcher.is_in_tracked_directory(Path(".config/new.conf")) is True
+        assert watcher.is_in_tracked_directory(Path(".config/app/new.conf")) is True
+        assert watcher.is_in_tracked_directory(Path(".bashrc")) is True
+        assert watcher.is_in_tracked_directory(Path(".local/new.conf")) is False
+        assert watcher.is_in_tracked_directory(Path("Documents/file.txt")) is False

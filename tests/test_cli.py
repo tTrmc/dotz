@@ -1,722 +1,808 @@
-"""
-CLI tests for loom.
-Tests the command-line interface and integration with core functionality.
-"""
+"""Tests for loom.cli module."""
 
 import json
-import os
-import shutil
-import signal
-import subprocess
-import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from unittest.mock import Mock, patch
 
 import pytest
+import typer
+from typer.testing import CliRunner
+
+from loom import cli, core
+from tests.conftest import create_test_files
 
 
-@pytest.fixture
-def temp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Create a temporary home directory for testing."""
-    home = tmp_path / "home"
-    home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
-    loom = home / ".loom"
-    if loom.exists():
-        shutil.rmtree(loom)
-    return home
+class TestCLIHelpers:
+    """Test CLI helper functions."""
+
+    def test_get_cli_paths(self, temp_home: Path) -> None:
+        """Test CLI path generation."""
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            home, loom_dir, work_tree = cli.get_cli_paths()
+
+            assert home == temp_home
+            assert loom_dir == temp_home / ".loom"
+            assert work_tree == temp_home / ".loom" / "repo"
+
+    def test_refresh_cli_paths(self, temp_home: Path) -> None:
+        """Test refreshing CLI paths."""
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            cli.refresh_cli_paths()
+
+            assert cli.HOME == temp_home
+            assert cli.LOOM_DIR == temp_home / ".loom"
+            assert cli.WORK_TREE == temp_home / ".loom" / "repo"
 
 
-def run_loom(
-    *args: str, env: Optional[Dict[str, str]] = None
-) -> subprocess.CompletedProcess[str]:
-    """Helper function to run loom CLI commands."""
-    cmd = ["loom"] + list(map(str, args))
-    return subprocess.run(cmd, capture_output=True, text=True, env=env)
+class TestInitCommand:
+    """Test the init command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.cli.init_repo")
+    def test_init_basic(self, mock_init, temp_home: Path) -> None:
+        """Test basic init command."""
+        mock_init.return_value = True
+
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(cli.app, ["init", "--non-interactive"])
+
+            assert result.exit_code == 0
+            mock_init.assert_called_once_with(remote="", quiet=False)
+
+    @patch("loom.cli.init_repo")
+    def test_init_with_remote(self, mock_init, temp_home: Path) -> None:
+        """Test init with remote URL."""
+        mock_init.return_value = True
+        remote_url = "https://github.com/user/dotfiles.git"
+
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(
+                cli.app, ["init", "--remote", remote_url, "--non-interactive"]
+            )
+
+            assert result.exit_code == 0
+            mock_init.assert_called_once_with(remote=remote_url, quiet=False)
+
+    @patch("loom.cli.init_repo")
+    def test_init_failure(self, mock_init, temp_home: Path) -> None:
+        """Test init command failure."""
+        mock_init.return_value = False
+
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(cli.app, ["init", "--non-interactive"])
+
+            assert result.exit_code == 1
+
+    @patch("loom.cli.init_repo")
+    @patch("loom.cli.add_dotfile")
+    @patch("typer.confirm")
+    def test_init_interactive_with_dotfiles(
+        self, mock_confirm, mock_add, mock_init, temp_home: Path
+    ) -> None:
+        """Test interactive init with automatic dotfile setup."""
+        mock_init.return_value = True
+        mock_add.return_value = True
+        # No remote, auto-add dotfiles, confirm add
+        mock_confirm.side_effect = [False, True, True]
+
+        # Create some common dotfiles
+        (temp_home / ".bashrc").write_text("# bashrc")
+        (temp_home / ".vimrc").write_text("set number")
+
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(cli.app, ["init"])
+
+            assert result.exit_code == 0
+            # Should have tried to add dotfiles
+            assert mock_add.call_count >= 1
 
 
-class TestBasicCLICommands:
-    """Test basic CLI command functionality."""
+class TestAddCommand:
+    """Test the add command."""
 
-    def test_init_and_double_init(self, temp_home: Path) -> None:
-        """Test init command and preventing double initialization."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
 
-        result = run_loom("init", "--non-interactive", env=env)
-        assert result.returncode == 0
-        assert "Initialising loom..." in result.stdout
-        assert "Created empty initial commit" in result.stdout
+    @patch("loom.cli.add_dotfile")
+    def test_add_file(self, mock_add, temp_home: Path) -> None:
+        """Test adding a file."""
+        mock_add.return_value = True
 
-        # Second init should warn and exit
-        result2 = run_loom("init", "--non-interactive", env=env)
-        assert result2.returncode != 0
-        assert "already initialised" in result2.stdout
+        result = self.runner.invoke(cli.app, ["add", ".bashrc"])
 
-    def test_add_and_list_and_status(self, temp_home: Path) -> None:
-        """Test add, list-files, and status commands."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        run_loom("init", "--non-interactive", env=env)
+        assert result.exit_code == 0
+        mock_add.assert_called_once_with(
+            Path(".bashrc"), push=False, quiet=False, recursive=True
+        )
 
-        # Create a fake dotfile
-        dotfile = temp_home / ".bashrc"
-        dotfile.write_text("export TEST=1\n")
+    @patch("loom.cli.add_dotfile")
+    def test_add_file_with_options(self, mock_add, temp_home: Path) -> None:
+        """Test adding a file with options."""
+        mock_add.return_value = True
 
-        # Add the file
-        result = run_loom("add", ".bashrc", env=env)
-        assert result.returncode == 0
-        assert "Added .bashrc" in result.stdout
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(
+                cli.app, ["add", ".bashrc", "--push", "--quiet", "--no-recursive"]
+            )
 
-        # List files
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        result2 = run_loom("list-files", env=env)
-        assert ".bashrc" in result2.stdout
+        assert result.exit_code == 0
+        mock_add.assert_called_once_with(
+            Path(".bashrc"), push=True, quiet=True, recursive=False
+        )
 
-        # Status should show no changes
-        result3 = run_loom("status", env=env)
-        assert "No changes" in result3.stdout
+    @patch("loom.core.add_dotfile")
+    def test_add_file_failure(self, mock_add, temp_home: Path) -> None:
+        """Test add command failure."""
+        mock_add.return_value = False
 
-    def test_restore_and_delete(self, temp_home: Path) -> None:
-        """Test restore and delete commands."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        run_loom("init", "--non-interactive", env=env)
+        result = self.runner.invoke(cli.app, ["add", ".bashrc"])
 
-        # Create and add a dotfile
-        dotfile = temp_home / ".vimrc"
-        dotfile.write_text("set number\n")
-        run_loom("add", ".vimrc", env=env)
-
-        # Remove the symlink to simulate accidental deletion
-        symlink = temp_home / ".vimrc"
-        if symlink.exists():
-            symlink.unlink()
-
-        # Restore the file
-        result = run_loom("restore", ".vimrc", env=env)
-        assert result.returncode == 0
-        assert "✓ Restored .vimrc" in result.stdout
-        assert (temp_home / ".vimrc").exists()
-
-        # Delete the file from loom
-        result2 = run_loom("delete", ".vimrc", env=env)
-        assert result2.returncode == 0
-        assert "✓ Removed .vimrc" in result2.stdout
-
-        # Now restore should fail
-        result3 = run_loom("restore", ".vimrc", env=env)
-        assert result3.returncode != 0
-        output = result3.stdout + result3.stderr
-        assert "is not tracked by loom" in output
-
-    def test_add_nonexistent_file(self, temp_home: Path) -> None:
-        """Test adding a file that doesn't exist."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        run_loom("init", "--non-interactive", env=env)
-
-        # Try to add a file that doesn't exist
-        result = run_loom("add", ".nonexistent", env=env)
-        assert result.returncode != 0
-        assert "not found" in result.stderr or "not found" in result.stdout
+        assert result.exit_code == 1
 
 
-class TestConfigCLICommands:
-    """Test configuration CLI commands."""
+class TestDeleteCommand:
+    """Test the delete command."""
 
-    def test_config_show_all(self, temp_home: Path) -> None:
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.cli.delete_dotfile")
+    def test_delete_file(self, mock_delete, temp_home: Path) -> None:
+        """Test deleting a file."""
+        mock_delete.return_value = True
+
+        result = self.runner.invoke(cli.app, ["delete", ".bashrc"])
+
+        assert result.exit_code == 0
+        mock_delete.assert_called_once_with([Path(".bashrc")], push=False, quiet=False)
+
+    @patch("loom.cli.delete_dotfile")
+    def test_delete_multiple_files(self, mock_delete, temp_home: Path) -> None:
+        """Test deleting multiple files."""
+        mock_delete.return_value = True
+
+        result = self.runner.invoke(cli.app, ["delete", ".bashrc", ".vimrc"])
+
+        assert result.exit_code == 0
+        mock_delete.assert_called_once_with(
+            [Path(".bashrc"), Path(".vimrc")], push=False, quiet=False
+        )
+
+    @patch("loom.cli.delete_dotfile")
+    def test_delete_with_options(self, mock_delete, temp_home: Path) -> None:
+        """Test delete with options."""
+        mock_delete.return_value = True
+
+        result = self.runner.invoke(cli.app, ["delete", ".bashrc", "--push", "--quiet"])
+
+        assert result.exit_code == 0
+        mock_delete.assert_called_once_with([Path(".bashrc")], push=True, quiet=True)
+
+    @patch("loom.cli.delete_dotfile")
+    def test_delete_failure(self, mock_delete, temp_home: Path) -> None:
+        """Test delete command failure."""
+        mock_delete.return_value = False
+
+        result = self.runner.invoke(cli.app, ["delete", ".bashrc"])
+
+        assert result.exit_code == 1
+
+
+class TestStatusCommand:
+    """Test the status command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.get_repo_status")
+    def test_status_clean(self, mock_status, temp_home: Path) -> None:
+        """Test status when repository is clean."""
+        mock_status.return_value = {
+            "untracked": [],
+            "modified": [],
+            "staged": [],
+            "unpushed": [],
+            "untracked_home_dotfiles": [],
+        }
+
+        result = self.runner.invoke(cli.app, ["status"])
+
+        assert result.exit_code == 0
+        assert "No changes" in result.output
+
+    @patch("loom.core.get_repo_status")
+    def test_status_with_changes(self, mock_status, temp_home: Path) -> None:
+        """Test status with changes."""
+        mock_status.return_value = {
+            "untracked": [".new_file"],
+            "modified": [".bashrc"],
+            "staged": [".vimrc"],
+            "unpushed": [".gitconfig"],
+            "untracked_home_dotfiles": [".zshrc"],
+        }
+
+        result = self.runner.invoke(cli.app, ["status"])
+
+        assert result.exit_code == 0
+        assert "Untracked files:" in result.output
+        assert "Modified files:" in result.output
+        assert "Staged files:" in result.output
+        assert "Unpushed changes:" in result.output
+        assert "not tracked by loom:" in result.output
+
+
+class TestListFilesCommand:
+    """Test the list-files command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.list_tracked_files")
+    def test_list_files_empty(self, mock_list, temp_home: Path) -> None:
+        """Test listing when no files are tracked."""
+        mock_list.return_value = []
+
+        result = self.runner.invoke(cli.app, ["list-files"])
+
+        assert result.exit_code == 0
+        assert "No files tracked" in result.output
+
+    @patch("loom.core.list_tracked_files")
+    def test_list_files_with_files(self, mock_list, temp_home: Path) -> None:
+        """Test listing tracked files."""
+        mock_list.return_value = [".bashrc", ".vimrc", ".gitconfig"]
+
+        result = self.runner.invoke(cli.app, ["list-files"])
+
+        assert result.exit_code == 0
+        assert ".bashrc" in result.output
+        assert ".vimrc" in result.output
+        assert ".gitconfig" in result.output
+
+
+class TestRestoreCommand:
+    """Test the restore command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.restore_dotfile")
+    def test_restore_file(self, mock_restore, temp_home: Path) -> None:
+        """Test restoring a file."""
+        mock_restore.return_value = True
+
+        result = self.runner.invoke(cli.app, ["restore", ".bashrc"])
+
+        assert result.exit_code == 0
+        mock_restore.assert_called_once_with(Path(".bashrc"), quiet=False, push=False)
+
+    @patch("loom.core.restore_dotfile")
+    def test_restore_with_options(self, mock_restore, temp_home: Path) -> None:
+        """Test restore with options."""
+        mock_restore.return_value = True
+
+        result = self.runner.invoke(
+            cli.app, ["restore", ".bashrc", "--push", "--quiet"]
+        )
+
+        assert result.exit_code == 0
+        mock_restore.assert_called_once_with(Path(".bashrc"), quiet=True, push=True)
+
+    @patch("loom.core.restore_dotfile")
+    def test_restore_failure(self, mock_restore, temp_home: Path) -> None:
+        """Test restore command failure."""
+        mock_restore.return_value = False
+
+        result = self.runner.invoke(cli.app, ["restore", ".bashrc"])
+
+        assert result.exit_code == 1
+
+
+class TestPullPushCommands:
+    """Test pull and push commands."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.pull_repo")
+    def test_pull_success(self, mock_pull, temp_home: Path) -> None:
+        """Test successful pull."""
+        mock_pull.return_value = True
+
+        result = self.runner.invoke(cli.app, ["pull"])
+
+        assert result.exit_code == 0
+        mock_pull.assert_called_once_with(quiet=False)
+
+    @patch("loom.core.pull_repo")
+    def test_pull_failure(self, mock_pull, temp_home: Path) -> None:
+        """Test pull failure."""
+        mock_pull.return_value = False
+
+        result = self.runner.invoke(cli.app, ["pull"])
+
+        assert result.exit_code == 1
+
+    @patch("loom.core.push_repo")
+    def test_push_success(self, mock_push, temp_home: Path) -> None:
+        """Test successful push."""
+        mock_push.return_value = True
+
+        result = self.runner.invoke(cli.app, ["push"])
+
+        assert result.exit_code == 0
+        mock_push.assert_called_once_with(quiet=False)
+
+    @patch("loom.core.push_repo")
+    def test_push_failure(self, mock_push, temp_home: Path) -> None:
+        """Test push failure."""
+        mock_push.return_value = False
+
+        result = self.runner.invoke(cli.app, ["push"])
+
+        assert result.exit_code == 1
+
+
+class TestCloneCommand:
+    """Test the clone command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.clone_repo")
+    def test_clone_success(self, mock_clone, temp_home: Path) -> None:
+        """Test successful clone."""
+        mock_clone.return_value = True
+        remote_url = "https://github.com/user/dotfiles.git"
+
+        result = self.runner.invoke(cli.app, ["clone", remote_url])
+
+        assert result.exit_code == 0
+        mock_clone.assert_called_once_with(remote_url, quiet=False)
+
+    @patch("loom.core.clone_repo")
+    def test_clone_failure(self, mock_clone, temp_home: Path) -> None:
+        """Test clone failure."""
+        mock_clone.return_value = False
+        remote_url = "https://github.com/user/dotfiles.git"
+
+        result = self.runner.invoke(cli.app, ["clone", remote_url])
+
+        assert result.exit_code == 1
+
+
+class TestRestoreAllCommand:
+    """Test the restore-all command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.restore_all_dotfiles")
+    @patch("loom.core.list_tracked_files")
+    @patch("typer.confirm")
+    def test_restore_all_with_confirmation(
+        self, mock_confirm, mock_list, mock_restore, temp_home: Path
+    ) -> None:
+        """Test restore-all with confirmation."""
+        mock_list.return_value = [".bashrc", ".vimrc"]
+        mock_confirm.return_value = True
+        mock_restore.return_value = True
+
+        result = self.runner.invoke(cli.app, ["restore-all"])
+
+        assert result.exit_code == 0
+        mock_restore.assert_called_once_with(quiet=False, push=False)
+
+    @patch("loom.core.restore_all_dotfiles")
+    @patch("loom.core.list_tracked_files")
+    @patch("typer.confirm")
+    def test_restore_all_cancelled(
+        self, mock_confirm, mock_list, mock_restore, temp_home: Path
+    ) -> None:
+        """Test restore-all cancelled by user."""
+        mock_list.return_value = [".bashrc", ".vimrc"]
+        mock_confirm.return_value = False
+
+        result = self.runner.invoke(cli.app, ["restore-all"])
+
+        assert result.exit_code == 0
+        assert "cancelled" in result.output
+        mock_restore.assert_not_called()
+
+    @patch("loom.core.restore_all_dotfiles")
+    def test_restore_all_skip_confirmation(self, mock_restore, temp_home: Path) -> None:
+        """Test restore-all with --yes flag."""
+        mock_restore.return_value = True
+
+        result = self.runner.invoke(cli.app, ["restore-all", "--yes"])
+
+        assert result.exit_code == 0
+        mock_restore.assert_called_once_with(quiet=False, push=False)
+
+
+class TestValidateCommand:
+    """Test the validate command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.validate_symlinks")
+    def test_validate_success(self, mock_validate, temp_home: Path) -> None:
+        """Test successful validation."""
+        mock_validate.return_value = {
+            "broken": [],
+            "missing": [],
+            "wrong_target": [],
+            "not_symlink": [],
+            "repair_failed": [],
+        }
+
+        result = self.runner.invoke(cli.app, ["validate"])
+
+        assert result.exit_code == 0
+        mock_validate.assert_called_once_with(repair=False, quiet=False)
+
+    @patch("loom.core.validate_symlinks")
+    def test_validate_with_repair(self, mock_validate, temp_home: Path) -> None:
+        """Test validation with repair."""
+        mock_validate.return_value = {
+            "broken": [],
+            "missing": [],
+            "wrong_target": [],
+            "not_symlink": [],
+            "repair_failed": [],
+        }
+
+        result = self.runner.invoke(cli.app, ["validate", "--repair"])
+
+        assert result.exit_code == 0
+        mock_validate.assert_called_once_with(repair=True, quiet=False)
+
+    @patch("loom.core.validate_symlinks")
+    def test_validate_with_issues(self, mock_validate, temp_home: Path) -> None:
+        """Test validation with issues found."""
+        mock_validate.return_value = {
+            "broken": [".bashrc"],
+            "missing": [".vimrc"],
+            "wrong_target": [],
+            "not_symlink": [],
+            "repair_failed": [],
+        }
+
+        result = self.runner.invoke(cli.app, ["validate"])
+
+        assert result.exit_code == 1  # Should exit with error if issues found
+
+    @patch("loom.core.validate_symlinks")
+    def test_validate_failure(self, mock_validate, temp_home: Path) -> None:
+        """Test validation failure."""
+        mock_validate.return_value = None
+
+        result = self.runner.invoke(cli.app, ["validate"])
+
+        assert result.exit_code == 1
+
+
+class TestConfigCommands:
+    """Test config subcommands."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.load_config")
+    def test_config_show_all(self, mock_load, temp_home: Path) -> None:
         """Test showing all configuration."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
+        mock_config = {"test": "value"}
+        mock_load.return_value = mock_config
 
-        result = run_loom("config", "show", env=env)
-        assert result.returncode == 0
+        result = self.runner.invoke(cli.app, ["config", "show"])
 
-        # Should contain JSON configuration
-        assert "file_patterns" in result.stdout
-        assert "search_settings" in result.stdout
-        assert "include" in result.stdout
-        assert "exclude" in result.stdout
+        assert result.exit_code == 0
+        assert '"test": "value"' in result.output
 
-    def test_config_show_specific_key(self, temp_home: Path) -> None:
-        """Test showing specific configuration key."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
+    @patch("loom.core.get_config_value")
+    def test_config_show_key(self, mock_get, temp_home: Path) -> None:
+        """Test showing specific config key."""
+        mock_get.return_value = ["value1", "value2"]
 
-        result = run_loom("config", "show", "file_patterns.include", env=env)
-        assert result.returncode == 0
+        result = self.runner.invoke(cli.app, ["config", "show", "test.key"])
 
-        # Should show the include patterns array
-        assert ".*" in result.stdout
-        assert "*.conf" in result.stdout
+        assert result.exit_code == 0
+        mock_get.assert_called_once_with("test.key", quiet=True)
 
-    def test_config_show_nonexistent_key(self, temp_home: Path) -> None:
-        """Test showing non-existent configuration key."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
+    @patch("loom.core.get_config_value")
+    def test_config_show_nonexistent_key(self, mock_get, temp_home: Path) -> None:
+        """Test showing non-existent config key."""
+        mock_get.return_value = None
 
-        result = run_loom("config", "show", "nonexistent.key", env=env)
-        assert result.returncode == 1
-        assert "not found" in result.stderr
+        result = self.runner.invoke(cli.app, ["config", "show", "nonexistent"])
 
-    def test_config_set_value(self, temp_home: Path) -> None:
-        """Test setting configuration values."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
+        assert result.exit_code == 1
 
-        # Set a boolean value
-        result = run_loom(
-            "config", "set", "search_settings.recursive", "false", env=env
+    @patch("loom.core.set_config_value")
+    def test_config_set(self, mock_set, temp_home: Path) -> None:
+        """Test setting config value."""
+        mock_set.return_value = True
+
+        result = self.runner.invoke(cli.app, ["config", "set", "test.key", "new_value"])
+
+        assert result.exit_code == 0
+        mock_set.assert_called_once_with("test.key", "new_value")
+
+    @patch("loom.core.set_config_value")
+    def test_config_set_failure(self, mock_set, temp_home: Path) -> None:
+        """Test config set failure."""
+        mock_set.return_value = False
+
+        result = self.runner.invoke(cli.app, ["config", "set", "test.key", "new_value"])
+
+        assert result.exit_code == 1
+
+    @patch("loom.core.add_file_pattern")
+    def test_config_add_pattern(self, mock_add, temp_home: Path) -> None:
+        """Test adding file pattern."""
+        mock_add.return_value = True
+
+        result = self.runner.invoke(cli.app, ["config", "add-pattern", "*.xml"])
+
+        assert result.exit_code == 0
+        mock_add.assert_called_once_with("*.xml", "include")
+
+    @patch("loom.core.add_file_pattern")
+    def test_config_add_exclude_pattern(self, mock_add, temp_home: Path) -> None:
+        """Test adding exclude pattern."""
+        mock_add.return_value = True
+
+        result = self.runner.invoke(
+            cli.app, ["config", "add-pattern", "*.log", "--type", "exclude"]
         )
-        assert result.returncode == 0
-        assert "✓ Set search_settings.recursive = False" in result.stdout
 
-        # Verify the change
-        result2 = run_loom("config", "show", "search_settings.recursive", env=env)
-        assert "False" in result2.stdout or "false" in result2.stdout
+        assert result.exit_code == 0
+        mock_add.assert_called_once_with("*.log", "exclude")
 
-    def test_config_add_pattern(self, temp_home: Path) -> None:
-        """Test adding file patterns."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
+    @patch("loom.core.remove_file_pattern")
+    def test_config_remove_pattern(self, mock_remove, temp_home: Path) -> None:
+        """Test removing file pattern."""
+        mock_remove.return_value = True
 
-        # Add include pattern
-        result = run_loom("config", "add-pattern", "*.py", env=env)
-        assert result.returncode == 0
-        assert "✓ Added '*.py' to include patterns" in result.stdout
+        result = self.runner.invoke(cli.app, ["config", "remove-pattern", "*.xml"])
 
-        # Add exclude pattern
-        result2 = run_loom(
-            "config", "add-pattern", "*.pyc", "--type", "exclude", env=env
-        )
-        assert result2.returncode == 0
-        assert "✓ Added '*.pyc' to exclude patterns" in result2.stdout
+        assert result.exit_code == 0
+        mock_remove.assert_called_once_with("*.xml", "include")
 
-        # Verify the changes
-        result3 = run_loom("config", "show", "file_patterns.include", env=env)
-        assert "*.py" in result3.stdout
+    @patch("loom.core.reset_config")
+    @patch("typer.confirm")
+    def test_config_reset_with_confirmation(
+        self, mock_confirm, mock_reset, temp_home: Path
+    ) -> None:
+        """Test config reset with confirmation."""
+        mock_confirm.return_value = True
+        mock_reset.return_value = True
 
-        result4 = run_loom("config", "show", "file_patterns.exclude", env=env)
-        assert "*.pyc" in result4.stdout
+        result = self.runner.invoke(cli.app, ["config", "reset"])
 
-    def test_config_remove_pattern(self, temp_home: Path) -> None:
-        """Test removing file patterns."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
+        assert result.exit_code == 0
+        mock_reset.assert_called_once()
 
-        # First add a pattern
-        run_loom("config", "add-pattern", "*.test", env=env)
+    @patch("loom.core.reset_config")
+    @patch("typer.confirm")
+    def test_config_reset_cancelled(
+        self, mock_confirm, mock_reset, temp_home: Path
+    ) -> None:
+        """Test config reset cancelled."""
+        mock_confirm.return_value = False
 
-        # Then remove it
-        result = run_loom("config", "remove-pattern", "*.test", env=env)
-        assert result.returncode == 0
-        assert "✓ Removed '*.test' from include patterns" in result.stdout
+        result = self.runner.invoke(cli.app, ["config", "reset"])
 
-        # Try to remove non-existent pattern
-        result2 = run_loom("config", "remove-pattern", "*.nonexistent", env=env)
-        assert result2.returncode == 1  # Should fail when pattern not found
-        assert "not found" in result2.stdout
+        assert result.exit_code == 0
+        assert "cancelled" in result.output
+        mock_reset.assert_not_called()
 
-    def test_config_list_patterns(self, temp_home: Path) -> None:
+    @patch("loom.core.reset_config")
+    def test_config_reset_skip_confirmation(self, mock_reset, temp_home: Path) -> None:
+        """Test config reset with --yes flag."""
+        mock_reset.return_value = True
+
+        result = self.runner.invoke(cli.app, ["config", "reset", "--yes"])
+
+        assert result.exit_code == 0
+        mock_reset.assert_called_once()
+
+    @patch("loom.core.load_config")
+    def test_config_list_patterns(self, mock_load, temp_home: Path) -> None:
         """Test listing file patterns."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-
-        result = run_loom("config", "list-patterns", env=env)
-        assert result.returncode == 0
-
-        # Should show patterns in readable format
-        assert "Include patterns:" in result.stdout
-        assert "Exclude patterns:" in result.stdout
-        assert "Search settings:" in result.stdout
-        assert "+ .*" in result.stdout  # Include pattern format
-        assert "- .DS_Store" in result.stdout  # Exclude pattern format
-
-    def test_config_reset(self, temp_home: Path) -> None:
-        """Test resetting configuration."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-
-        # Make some changes
-        run_loom("config", "add-pattern", "*.custom", env=env)
-        run_loom("config", "set", "search_settings.recursive", "false", env=env)
-
-        # Reset with confirmation
-        result = run_loom("config", "reset", "--yes", env=env)
-        assert result.returncode == 0
-        assert "✓ Configuration reset to defaults" in result.stdout
-
-        # Verify reset worked
-        result2 = run_loom("config", "show", "file_patterns.include", env=env)
-        assert "*.custom" not in result2.stdout
-
-        result3 = run_loom("config", "show", "search_settings.recursive", env=env)
-        assert "True" in result3.stdout or "true" in result3.stdout
-
-    def test_config_help(self, temp_home: Path) -> None:
-        """Test configuration help command."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-
-        result = run_loom("config", "help", env=env)
-        assert result.returncode == 0
-
-        # Should show comprehensive help
-        assert "Loom Configuration Help" in result.stdout
-        assert "File Patterns:" in result.stdout
-        assert "Search Settings:" in result.stdout
-        assert "Examples:" in result.stdout
-        assert "~/.loom/config.json" in result.stdout
-
-
-class TestDirectoryHandling:
-    """Test directory handling with new configuration system."""
-
-    def test_add_directory_with_custom_patterns(self, temp_home: Path) -> None:
-        """Test adding directory with custom file patterns."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        run_loom("init", "--non-interactive", env=env)
-
-        # Add Python files to include patterns
-        run_loom("config", "add-pattern", "*.py", env=env)
-
-        # Create a directory with various files
-        project_dir = temp_home / "myproject"
-        project_dir.mkdir()
-        (project_dir / "script.py").write_text("print('hello')")
-        (project_dir / "config.conf").write_text("setting=value")
-        (project_dir / "readme.txt").write_text("readme content")
-        (project_dir / ".gitignore").write_text("*.pyc")
-
-        # Add the directory
-        result = run_loom("add", "myproject", env=env)
-        assert result.returncode == 0
-
-        # List files to see what was added
-        result2 = run_loom("list-files", env=env)
-
-        # Should include Python files, config files, and dotfiles
-        assert "script.py" in result2.stdout
-        assert "config.conf" in result2.stdout
-        assert ".gitignore" in result2.stdout
-        # Should not include txt files (not in patterns)
-        assert "readme.txt" not in result2.stdout
-
-    def test_add_directory_exclude_patterns(self, temp_home: Path) -> None:
-        """Test that exclude patterns work correctly."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        run_loom("init", "--non-interactive", env=env)
-
-        # Add log files to exclude patterns
-        run_loom("config", "add-pattern", "*.log", "--type", "exclude", env=env)
-
-        # Create directory with log files
-        logs_dir = temp_home / "logs"
-        logs_dir.mkdir()
-        (logs_dir / "app.log").write_text("log content")
-        (logs_dir / "error.log").write_text("error content")
-        (logs_dir / "config.conf").write_text("config content")
-
-        # Add the directory
-        result = run_loom("add", "logs", env=env)
-        assert result.returncode == 0
-
-        # List files to see what was added
-        result2 = run_loom("list-files", env=env)
-
-        # Should include config files but not log files
-        assert "config.conf" in result2.stdout
-        assert "app.log" not in result2.stdout
-        assert "error.log" not in result2.stdout
-
-
-class TestIntegrationScenarios:
-    """Test real-world integration scenarios."""
-
-    def test_python_project_workflow(self, temp_home: Path) -> None:
-        """Test workflow for tracking Python project files."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        run_loom("init", "--non-interactive", env=env)
-
-        # Configure for Python project
-        run_loom("config", "add-pattern", "*.py", env=env)
-        run_loom("config", "add-pattern", "requirements*.txt", env=env)
-        run_loom("config", "add-pattern", "pyproject.toml", env=env)
-        run_loom("config", "add-pattern", "*.pyc", "--type", "exclude", env=env)
-
-        # Create Python project structure
-        project = temp_home / "myapp"
-        project.mkdir()
-        (project / "main.py").write_text("import sys")
-        (project / "requirements.txt").write_text("requests==2.0.0")
-        (project / "pyproject.toml").write_text("[build-system]")
-        (project / "compiled.pyc").write_text("bytecode")
-        (project / "README.md").write_text("readme")
-        (project / ".gitignore").write_text("*.pyc")
-
-        # Add the project
-        result = run_loom("add", "myapp", env=env)
-        assert result.returncode == 0
-
-        # Verify what was tracked
-        result2 = run_loom("list-files", env=env)
-        assert "main.py" in result2.stdout
-        assert "requirements.txt" in result2.stdout
-        assert "pyproject.toml" in result2.stdout
-        assert ".gitignore" in result2.stdout
-        assert "compiled.pyc" not in result2.stdout  # excluded
-        assert "README.md" not in result2.stdout  # not in patterns
-
-    def test_config_files_only_workflow(self, temp_home: Path) -> None:
-        """Test workflow for tracking only configuration files."""
-        env = os.environ.copy()
-        env["HOME"] = str(temp_home)
-        run_loom("init", "--non-interactive", env=env)
-
-        # Remove dotfiles pattern, keep only config files
-        run_loom("config", "remove-pattern", ".*", env=env)
-
-        # Create directory with mixed files
-        configs = temp_home / "configs"
-        configs.mkdir()
-        (configs / ".bashrc").write_text("bash config")
-        (configs / "app.conf").write_text("app config")
-        (configs / "settings.json").write_text("{}")
-        (configs / "readme.txt").write_text("readme")
-
-        # Add the directory
-        result = run_loom("add", "configs", env=env)
-        assert result.returncode == 0
-
-        # Verify only config files were tracked (not dotfiles)
-        result2 = run_loom("list-files", env=env)
-        assert "app.conf" in result2.stdout
-        assert "settings.json" in result2.stdout
-        assert ".bashrc" not in result2.stdout  # pattern removed
-        assert "readme.txt" not in result2.stdout  # not in patterns
-
-
-def test_add_directory_symlinks_only_dotfiles(temp_home: Path) -> None:
-    """Test that adding a directory symlinks only dotfiles inside it."""
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-
-    # Create a directory with dotfiles and non-dotfiles
-    config_dir = temp_home / "dotdir"
-    config_dir.mkdir()
-    (config_dir / ".dot1").write_text("dot1")
-    (config_dir / ".dot2").write_text("dot2")
-    (config_dir / "notdot").write_text("notdot")
-
-    # Add the directory
-    result = run_loom("add", "dotdir", env=env)
-    assert result.returncode == 0
-    assert "✓ Added dotfile dotdir/.dot1" in result.stdout
-    assert "✓ Added dotfile dotdir/.dot2" in result.stdout
-
-    # Only dotfiles should be symlinked
-    assert (config_dir / ".dot1").is_symlink()
-    assert (config_dir / ".dot2").is_symlink()
-    assert not (config_dir / "notdot").is_symlink()
-
-    # The symlinks should point to the repo
-    loom_repo = temp_home / ".loom" / "repo"
-    assert (config_dir / ".dot1").resolve() == loom_repo / "dotdir" / ".dot1"
-    assert (config_dir / ".dot2").resolve() == loom_repo / "dotdir" / ".dot2"
-
-
-def test_add_empty_directory(temp_home: Path) -> None:
-    """Test adding an empty directory."""
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-
-    # Create an empty directory
-    empty_dir = temp_home / ".empty_config"
-    empty_dir.mkdir()
-
-    # Add the empty directory
-    result = run_loom("add", ".empty_config", env=env)
-    assert result.returncode == 0
-    assert "No config files found in .empty_config." in result.stdout
-
-    # Directory should still exist and be empty
-    assert empty_dir.exists()
-    assert list(empty_dir.iterdir()) == []
-
-
-def test_add_directory_with_subdirectories_symlinks_config_files(
-    temp_home: Path,
-) -> None:
-    """
-    Test adding a directory with nested subdirectories symlinks dotfiles and
-    config files.
-    """
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-
-    # Create a complex directory structure
-    base_dir = temp_home / "complexapp"
-    base_dir.mkdir()
-    (base_dir / ".mainrc").write_text("main config\n")
-    (base_dir / "main.conf").write_text("main config\n")
-    (base_dir / "readme.txt").write_text("readme\n")  # Not a config file
-    themes_dir = base_dir / "themes"
-    themes_dir.mkdir()
-    (themes_dir / ".light.theme").write_text("light theme\n")
-    (themes_dir / "dark.theme").write_text("dark theme\n")
-    plugins_dir = base_dir / "plugins"
-    plugins_dir.mkdir()
-    (plugins_dir / ".pluginrc").write_text("plugin config\n")
-
-    # Add the entire directory
-    result = run_loom("add", "complexapp", env=env)
-    assert result.returncode == 0
-    assert "✓ Added dotfile complexapp/.mainrc" in result.stdout
-    assert "✓ Added dotfile complexapp/main.conf" in result.stdout
-    assert "✓ Added dotfile complexapp/themes/.light.theme" in result.stdout
-    assert "✓ Added dotfile complexapp/plugins/.pluginrc" in result.stdout
-
-    # Dotfiles and config files should be symlinked
-    assert (base_dir / ".mainrc").is_symlink()
-    assert (
-        base_dir / "main.conf"
-    ).is_symlink()  # Now tracked because of *.conf pattern
-    assert not (base_dir / "readme.txt").is_symlink()  # Not tracked
-    assert (themes_dir / ".light.theme").is_symlink()
-    assert not (
-        themes_dir / "dark.theme"
-    ).is_symlink()  # Not a dotfile or config pattern
-    assert (plugins_dir / ".pluginrc").is_symlink()
-
-
-def test_add_single_file_still_works(temp_home: Path) -> None:
-    """Ensure that adding single files still works as before."""
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-
-    # Create a single dotfile
-    dotfile = temp_home / ".gitconfig"
-    dotfile.write_text("[user]\nname = Test User\n")
-
-    # Add the single file
-    result = run_loom("add", ".gitconfig", env=env)
-    assert result.returncode == 0
-    assert "✓ Added .gitconfig" in result.stdout
-
-    # Verify it's tracked and symlinked correctly
-    result2 = run_loom("list-files", env=env)
-    assert ".gitconfig" in result2.stdout
-    assert (temp_home / ".gitconfig").is_symlink()
-
-
-def test_delete_directory_symlinks(temp_home: Path) -> None:
-    """Test deleting a directory managed by loom (dotfiles inside)."""
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-
-    # Create and add a directory with dotfiles
-    test_dir = temp_home / "test_dir"
-    test_dir.mkdir()
-    (test_dir / ".file1").write_text("content1")
-    (test_dir / ".file2").write_text("content2")
-    run_loom("add", "test_dir", env=env)
-
-    # Verify dotfiles are symlinked
-    assert (test_dir / ".file1").is_symlink()
-    assert (test_dir / ".file2").is_symlink()
-
-    # Delete the dotfile
-    result = run_loom("delete", "test_dir/.file1", env=env)
-    assert result.returncode == 0
-    assert "✓ Removed test_dir/.file1" in result.stdout
-    assert not (test_dir / ".file1").exists()
-
-
-def test_restore_directory_symlinks_dotfiles(temp_home: Path) -> None:
-    """Test restoring a directory managed by loom (dotfiles inside)."""
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-
-    # Create and add a directory with dotfiles
-    test_dir = temp_home / "restore_test"
-    test_dir.mkdir()
-    (test_dir / ".configrc").write_text("important config")
-    run_loom("add", "restore_test", env=env)
-
-    # Remove the symlink (simulate accidental deletion)
-    (test_dir / ".configrc").unlink()
-
-    # Restore the dotfile
-    result = run_loom("restore", "restore_test/.configrc", env=env)
-    assert result.returncode == 0
-    assert "✓ Restored restore_test/.configrc" in result.stdout
-
-    # Verify it's restored as a symlink and file is accessible
-    assert (test_dir / ".configrc").is_symlink()
-    loom_repo = temp_home / ".loom" / "repo"
-    assert (
-        test_dir / ".configrc"
-    ).resolve() == loom_repo / "restore_test" / ".configrc"
-    assert (test_dir / ".configrc").read_text() == "important config"
-
-
-def test_pull_no_remote(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-    result = run_loom("pull", env=env)
-    assert result.returncode != 0
-    assert (
-        "No 'origin' remote found" in result.stdout
-        or "No 'origin' remote found" in result.stderr
-    )
-
-
-def test_push_no_remote(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-    result = run_loom("push", env=env)
-    assert result.returncode != 0
-    assert (
-        "No 'origin' remote found" in result.stdout
-        or "No 'origin' remote found" in result.stderr
-    )
-
-
-def test_version_command(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    result = run_loom("version", env=env)
-    assert result.returncode == 0
-    assert "loom version" in result.stdout
-
-
-def test_completion_command(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    result = run_loom("completion", env=env)
-    assert result.returncode == 0
-    assert "loom --install-completion" in result.stdout
-
-
-def test_diagnose_command(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    result = run_loom("diagnose", env=env)
-    assert result.returncode == 0
-    assert "diagnostics" in result.stdout.lower()
-    assert (
-        "loom repo not initialized" in result.stdout
-        or "No .git directory found" in result.stdout
-        or "✓ Created empty initial commit" in result.stdout
-        or "✓ No uncommitted changes." in result.stdout
-    )
-
-
-def test_add_and_status_untracked_home_dotfiles(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-    # Create a dotfile but don't add it
-    dotfile = temp_home / ".zshrc"
-    dotfile.write_text("export ZSH=1\n")
-    result = run_loom("status", env=env)
-    assert ".zshrc" in result.stdout
-
-
-def test_add_directory_and_delete_all_dotfiles_keeps_tracked_dir(
-    temp_home: Path,
-) -> None:
-    """
-    Test that tracked directory is kept even when all files are deleted
-    individually.
-    """
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-    d = temp_home / "mydir"
-    d.mkdir()
-    (d / ".a").write_text("a")
-    (d / ".b").write_text("b")
-    run_loom("add", "mydir", env=env)
-    # Delete both dotfiles
-    run_loom("delete", "mydir/.a", env=env)
-    run_loom("delete", "mydir/.b", env=env)
-
-    # Current behavior: tracked_dirs.json still contains mydir
-    # (automatic cleanup when directory becomes empty is not implemented)
-
-    # Helper to read tracked_dirs.json
-    def get_tracked_dirs() -> List[str]:
-        loom_dir = temp_home / ".loom"
-        tracked_dirs_file = loom_dir / "tracked_dirs.json"
-        if not tracked_dirs_file.exists():
-            return []
-        with open(tracked_dirs_file) as f:
-            content = json.load(f)
-            return content if isinstance(content, list) else []
-
-    tracked_dirs = get_tracked_dirs()
-    assert str(d) in tracked_dirs  # Directory is still tracked
-
-
-def test_restore_nonexistent_file(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-    result = run_loom("restore", ".doesnotexist", env=env)
-    assert result.returncode != 0
-    assert (
-        "not tracked by loom" in result.stdout or "not tracked by loom" in result.stderr
-    )
-
-
-def test_delete_non_symlink(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-    # Create a file but don't add it
-    f = temp_home / ".notalink"
-    f.write_text("hi")
-    result = run_loom("delete", ".notalink", env=env)
-    assert result.returncode != 0
-    assert (
-        "is not a symlink managed by loom" in result.stdout
-        or "is not a symlink managed by loom" in result.stderr
-    )
-
-
-def test_watcher_starts_and_exits(temp_home: Path) -> None:
-    env = os.environ.copy()
-    env["HOME"] = str(temp_home)
-    run_loom("init", "--non-interactive", env=env)
-    # Add a tracked dir so watcher doesn't exit immediately
-    d = temp_home / "watchdir"
-    d.mkdir()
-    run_loom("add", "watchdir", env=env)
-    # Start watcher in a subprocess and kill it after a short time
-
-    proc = subprocess.Popen(
-        ["loom", "watch"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    time.sleep(2)
-    proc.send_signal(signal.SIGINT)
-    out, err = proc.communicate()
-    assert (
-        b"Starting watcher" in out
-        or b"Watcher stopped" in out
-        or b"Starting watcher" in err
-        or b"Watcher stopped" in err
-    )
+        mock_config = {
+            "file_patterns": {
+                "include": ["*.txt", "*.md"],
+                "exclude": ["*.log", "*.tmp"],
+            },
+            "search_settings": {"recursive": True, "case_sensitive": False},
+        }
+        mock_load.return_value = mock_config
+
+        result = self.runner.invoke(cli.app, ["config", "list-patterns"])
+
+        assert result.exit_code == 0
+        assert "Include patterns:" in result.output
+        assert "Exclude patterns:" in result.output
+        assert "*.txt" in result.output
+        assert "*.log" in result.output
+
+
+class TestBackupCommands:
+    """Test backup subcommands."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.core.create_backup")
+    @patch("loom.core.get_home_dir")
+    def test_backup_create(self, mock_home, mock_create, temp_home: Path) -> None:
+        """Test creating a backup."""
+        mock_home.return_value = temp_home
+        test_file = temp_home / ".bashrc"
+        test_file.write_text("content")
+        mock_create.return_value = Path("/backup/path")
+
+        result = self.runner.invoke(cli.app, ["backup", "create", ".bashrc"])
+
+        assert result.exit_code == 0
+        mock_create.assert_called_once()
+
+    @patch("loom.core.create_backup")
+    @patch("loom.core.get_home_dir")
+    def test_backup_create_nonexistent(
+        self, mock_home, mock_create, temp_home: Path
+    ) -> None:
+        """Test creating backup of non-existent file."""
+        mock_home.return_value = temp_home
+
+        result = self.runner.invoke(cli.app, ["backup", "create", ".nonexistent"])
+
+        assert result.exit_code == 1
+        mock_create.assert_not_called()
+
+    @patch("loom.core.list_backups")
+    def test_backup_list_empty(self, mock_list, temp_home: Path) -> None:
+        """Test listing when no backups exist."""
+        mock_list.return_value = []
+
+        result = self.runner.invoke(cli.app, ["backup", "list"])
+
+        assert result.exit_code == 0
+        assert "No backups found" in result.output
+
+    @patch("loom.core.list_backups")
+    def test_backup_list_with_backups(self, mock_list, temp_home: Path) -> None:
+        """Test listing backups."""
+        backup_path = Path("/backups/.bashrc_manual_20250708_143022")
+        mock_list.return_value = [backup_path]
+
+        result = self.runner.invoke(cli.app, ["backup", "list"])
+
+        assert result.exit_code == 0
+        assert ".bashrc" in result.output
+
+    @patch("loom.core.restore_from_backup")
+    @patch("loom.core.list_backups")
+    @patch("typer.confirm")
+    def test_backup_restore(
+        self, mock_confirm, mock_list, mock_restore, temp_home: Path
+    ) -> None:
+        """Test restoring from backup."""
+        backup_path = Path("/backups/.bashrc_manual_20250708_143022")
+        mock_list.return_value = [backup_path]
+        mock_confirm.return_value = True
+        mock_restore.return_value = True
+
+        result = self.runner.invoke(
+            cli.app, ["backup", "restore", ".bashrc_manual_20250708_143022"]
+        )
+
+        assert result.exit_code == 0
+        mock_restore.assert_called_once()
+
+    @patch("loom.core.list_backups")
+    def test_backup_restore_nonexistent(self, mock_list, temp_home: Path) -> None:
+        """Test restoring non-existent backup."""
+        mock_list.return_value = []
+
+        result = self.runner.invoke(
+            cli.app, ["backup", "restore", "nonexistent_backup"]
+        )
+
+        assert result.exit_code == 1
+
+
+class TestWatchCommand:
+    """Test the watch command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    @patch("loom.watcher.main")
+    def test_watch_command(self, mock_watcher, temp_home: Path) -> None:
+        """Test watch command starts watcher."""
+        # Mock KeyboardInterrupt to simulate stopping
+        mock_watcher.side_effect = KeyboardInterrupt()
+
+        result = self.runner.invoke(cli.app, ["watch"])
+
+        # Should exit cleanly when interrupted
+        assert result.exit_code == 0
+        mock_watcher.assert_called_once()
+
+
+class TestVersionCommand:
+    """Test version and other utility commands."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    def test_version_command(self, temp_home: Path) -> None:
+        """Test version command."""
+        result = self.runner.invoke(cli.app, ["version"])
+
+        assert result.exit_code == 0
+        assert "loom version" in result.output
+
+    def test_completion_command(self, temp_home: Path) -> None:
+        """Test completion command."""
+        result = self.runner.invoke(cli.app, ["completion"])
+
+        assert result.exit_code == 0
+        assert "--install-completion" in result.output
+
+
+class TestDiagnoseCommand:
+    """Test the diagnose command."""
+
+    def setup_method(self) -> None:
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    def test_diagnose_no_repo(self, temp_home: Path) -> None:
+        """Test diagnose when no repo exists."""
+        with (
+            patch("loom.cli.LOOM_DIR", temp_home / ".loom"),
+            patch("loom.cli.WORK_TREE", temp_home / ".loom" / "repo"),
+        ):
+            result = self.runner.invoke(cli.app, ["diagnose"])
+
+            assert result.exit_code == 0
+            assert "not initialized" in result.output
+
+    @patch("loom.core.Repo")
+    def test_diagnose_with_repo(self, mock_repo_class, initialized_loom: Path) -> None:
+        """Test diagnose with existing repo."""
+        mock_repo = Mock()
+        mock_repo_class.return_value = mock_repo
+        mock_repo.remotes = []
+        mock_repo.active_branch.name = "main"
+        mock_repo.active_branch.tracking_branch.return_value = None
+        mock_repo.is_dirty.return_value = False
+
+        with (
+            patch("loom.cli.LOOM_DIR", initialized_loom),
+            patch("loom.cli.WORK_TREE", initialized_loom / "repo"),
+        ):
+            result = self.runner.invoke(cli.app, ["diagnose"])
+
+            assert result.exit_code == 0
+            assert "Diagnosis complete" in result.output

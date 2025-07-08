@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple
+from typing import List, Tuple
 
 import typer
 from git import Repo
@@ -67,6 +67,7 @@ def init(
         ),
     ] = False,
 ) -> None:
+    """Initialize a new loom repository."""
     if not non_interactive and not remote:
         typer.secho("loom Interactive Setup", fg=typer.colors.CYAN, bold=True)
         typer.echo(
@@ -252,7 +253,9 @@ def add(
 
 @app.command()
 def delete(
-    path: Annotated[Path, ...],
+    path: Annotated[
+        List[Path], typer.Argument(help="Paths to dotfiles or directories to delete")
+    ],
     push: Annotated[
         bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
     ] = False,
@@ -275,34 +278,38 @@ def status() -> None:
     Show the status of your loom repo (untracked, modified, staged), and
     dotfiles in $HOME not tracked by loom.
     """
-    status = get_repo_status()
+    status_data = get_repo_status()
 
     typer.secho("Status of loom repository:", fg=typer.colors.WHITE)
 
-    if not status["untracked"] and not status["modified"] and not status["staged"]:
+    if (
+        not status_data["untracked"]
+        and not status_data["modified"]
+        and not status_data["staged"]
+    ):
         typer.secho("✓ No changes", fg=typer.colors.GREEN)
     else:
-        if status["untracked"]:
+        if status_data["untracked"]:
             typer.secho("Untracked files:", fg=typer.colors.YELLOW)
-            for file in status["untracked"]:
+            for file in status_data["untracked"]:
                 typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
-        if status["modified"]:
+        if status_data["modified"]:
             typer.secho("Modified files:", fg=typer.colors.YELLOW)
-            for file in status["modified"]:
+            for file in status_data["modified"]:
                 typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
-        if status["staged"]:
+        if status_data["staged"]:
             typer.secho("Staged files:", fg=typer.colors.YELLOW)
-            for file in status["staged"]:
+            for file in status_data["staged"]:
                 typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
 
-    if status["unpushed"]:
+    if status_data["unpushed"]:
         typer.secho("Unpushed changes:", fg=typer.colors.YELLOW)
-        for file in status["unpushed"]:
+        for file in status_data["unpushed"]:
             typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
 
-    if status["untracked_home_dotfiles"]:
+    if status_data["untracked_home_dotfiles"]:
         typer.secho("Dotfiles in $HOME not tracked by loom:", fg=typer.colors.MAGENTA)
-        for f in status["untracked_home_dotfiles"]:
+        for f in status_data["untracked_home_dotfiles"]:
             typer.secho(f"  - {f}", fg=typer.colors.MAGENTA)
 
 

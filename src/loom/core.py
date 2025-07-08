@@ -152,6 +152,15 @@ def init_repo(remote: str = "", quiet: bool = False) -> bool:
     if not quiet:
         typer.secho("Created empty initial commit", fg=typer.colors.GREEN)
 
+    # Create default configuration file
+    save_config(DEFAULT_CONFIG)
+
+    # Create tracked directories file
+    TRACKED_DIRS_FILE.write_text("[]")
+
+    # Create backups directory
+    BACKUP_DIR.mkdir(exist_ok=True)
+
     if remote:
         repo.create_remote("origin", remote)
         if not quiet:
@@ -213,18 +222,23 @@ def add_dotfile(
                 typer.secho(f"No config files found in {rel}.", fg=typer.colors.YELLOW)
             return True
 
+        # Copy the entire directory structure to loom repo
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest)
+
+        # Add all files to git
         for df in dotfiles:
             sub_rel = df.relative_to(HOME)
-            sub_dest = WORK_TREE / sub_rel
-            sub_dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(df, sub_dest)
-            tracked_path = sub_dest.relative_to(WORK_TREE).as_posix()
+            tracked_path = (WORK_TREE / sub_rel).relative_to(WORK_TREE).as_posix()
             repo.index.add([tracked_path])
-            df.unlink()
-            df.symlink_to(sub_dest)
-            if not quiet:
-                typer.secho(f"✓ Added dotfile {sub_rel}", fg=typer.colors.GREEN)
+
         repo.index.commit(f"Add dotfiles in {rel}")
+
+        # Replace original directory with symlink
+        shutil.rmtree(src)
+        src.symlink_to(dest)
+
         if not quiet:
             typer.secho(
                 f"✓ Added {len(dotfiles)} dotfiles from {rel}", fg=typer.colors.GREEN
@@ -264,69 +278,88 @@ def add_dotfile(
     return True
 
 
-def delete_dotfile(path: Path, push: bool = False, quiet: bool = False) -> bool:
+def delete_dotfile(paths: List[Path], push: bool = False, quiet: bool = False) -> bool:
+    """Delete multiple dotfiles and their symlinks."""
     repo = ensure_repo()
-    src = (HOME / path).expanduser()
+    all_success = True
+    removed_files = []
 
-    if not src.is_symlink():
-        if not quiet:
-            typer.secho(
-                f"Error: {src} is not a symlink managed by loom.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-        return False
+    for path in paths:
+        src = (HOME / path).expanduser()
 
-    rel = src.relative_to(HOME)
-    dest = WORK_TREE / rel
-
-    if not dest.exists():
-        if not quiet:
-            typer.secho(
-                f"Error: {dest} does not exist in the loom repository.",
-                fg=typer.colors.RED,
-                err=True,
-            )
-        return False
-
-    src.unlink()
-    if dest.is_file():
-        dest.unlink()
-        tracked_path = dest.relative_to(WORK_TREE).as_posix()
-        repo.index.remove([tracked_path])
-    elif dest.is_dir():
-        shutil.rmtree(dest)
-        tracked_path = dest.relative_to(WORK_TREE).as_posix()
-        repo.index.remove([tracked_path], r=True)
-        remove_tracked_dir(src)
-
-    repo.index.commit(f"Remove {rel}")
-    if not quiet:
-        typer.secho(f"✓ Removed {rel}", fg=typer.colors.GREEN)
-
-    if push:
-        try:
-            origin = repo.remote("origin")
-            branch = repo.active_branch.name
-            result = origin.push(refspec=f"{branch}:{branch}", set_upstream=True)
-            if any(r.flags & r.ERROR for r in result):
-                for r in result:
-                    if r.flags & r.ERROR and not quiet:
-                        typer.secho(
-                            f"Error pushing to origin: {r.summary}",
-                            fg=typer.colors.RED,
-                            err=True,
-                        )
-                return False
-            if not quiet:
-                typer.secho("✓ Pushed to origin", fg=typer.colors.GREEN)
-        except GitCommandError as e:
+        if not src.is_symlink():
             if not quiet:
                 typer.secho(
-                    f"Error pushing to origin: {e}", fg=typer.colors.RED, err=True
+                    f"Error: {src} is not a symlink managed by loom.",
+                    fg=typer.colors.RED,
+                    err=True,
                 )
-            return False
-    return True
+            all_success = False
+            continue
+
+        rel = src.relative_to(HOME)
+        dest = WORK_TREE / rel
+
+        if not dest.exists():
+            if not quiet:
+                typer.secho(
+                    f"Error: {dest} does not exist in the loom repository.",
+                    fg=typer.colors.RED,
+                    err=True,
+                )
+            all_success = False
+            continue
+
+        # Remove symlink
+        src.unlink()
+
+        # Remove from git repo
+        if dest.is_file():
+            dest.unlink()
+            tracked_path = dest.relative_to(WORK_TREE).as_posix()
+            repo.index.remove([tracked_path])
+        elif dest.is_dir():
+            shutil.rmtree(dest)
+            tracked_path = dest.relative_to(WORK_TREE).as_posix()
+            repo.index.remove([tracked_path], r=True)
+            remove_tracked_dir(src)
+
+        removed_files.append(rel)
+        if not quiet:
+            typer.secho(f"✓ Removed {rel}", fg=typer.colors.GREEN)
+
+    # Commit all removals in one commit
+    if removed_files:
+        if len(removed_files) == 1:
+            commit_msg = f"Remove {removed_files[0]}"
+        else:
+            commit_msg = f"Remove {len(removed_files)} files"
+        repo.index.commit(commit_msg)
+
+        if push:
+            try:
+                origin = repo.remote("origin")
+                branch = repo.active_branch.name
+                result = origin.push(refspec=f"{branch}:{branch}", set_upstream=True)
+                if any(r.flags & r.ERROR for r in result):
+                    for r in result:
+                        if r.flags & r.ERROR and not quiet:
+                            typer.secho(
+                                f"Error pushing to origin: {r.summary}",
+                                fg=typer.colors.RED,
+                                err=True,
+                            )
+                    return False
+                if not quiet:
+                    typer.secho("✓ Pushed to origin", fg=typer.colors.GREEN)
+            except GitCommandError as e:
+                if not quiet:
+                    typer.secho(
+                        f"Error pushing to origin: {e}", fg=typer.colors.RED, err=True
+                    )
+                return False
+
+    return all_success
 
 
 def restore_dotfile(path: Path, quiet: bool = False, push: bool = False) -> bool:
