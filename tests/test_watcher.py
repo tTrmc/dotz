@@ -6,10 +6,8 @@ Tests the file system watcher with the new configuration system.
 import os
 import shutil
 import subprocess
-import tempfile
-import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest

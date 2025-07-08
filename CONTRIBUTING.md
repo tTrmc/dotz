@@ -14,7 +14,7 @@ For feature ideas or general questions, [open an issue](https://github.com/tTrmc
 1. Fork the repository on GitHub.
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/yourusername/loom.git
+   git clone https://github.com/tTrmc/loom.git
    cd loom
    ```
 3. Set up the development environment:

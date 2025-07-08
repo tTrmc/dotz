@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Tuple
 
@@ -9,19 +10,25 @@ from typing_extensions import Annotated
 from .core import (
     add_dotfile,
     add_file_pattern,
+    clone_repo,
+    create_backup,
     delete_dotfile,
     get_config_value,
     get_home_dir,
     get_repo_status,
     init_repo,
+    list_backups,
     list_tracked_files,
     load_config,
     pull_repo,
     push_repo,
     remove_file_pattern,
     reset_config,
+    restore_all_dotfiles,
     restore_dotfile,
+    restore_from_backup,
     set_config_value,
+    validate_symlinks,
 )
 from .watcher import main as watcher_main
 
@@ -572,9 +579,11 @@ def config_reset(
 ) -> None:
     """Reset configuration to defaults."""
     if not confirm:
-        typer.confirm(
-            "Are you sure you want to reset configuration to defaults?", abort=True
-        )
+        if not typer.confirm(
+            "This will reset all configuration to defaults. Continue?"
+        ):
+            typer.secho("Reset cancelled.", fg=typer.colors.YELLOW)
+            return
 
     reset_config()
 
@@ -637,6 +646,485 @@ def config_help() -> None:
 
     typer.secho("\nConfiguration is stored in:", fg=typer.colors.MAGENTA)
     typer.echo("  ~/.loom/config.json")
+
+
+@app.command()
+def clone(
+    remote_url: Annotated[
+        str, typer.Argument(help="Remote repository URL to clone (SSH or HTTPS)")
+    ],
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+    ] = False,
+) -> None:
+    """
+    Clone an existing loom repository from a remote URL and automatically restore
+    all tracked dotfiles to their home directory locations.
+
+    This enables automated setup on fresh systems.
+
+    Examples:
+      loom clone git@github.com:username/dotfiles.git
+      loom clone https://github.com/username/dotfiles.git
+    """
+    success = clone_repo(remote_url, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def restore_all(
+    push: Annotated[
+        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
+    ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+    ] = False,
+    confirm: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
+    ] = False,
+) -> None:
+    """
+    Restore all tracked dotfiles from the loom repository to your home directory.
+    Creates symlinks for all files currently tracked by loom.
+    This is useful for setting up dotfiles on a new system or when you want
+    to restore all files at once.
+    """
+    if not confirm and not quiet:
+        # Show what will be restored
+        from .core import list_tracked_files
+
+        tracked_files = list_tracked_files()
+
+        if not tracked_files:
+            typer.secho("No files tracked by loom to restore.", fg=typer.colors.YELLOW)
+            return
+
+        typer.secho(
+            f"This will restore {len(tracked_files)} tracked files:",
+            fg=typer.colors.CYAN,
+        )
+        for file_path in tracked_files[:10]:  # Show first 10
+            typer.secho(f"  • {file_path}", fg=typer.colors.WHITE)
+
+        if len(tracked_files) > 10:
+            typer.secho(
+                f"  ... and {len(tracked_files) - 10} more files", fg=typer.colors.WHITE
+            )
+
+        typer.echo()
+        typer.secho(
+            "This will overwrite any existing files at these locations!",
+            fg=typer.colors.YELLOW,
+            bold=True,
+        )
+
+        if not typer.confirm("Do you want to continue?"):
+            typer.secho("Restore cancelled.", fg=typer.colors.YELLOW)
+            return
+
+    success = restore_all_dotfiles(quiet=quiet, push=push)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def validate(
+    repair: Annotated[
+        bool,
+        typer.Option("--repair", "-r", help="Automatically repair broken symlinks"),
+    ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+    ] = False,
+) -> None:
+    """
+    Validate all symlinks managed by loom and optionally repair broken ones.
+
+    This command checks that all tracked dotfiles are properly symlinked from
+    your home directory to the loom repository. It can detect:
+    - Broken symlinks (pointing to non-existent files)
+    - Missing symlinks (tracked files not linked in home directory)
+    - Wrong targets (symlinks pointing to wrong locations)
+    - Regular files that should be symlinks
+
+    Use --repair to automatically fix detected issues.
+    """
+    results = validate_symlinks(repair=repair, quiet=quiet)
+
+    if not results:
+        raise typer.Exit(code=1)
+
+    # Calculate exit code based on results
+    total_issues = (
+        len(results.get("broken", []))
+        + len(results.get("missing", []))
+        + len(results.get("wrong_target", []))
+        + len(results.get("not_symlink", []))
+    )
+
+    repair_failures = len(results.get("repair_failed", []))
+
+    # Exit with error if there are unfixed issues
+    if total_issues > 0 and not repair:
+        raise typer.Exit(code=1)
+    elif repair and repair_failures > 0:
+        raise typer.Exit(code=1)
+
+
+# Backup management commands
+backup_app = typer.Typer(help="Manage loom backups")
+app.add_typer(backup_app, name="backup")
+
+
+@backup_app.command("create")
+def backup_create(
+    path: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to file or directory to backup (relative to your home directory)"
+        ),
+    ],
+    operation: Annotated[
+        str,
+        typer.Option("--operation", "-o", help="Operation name for backup labeling"),
+    ] = "manual",
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+    ] = False,
+) -> None:
+    """
+    Create a manual backup of a file or directory.
+
+    This creates a timestamped backup in the loom backups directory.
+    Useful before making manual changes to important dotfiles.
+    """
+    home = get_home_dir()
+    file_path = home / path
+
+    if not file_path.exists():
+        typer.secho(
+            f"Error: {path} does not exist in your home directory.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    backup_path = create_backup(file_path, operation=operation, quiet=quiet)
+
+    if backup_path is None:
+        typer.secho(
+            f"Failed to create backup for {path}",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if not quiet:
+        typer.secho(
+            "✓ Backup created successfully",
+            fg=typer.colors.GREEN,
+        )
+
+
+@backup_app.command("list")
+def backup_list(
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed information", is_flag=True),
+    ] = False,
+) -> None:
+    """
+    List all available backups.
+
+    Shows backup files sorted by creation time (newest first).
+    Use --verbose for detailed information including file sizes and timestamps.
+    """
+    backups = list_backups()
+
+    if not backups:
+        typer.secho("No backups found.", fg=typer.colors.YELLOW)
+        return
+
+    typer.secho(f"Found {len(backups)} backup(s):", fg=typer.colors.WHITE, bold=True)
+    typer.echo()
+
+    for backup_path in backups:
+        backup_name = backup_path.name
+
+        # Parse backup filename to extract information
+        parts = backup_name.split("_")
+        if len(parts) >= 3:
+            # Reconstruct original path (everything before operation and timestamp)
+            operation_idx = -2
+            original_parts = parts[:operation_idx]
+            original_file = "/".join(original_parts)
+            operation = parts[operation_idx]
+            timestamp = parts[-1]
+
+            # Format timestamp for display
+            try:
+                dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                formatted_time = timestamp
+
+            if verbose:
+                # Get file size
+                size = backup_path.stat().st_size
+                size_str = f"{size:,} bytes"
+                if size > 1024:
+                    size_kb = size / 1024
+                    if size_kb > 1024:
+                        size_mb = size_kb / 1024
+                        size_str = f"{size_mb:.1f} MB"
+                    else:
+                        size_str = f"{size_kb:.1f} KB"
+
+                typer.secho(f"📦 {original_file}", fg=typer.colors.CYAN, bold=True)
+                typer.secho(f"   Operation: {operation}", fg=typer.colors.WHITE)
+                typer.secho(f"   Created:   {formatted_time}", fg=typer.colors.WHITE)
+                typer.secho(f"   Size:      {size_str}", fg=typer.colors.WHITE)
+                typer.secho(
+                    f"   File:      {backup_name}", fg=typer.colors.BRIGHT_BLACK
+                )
+                typer.echo()
+            else:
+                typer.secho(
+                    f"📦 {original_file:<30} {operation:<12} {formatted_time}",
+                    fg=typer.colors.CYAN,
+                )
+        else:
+            # Fallback for malformed backup names
+            typer.secho(f"📦 {backup_name}", fg=typer.colors.YELLOW)
+
+
+@backup_app.command("restore")
+def backup_restore(
+    backup_file: Annotated[
+        str,
+        typer.Argument(
+            help="Backup filename to restore from "
+            "(use 'loom backup list' to see available backups)"
+        ),
+    ],
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+    ] = False,
+    confirm: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
+    ] = False,
+) -> None:
+    """
+    Restore a file from a backup.
+
+    This will restore the file to its original location in your home directory.
+    The current file (if it exists) will be backed up before restoration.
+    """
+    # Find the backup file
+    backups = list_backups()
+    backup_path = None
+
+    for bp in backups:
+        if bp.name == backup_file:
+            backup_path = bp
+            break
+
+    if backup_path is None:
+        typer.secho(
+            f"Error: Backup file '{backup_file}' not found.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        typer.secho(
+            "Use 'loom backup list' to see available backups.",
+            fg=typer.colors.YELLOW,
+        )
+        raise typer.Exit(code=1)
+
+    # Parse backup filename to show what will be restored
+    backup_name = backup_path.name
+    parts = backup_name.split("_")
+    if len(parts) >= 3:
+        operation_idx = -2
+        original_parts = parts[:operation_idx]
+        original_file = "/".join(original_parts)
+
+        if not confirm and not quiet:
+            typer.secho(
+                f"This will restore '{original_file}' from backup.",
+                fg=typer.colors.CYAN,
+            )
+            typer.secho(
+                f"Backup: {backup_file}",
+                fg=typer.colors.WHITE,
+            )
+
+            home = get_home_dir()
+            target_path = home / original_file
+            if target_path.exists():
+                typer.secho(
+                    f"⚠️  This will overwrite the current file at {original_file}",
+                    fg=typer.colors.YELLOW,
+                    bold=True,
+                )
+                typer.secho(
+                    "(The current file will be backed up first)",
+                    fg=typer.colors.BRIGHT_BLACK,
+                )
+
+            if not typer.confirm("Do you want to continue?"):
+                typer.secho("Restore cancelled.", fg=typer.colors.YELLOW)
+                return
+
+    success = restore_from_backup(backup_path, quiet=quiet)
+
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@backup_app.command("clean")
+def backup_clean(
+    older_than_days: Annotated[
+        int,
+        typer.Option(
+            "--older-than", "-t", help="Remove backups older than this many days"
+        ),
+    ] = 30,
+    confirm: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
+    ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+    ] = False,
+) -> None:
+    """
+    Clean old backup files.
+
+    Removes backup files older than the specified number of days.
+    Default is to remove backups older than 30 days.
+    """
+    from datetime import datetime, timedelta
+
+    backups = list_backups()
+
+    if not backups:
+        if not quiet:
+            typer.secho("No backups found to clean.", fg=typer.colors.YELLOW)
+        return
+
+    # Filter backups older than specified days
+    cutoff_time = datetime.now() - timedelta(days=older_than_days)
+    old_backups = []
+
+    for backup_path in backups:
+        backup_time = datetime.fromtimestamp(backup_path.stat().st_mtime)
+        if backup_time < cutoff_time:
+            old_backups.append(backup_path)
+
+    if not old_backups:
+        if not quiet:
+            typer.secho(
+                f"No backups older than {older_than_days} days found.",
+                fg=typer.colors.GREEN,
+            )
+        return
+
+    if not confirm and not quiet:
+        typer.secho(
+            f"Found {len(old_backups)} backup(s) older than {older_than_days} days:",
+            fg=typer.colors.YELLOW,
+        )
+
+        for backup_path in old_backups[:5]:  # Show first 5
+            backup_time = datetime.fromtimestamp(backup_path.stat().st_mtime)
+            typer.secho(
+                f"  📦 {backup_path.name} ({backup_time.strftime('%Y-%m-%d')})",
+                fg=typer.colors.WHITE,
+            )
+
+        if len(old_backups) > 5:
+            typer.secho(
+                f"  ... and {len(old_backups) - 5} more",
+                fg=typer.colors.BRIGHT_BLACK,
+            )
+
+        if not typer.confirm(f"Delete these {len(old_backups)} backup(s)?"):
+            typer.secho("Cleanup cancelled.", fg=typer.colors.YELLOW)
+            return
+
+    # Remove old backups
+    removed_count = 0
+    failed_count = 0
+
+    for backup_path in old_backups:
+        try:
+            backup_path.unlink()
+            removed_count += 1
+            if not quiet:
+                typer.secho(f"✓ Removed {backup_path.name}", fg=typer.colors.GREEN)
+        except Exception as e:
+            failed_count += 1
+            if not quiet:
+                typer.secho(
+                    f"✗ Failed to remove {backup_path.name}: {e}",
+                    fg=typer.colors.RED,
+                )
+
+    if not quiet:
+        if removed_count > 0:
+            typer.secho(
+                f"✓ Successfully removed {removed_count} backup(s)",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+        if failed_count > 0:
+            typer.secho(
+                f"✗ Failed to remove {failed_count} backup(s)",
+                fg=typer.colors.RED,
+                bold=True,
+            )
+
+
+@backup_app.command("help")
+def backup_help() -> None:
+    """Show detailed help for backup management."""
+    typer.secho("Loom Backup Management Help", fg=typer.colors.WHITE, bold=True)
+    typer.secho("=" * 50, fg=typer.colors.WHITE)
+
+    typer.secho("\nBackup System:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  Loom automatically creates backups when:")
+    typer.echo("  • Restoring files that would overwrite existing files")
+    typer.echo("  • Cloning a repository that would overwrite existing files")
+    typer.echo("  • Running operations that modify existing dotfiles")
+    typer.echo("  • You manually create backups with 'loom backup create'")
+
+    typer.secho("\nBackup Location:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  All backups are stored in: ~/.loom/backups/")
+    typer.echo("  Backup files use format: <path>_<operation>_<timestamp>")
+
+    typer.secho("\nCommands:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  create    Create a manual backup of a file")
+    typer.echo("  list      List all available backups")
+    typer.echo("  restore   Restore a file from backup")
+    typer.echo("  clean     Remove old backup files")
+    typer.echo("  help      Show this help message")
+
+    typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  loom backup create .bashrc              " "# Backup .bashrc manually")
+    typer.echo("  loom backup list                        " "# List all backups")
+    typer.echo("  loom backup list --verbose              " "# List with details")
+    typer.echo(
+        "  loom backup restore .bashrc_manual_20250708_143022  " "# Restore backup"
+    )
+    typer.echo("  loom backup clean --older-than 7        " "# Remove old backups")
+    typer.echo("  loom backup clean --older-than 30 --yes " "# Skip confirmation")
+
+    typer.secho("\nSafety Features:", fg=typer.colors.CYAN, bold=True)
+    typer.echo("  • Existing files are automatically backed up before restoration")
+    typer.echo("  • Backups include timestamps for easy identification")
+    typer.echo("  • Multiple backups of the same file are preserved")
+    typer.echo("  • Confirmation prompts prevent accidental operations")
 
 
 if __name__ == "__main__":

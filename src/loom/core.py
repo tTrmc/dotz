@@ -2,6 +2,7 @@ import fnmatch
 import json
 import os
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -26,6 +27,7 @@ def get_loom_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
     work_tree = loom_dir / "repo"
     tracked_dirs_file = loom_dir / "tracked_dirs.json"
     config_file = loom_dir / "config.json"
+    backup_dir = loom_dir / "backups"
 
     return {
         "home": home_dir,
@@ -33,6 +35,7 @@ def get_loom_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
         "work_tree": work_tree,
         "tracked_dirs_file": tracked_dirs_file,
         "config_file": config_file,
+        "backup_dir": backup_dir,
     }
 
 
@@ -43,6 +46,7 @@ LOOM_DIR = _paths["loom_dir"]
 WORK_TREE = _paths["work_tree"]
 TRACKED_DIRS_FILE = _paths["tracked_dirs_file"]
 CONFIG_FILE = _paths["config_file"]
+BACKUP_DIR = _paths["backup_dir"]
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -340,10 +344,12 @@ def restore_dotfile(path: Path, quiet: bool = False, push: bool = False) -> bool
             )
         return False
 
-    # If there's already something at src, remove it
+    # If there's already something at src, backup and remove it
     if src.is_symlink():
         src.unlink()
     elif src.exists():
+        # Create backup before removing
+        create_backup(src, operation="restore", quiet=quiet)
         if src.is_file():
             src.unlink()
         elif src.is_dir():
@@ -783,10 +789,681 @@ def reset_config(quiet: bool = False) -> bool:
 
 def update_paths(home_dir: Optional[Path] = None) -> None:
     """Update global paths. Useful for testing or when HOME changes."""
-    global HOME, LOOM_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE
+    global HOME, LOOM_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE, BACKUP_DIR
     paths = get_loom_paths(home_dir)
     HOME = paths["home"]
     LOOM_DIR = paths["loom_dir"]
     WORK_TREE = paths["work_tree"]
     TRACKED_DIRS_FILE = paths["tracked_dirs_file"]
     CONFIG_FILE = paths["config_file"]
+    BACKUP_DIR = paths["backup_dir"]
+
+
+def clone_repo(remote_url: str, quiet: bool = False) -> bool:
+    """
+    Clone an existing loom repository from a remote URL and automatically restore
+    all tracked dotfiles to their home directory locations.
+
+    This enables automated setup on fresh systems.
+    """
+    if LOOM_DIR.exists():
+        if not quiet:
+            typer.secho(
+                "Error: loom already initialized at ~/.loom. Use 'loom pull' to sync.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+        return False
+
+    if not quiet:
+        typer.secho(
+            f"Cloning loom repository from {remote_url}...", fg=typer.colors.WHITE
+        )
+
+    try:
+        # Create loom directory
+        LOOM_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Clone the repository
+        repo = Repo.clone_from(remote_url, str(WORK_TREE))
+
+        if not quiet:
+            typer.secho("✓ Repository cloned successfully", fg=typer.colors.GREEN)
+
+        # Set up Git config for loom
+        repo.git.config("user.name", "loom")
+        repo.git.config("user.email", "loom@example.com")
+
+        # Get all tracked files from the repository
+        tracked_files = repo.git.ls_files().splitlines()
+
+        if not tracked_files:
+            if not quiet:
+                typer.secho("No files found in repository", fg=typer.colors.YELLOW)
+            return True
+
+        if not quiet:
+            typer.secho(
+                f"Found {len(tracked_files)} tracked files. "
+                "Restoring to home directory...",
+                fg=typer.colors.CYAN,
+            )
+
+        # Restore all tracked files
+        restored_count = 0
+        failed_files = []
+
+        for file_path in tracked_files:
+            try:
+                # Create Path object relative to home
+                rel_path = Path(file_path)
+                home_path = HOME / rel_path
+                repo_path = WORK_TREE / rel_path
+
+                # Skip if the file doesn't exist in the repo (shouldn't happen)
+                if not repo_path.exists():
+                    continue
+
+                # Remove existing file/symlink/directory if it exists
+                if home_path.exists() or home_path.is_symlink():
+                    if home_path.is_symlink():
+                        home_path.unlink()
+                    else:
+                        # Create backup before removing
+                        create_backup(home_path, operation="clone", quiet=quiet)
+                        if home_path.is_file():
+                            home_path.unlink()
+                        elif home_path.is_dir():
+                            shutil.rmtree(home_path)
+
+                # Ensure parent directory exists
+                home_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Create symlink from home to repo
+                home_path.symlink_to(repo_path)
+
+                restored_count += 1
+                if not quiet:
+                    typer.secho(f"  ✓ Restored {rel_path}", fg=typer.colors.GREEN)
+
+            except Exception as e:
+                failed_files.append((file_path, str(e)))
+                if not quiet:
+                    typer.secho(
+                        f"  ! Failed to restore {file_path}: {e}",
+                        fg=typer.colors.YELLOW,
+                    )
+
+        # Summary
+        if not quiet:
+            typer.secho(
+                f"\n✓ Clone complete! Restored {restored_count}/"
+                f"{len(tracked_files)} files",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+
+            if failed_files:
+                typer.secho(
+                    f"Failed to restore {len(failed_files)} files:",
+                    fg=typer.colors.YELLOW,
+                )
+                for file_path, error in failed_files:
+                    typer.secho(f"  - {file_path}: {error}", fg=typer.colors.YELLOW)
+
+        return True
+
+    except GitCommandError as e:
+        if not quiet:
+            msg = str(e)
+            if "not found" in msg.lower() or "does not exist" in msg.lower():
+                typer.secho(
+                    f"Error: Repository not found at {remote_url}",
+                    fg=typer.colors.RED,
+                    err=True,
+                )
+            elif "permission denied" in msg.lower() or "authentication" in msg.lower():
+                typer.secho(
+                    f"Error: Authentication failed for {remote_url}. "
+                    "Check your SSH keys or credentials.",
+                    fg=typer.colors.RED,
+                    err=True,
+                )
+            else:
+                typer.secho(
+                    f"Error cloning repository: {e}", fg=typer.colors.RED, err=True
+                )
+
+        # Clean up on failure
+        if LOOM_DIR.exists():
+            shutil.rmtree(LOOM_DIR)
+
+        return False
+
+    except Exception as e:
+        if not quiet:
+            typer.secho(
+                f"Unexpected error during clone: {e}", fg=typer.colors.RED, err=True
+            )
+
+        # Clean up on failure
+        if LOOM_DIR.exists():
+            shutil.rmtree(LOOM_DIR)
+
+        return False
+
+
+def restore_all_dotfiles(quiet: bool = False, push: bool = False) -> bool:
+    """
+    Restore all tracked dotfiles from the loom repository to their home directory
+    locations. This creates symlinks for all files currently tracked by loom.
+
+    This is useful for setting up dotfiles on a new system after cloning a
+    repository or when you want to restore all files at once.
+    """
+    repo = ensure_repo()
+
+    # Get all tracked files from the repository
+    try:
+        tracked_files = repo.git.ls_files().splitlines()
+    except Exception as e:
+        if not quiet:
+            typer.secho(
+                f"Error getting tracked files: {e}", fg=typer.colors.RED, err=True
+            )
+        return False
+
+    if not tracked_files:
+        if not quiet:
+            typer.secho("No files tracked by loom to restore.", fg=typer.colors.YELLOW)
+        return True
+
+    if not quiet:
+        typer.secho(
+            f"Restoring {len(tracked_files)} tracked files...", fg=typer.colors.CYAN
+        )
+
+    restored_count = 0
+    failed_files = []
+    skipped_files = []
+
+    for file_path in tracked_files:
+        try:
+            # Create Path objects
+            rel_path = Path(file_path)
+            home_path = HOME / rel_path
+            repo_path = WORK_TREE / rel_path
+
+            # Skip if the file doesn't exist in the repo (shouldn't happen)
+            if not repo_path.exists():
+                failed_files.append((file_path, "File not found in repository"))
+                continue
+
+            # Check if already properly symlinked
+            if home_path.is_symlink() and home_path.resolve() == repo_path.resolve():
+                skipped_files.append(file_path)
+                if not quiet:
+                    typer.secho(
+                        f"  - {rel_path} (already linked)", fg=typer.colors.BLUE
+                    )
+                continue
+
+            # Remove existing file/symlink/directory if it exists
+            if home_path.exists() or home_path.is_symlink():
+                if home_path.is_symlink():
+                    home_path.unlink()
+                else:
+                    # Create backup before removing
+                    create_backup(home_path, operation="restore_all", quiet=quiet)
+                    if home_path.is_file():
+                        home_path.unlink()
+                    elif home_path.is_dir():
+                        shutil.rmtree(home_path)
+
+            # Ensure parent directory exists
+            home_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Create symlink from home to repo
+            home_path.symlink_to(repo_path)
+
+            restored_count += 1
+            if not quiet:
+                typer.secho(f"  ✓ Restored {rel_path}", fg=typer.colors.GREEN)
+
+        except Exception as e:
+            failed_files.append((file_path, str(e)))
+            if not quiet:
+                typer.secho(
+                    f"  ! Failed to restore {file_path}: {e}",
+                    fg=typer.colors.YELLOW,
+                )
+
+    # Summary
+    if not quiet:
+        typer.secho(
+            f"\n✓ Restore complete! Restored {restored_count} files, "
+            f"skipped {len(skipped_files)}, failed {len(failed_files)}",
+            fg=typer.colors.GREEN,
+            bold=True,
+        )
+
+        if failed_files:
+            typer.secho(
+                f"\nFailed to restore {len(failed_files)} files:",
+                fg=typer.colors.YELLOW,
+            )
+            for file_path, error in failed_files:
+                typer.secho(f"  - {file_path}: {error}", fg=typer.colors.YELLOW)
+
+    # Only push if there were no failures and something was actually restored
+    if push and restored_count > 0 and not failed_files:
+        try:
+            origin = repo.remote("origin")
+            branch = repo.active_branch.name
+            result = origin.push(refspec=f"{branch}:{branch}", set_upstream=True)
+            if any(r.flags & r.ERROR for r in result):
+                for r in result:
+                    if r.flags & r.ERROR and not quiet:
+                        typer.secho(
+                            f"Error pushing to origin: {r.summary}",
+                            fg=typer.colors.RED,
+                            err=True,
+                        )
+                return False
+            if not quiet:
+                typer.secho("✓ Pushed to origin", fg=typer.colors.GREEN)
+        except GitCommandError as e:
+            if not quiet:
+                typer.secho(
+                    f"Error pushing to origin: {e}", fg=typer.colors.RED, err=True
+                )
+            return False
+
+    # Return success if we restored at least some files and had no failures
+    return len(failed_files) == 0
+
+
+def validate_symlinks(
+    repair: bool = False, quiet: bool = False
+) -> Dict[str, List[str]]:
+    """
+    Validate all symlinks managed by loom and optionally repair broken ones.
+
+    Returns a dictionary with categories of symlinks:
+    - 'valid': Working symlinks pointing to correct loom files
+    - 'broken': Symlinks that point to non-existent files
+    - 'missing': Tracked files that should be symlinked but aren't
+    - 'wrong_target': Symlinks pointing to wrong locations
+    - 'not_symlink': Files that should be symlinks but are regular files/dirs
+    - 'repaired': Files that were successfully repaired (if repair=True)
+    - 'repair_failed': Files that couldn't be repaired (if repair=True)
+    """
+    repo = ensure_repo()
+
+    # Get all tracked files from the repository
+    try:
+        tracked_files = repo.git.ls_files().splitlines()
+    except Exception as e:
+        if not quiet:
+            typer.secho(
+                f"Error getting tracked files: {e}", fg=typer.colors.RED, err=True
+            )
+        return {}
+
+    if not quiet:
+        typer.secho(
+            f"Validating {len(tracked_files)} tracked symlinks...", fg=typer.colors.CYAN
+        )
+
+    results: Dict[str, List[str]] = {
+        "valid": [],
+        "broken": [],
+        "missing": [],
+        "wrong_target": [],
+        "not_symlink": [],
+        "repaired": [],
+        "repair_failed": [],
+    }
+
+    for file_path in tracked_files:
+        rel_path = Path(file_path)
+        home_path = HOME / rel_path
+        repo_path = WORK_TREE / rel_path
+
+        # Skip if the file doesn't exist in the repo
+        if not repo_path.exists():
+            results["broken"].append(file_path)
+            if not quiet:
+                typer.secho(
+                    f"  ! {rel_path}: File missing from repository", fg=typer.colors.RED
+                )
+            continue
+
+        # Check if home path doesn't exist at all
+        if not home_path.exists() and not home_path.is_symlink():
+            results["missing"].append(file_path)
+            if not quiet:
+                typer.secho(
+                    f"  ! {rel_path}: Missing symlink in home directory",
+                    fg=typer.colors.YELLOW,
+                )
+
+            # Repair if requested
+            if repair:
+                try:
+                    home_path.parent.mkdir(parents=True, exist_ok=True)
+                    home_path.symlink_to(repo_path)
+                    results["repaired"].append(file_path)
+                    if not quiet:
+                        typer.secho(
+                            f"    ✓ Repaired: Created symlink for {rel_path}",
+                            fg=typer.colors.GREEN,
+                        )
+                except Exception as e:
+                    results["repair_failed"].append(file_path)
+                    if not quiet:
+                        typer.secho(
+                            f"    ! Failed to repair {rel_path}: {e}",
+                            fg=typer.colors.RED,
+                        )
+            continue
+
+        # Check if it's a symlink
+        if not home_path.is_symlink():
+            results["not_symlink"].append(file_path)
+            if not quiet:
+                typer.secho(
+                    f"  ! {rel_path}: Should be symlink but is regular file/directory",
+                    fg=typer.colors.YELLOW,
+                )
+
+            # Repair if requested
+            if repair:
+                try:
+                    # Create backup before removing
+                    create_backup(home_path, operation="repair", quiet=quiet)
+                    # Remove existing file/directory
+                    if home_path.is_file():
+                        home_path.unlink()
+                    elif home_path.is_dir():
+                        shutil.rmtree(home_path)
+
+                    # Create symlink
+                    home_path.symlink_to(repo_path)
+                    results["repaired"].append(file_path)
+                    if not quiet:
+                        typer.secho(
+                            f"    ✓ Repaired: Replaced with symlink {rel_path}",
+                            fg=typer.colors.GREEN,
+                        )
+                except Exception as e:
+                    results["repair_failed"].append(file_path)
+                    if not quiet:
+                        typer.secho(
+                            f"    ! Failed to repair {rel_path}: {e}",
+                            fg=typer.colors.RED,
+                        )
+            continue
+
+        # Check if symlink points to the correct target
+        try:
+            symlink_target = home_path.resolve()
+            expected_target = repo_path.resolve()
+
+            if symlink_target != expected_target:
+                results["wrong_target"].append(file_path)
+                if not quiet:
+                    typer.secho(
+                        f"  ! {rel_path}: Points to {symlink_target} "
+                        f"instead of {expected_target}",
+                        fg=typer.colors.YELLOW,
+                    )
+
+                # Repair if requested
+                if repair:
+                    try:
+                        home_path.unlink()
+                        home_path.symlink_to(repo_path)
+                        results["repaired"].append(file_path)
+                        if not quiet:
+                            typer.secho(
+                                f"    ✓ Repaired: Fixed symlink target for {rel_path}",
+                                fg=typer.colors.GREEN,
+                            )
+                    except Exception as e:
+                        results["repair_failed"].append(file_path)
+                        if not quiet:
+                            typer.secho(
+                                f"    ! Failed to repair {rel_path}: {e}",
+                                fg=typer.colors.RED,
+                            )
+                continue
+
+            # Check if symlink target actually exists
+            if not symlink_target.exists():
+                results["broken"].append(file_path)
+                if not quiet:
+                    typer.secho(
+                        f"  ! {rel_path}: Broken symlink (target doesn't exist)",
+                        fg=typer.colors.RED,
+                    )
+
+                # Repair if requested
+                if repair:
+                    try:
+                        home_path.unlink()
+                        home_path.symlink_to(repo_path)
+                        results["repaired"].append(file_path)
+                        if not quiet:
+                            typer.secho(
+                                f"    ✓ Repaired: Fixed broken symlink {rel_path}",
+                                fg=typer.colors.GREEN,
+                            )
+                    except Exception as e:
+                        results["repair_failed"].append(file_path)
+                        if not quiet:
+                            typer.secho(
+                                f"    ! Failed to repair {rel_path}: {e}",
+                                fg=typer.colors.RED,
+                            )
+                continue
+
+            # If we get here, the symlink is valid
+            results["valid"].append(file_path)
+            if not quiet:
+                typer.secho(f"  ✓ {rel_path}: Valid symlink", fg=typer.colors.GREEN)
+
+        except Exception as e:
+            results["broken"].append(file_path)
+            if not quiet:
+                typer.secho(
+                    f"  ! {rel_path}: Error checking symlink: {e}", fg=typer.colors.RED
+                )
+
+    # Summary
+    if not quiet:
+        total_issues = (
+            len(results["broken"])
+            + len(results["missing"])
+            + len(results["wrong_target"])
+            + len(results["not_symlink"])
+        )
+
+        if total_issues == 0:
+            typer.secho(
+                f"\n✓ All {len(results['valid'])} symlinks are valid!",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+        else:
+            typer.secho(
+                f"\n⚠ Found {total_issues} issues with symlinks:",
+                fg=typer.colors.YELLOW,
+                bold=True,
+            )
+
+            if results["broken"]:
+                typer.secho(
+                    f"  • {len(results['broken'])} broken symlinks", fg=typer.colors.RED
+                )
+            if results["missing"]:
+                typer.secho(
+                    f"  • {len(results['missing'])} missing symlinks",
+                    fg=typer.colors.YELLOW,
+                )
+            if results["wrong_target"]:
+                typer.secho(
+                    f"  • {len(results['wrong_target'])} wrong targets",
+                    fg=typer.colors.YELLOW,
+                )
+            if results["not_symlink"]:
+                typer.secho(
+                    f"  • {len(results['not_symlink'])} should be symlinks",
+                    fg=typer.colors.YELLOW,
+                )
+
+        if repair:
+            if results["repaired"]:
+                typer.secho(
+                    f"\n✓ Repaired {len(results['repaired'])} symlinks",
+                    fg=typer.colors.GREEN,
+                )
+            if results["repair_failed"]:
+                typer.secho(
+                    f"! Failed to repair {len(results['repair_failed'])} symlinks",
+                    fg=typer.colors.RED,
+                )
+        elif total_issues > 0:
+            typer.secho(
+                "\nRun 'loom validate --repair' to fix these issues automatically.",
+                fg=typer.colors.CYAN,
+            )
+
+    return results
+
+
+def create_backup(
+    file_path: Path, operation: str = "restore", quiet: bool = False
+) -> Optional[Path]:
+    """
+    Create a backup of a file before overwriting it.
+
+    Args:
+        file_path: Path to the file to backup
+        operation: The operation being performed (for backup naming)
+        quiet: If True, suppress output messages
+
+    Returns:
+        Path to the backup file if successful, None otherwise
+    """
+    if not file_path.exists():
+        return None
+
+    # Ensure backup directory exists
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Create timestamped backup filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if file_path.is_relative_to(HOME):
+        relative_path = file_path.relative_to(HOME)
+    else:
+        relative_path = file_path
+    backup_name = (
+        f"{relative_path.as_posix().replace('/', '_')}_{operation}_{timestamp}"
+    )
+    backup_path = BACKUP_DIR / backup_name
+
+    try:
+        if file_path.is_file():
+            shutil.copy2(file_path, backup_path)
+        elif file_path.is_dir():
+            shutil.copytree(file_path, backup_path)
+        else:
+            # Handle symlinks and other special files
+            shutil.copy2(file_path, backup_path, follow_symlinks=False)
+
+        if not quiet:
+            typer.secho(
+                f"📦 Backed up {relative_path} to backups/{backup_name}",
+                fg=typer.colors.BLUE,
+            )
+
+        return backup_path
+    except Exception as e:
+        if not quiet:
+            typer.secho(
+                f"Warning: Failed to backup {relative_path}: {e}",
+                fg=typer.colors.YELLOW,
+            )
+        return None
+
+
+def list_backups() -> List[Path]:
+    """List all backup files in the backup directory."""
+    if not BACKUP_DIR.exists():
+        return []
+
+    backups = []
+    for backup_file in BACKUP_DIR.iterdir():
+        if backup_file.is_file():
+            backups.append(backup_file)
+
+    return sorted(backups, key=lambda x: x.stat().st_mtime, reverse=True)
+
+
+def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
+    """
+    Restore a file from backup.
+
+    Args:
+        backup_path: Path to the backup file
+        quiet: If True, suppress output messages
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not backup_path.exists():
+        if not quiet:
+            typer.secho(
+                f"Error: Backup file {backup_path} not found", fg=typer.colors.RED
+            )
+        return False
+
+    # Parse backup filename to determine original location
+    backup_name = backup_path.name
+    parts = backup_name.split("_")
+    if len(parts) < 3:
+        if not quiet:
+            typer.secho(
+                f"Error: Invalid backup filename format: {backup_name}",
+                fg=typer.colors.RED,
+            )
+        return False
+
+    # Reconstruct original path (everything before the operation and timestamp)
+    operation_idx = -2  # Operation is second to last part
+    original_parts = parts[:operation_idx]
+    original_relative = "/".join(original_parts)
+    original_path = HOME / original_relative
+
+    try:
+        # Create parent directories if needed
+        original_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Backup current file if it exists
+        if original_path.exists():
+            create_backup(original_path, operation="pre_restore", quiet=quiet)
+
+        # Restore from backup
+        shutil.copy2(backup_path, original_path)
+
+        if not quiet:
+            typer.secho(
+                f"✓ Restored {original_relative} from backup", fg=typer.colors.GREEN
+            )
+
+        return True
+    except Exception as e:
+        if not quiet:
+            typer.secho(f"Error restoring from backup: {e}", fg=typer.colors.RED)
+        return False

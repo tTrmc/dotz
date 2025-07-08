@@ -6,10 +6,8 @@ These tests focus on edge cases and error conditions not covered by existing tes
 import os
 import re
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import Dict, Optional
-from unittest.mock import MagicMock, patch
 
 import pytest
 
