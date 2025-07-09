@@ -2,17 +2,22 @@ import fnmatch
 import json
 import os
 import shutil
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Generator, Callable
-from contextlib import nullcontext
+from typing import Any, Dict, List, Optional
 
 import typer
-from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-from rich.status import Status
-
 from git import GitCommandError, Repo
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+)
+from rich.status import Status
 
 
 def get_home_dir() -> Path:
@@ -1564,23 +1569,24 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
 
 console = Console()
 
+
 def add_dotfiles_with_progress(
-    paths: List[Path], 
-    push: bool = False, 
+    paths: List[Path],
+    push: bool = False,
     quiet: bool = False,
-    description: str = "Adding dotfiles"
+    description: str = "Adding dotfiles",
 ) -> Dict[str, int]:
     """
     Add multiple dotfiles with progress tracking.
-    
+
     Returns:
         Dictionary with 'success' and 'failed' counts
     """
     results = {"success": 0, "failed": 0}
-    
+
     if not paths:
         return results
-    
+
     if quiet:
         # No progress bar in quiet mode
         for path in paths:
@@ -1595,44 +1601,47 @@ def add_dotfiles_with_progress(
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
-            console=console
+            console=console,
         ) as progress:
             task = progress.add_task(description, total=len(paths))
-            
+
             for path in paths:
                 rel_path = path.relative_to(HOME) if path.is_relative_to(HOME) else path
                 progress.update(task, description=f"{description} {rel_path}")
-                
+
                 if add_dotfile(path, push=False, quiet=True):
                     results["success"] += 1
                 else:
                     results["failed"] += 1
-                
+
                 progress.advance(task)
-    
+
     # Push once at the end if requested
     if push and results["success"] > 0:
-        with Status("Pushing to remote...", console=console) if not quiet else nullcontext():
+        with (
+            Status("Pushing to remote...", console=console)
+            if not quiet
+            else nullcontext()
+        ):
             push_repo(quiet=quiet)
-    
+
     return results
 
+
 def restore_dotfiles_with_progress(
-    paths: List[Path], 
-    quiet: bool = False,
-    description: str = "Restoring dotfiles"
+    paths: List[Path], quiet: bool = False, description: str = "Restoring dotfiles"
 ) -> Dict[str, int]:
     """
     Restore multiple dotfiles with progress tracking.
-    
+
     Returns:
         Dictionary with 'success' and 'failed' counts
     """
     results = {"success": 0, "failed": 0}
-    
+
     if not paths:
         return results
-    
+
     if quiet:
         # No progress bar in quiet mode
         for path in paths:
@@ -1647,79 +1656,80 @@ def restore_dotfiles_with_progress(
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
-            console=console
+            console=console,
         ) as progress:
             task = progress.add_task(description, total=len(paths))
-            
+
             for path in paths:
                 rel_path = path.relative_to(HOME) if path.is_relative_to(HOME) else path
                 progress.update(task, description=f"{description} {rel_path}")
-                
+
                 if restore_dotfile(path, quiet=True):
                     results["success"] += 1
                 else:
                     results["failed"] += 1
-                
+
                 progress.advance(task)
-    
+
     return results
 
+
 def find_config_files_with_progress(
-    directory: Path, 
-    config: Optional[Dict[str, Any]] = None, 
+    directory: Path,
+    config: Optional[Dict[str, Any]] = None,
     recursive: bool = True,
-    quiet: bool = False
+    quiet: bool = False,
 ) -> List[Path]:
     """
     Find config files with progress indication for large directories.
     """
     if config is None:
         config = load_config()
-    
+
     # For small directories, use the existing function without progress
     if quiet:
         return find_config_files(directory, config, recursive)
-    
+
     # Count files first to show progress
     with Status("Scanning directory...", console=console):
         if recursive:
             all_files = list(directory.rglob("*"))
         else:
             all_files = list(directory.iterdir())
-        
+
         files_to_check = [f for f in all_files if f.is_file()]
-    
+
     if len(files_to_check) < 50:  # Use progress bar only for large directories
         return find_config_files(directory, config, recursive)
-    
+
     include_patterns = config["file_patterns"]["include"]
     exclude_patterns = config["file_patterns"]["exclude"]
     case_sensitive = config["search_settings"]["case_sensitive"]
     follow_symlinks = config["search_settings"]["follow_symlinks"]
-    
+
     found_files = []
-    
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
-        console=console
+        console=console,
     ) as progress:
         task = progress.add_task("Scanning files...", total=len(files_to_check))
-        
+
         for file_path in files_to_check:
             progress.update(task, description=f"Scanning {file_path.name}")
-            
+
             if not follow_symlinks and file_path.is_symlink():
                 progress.advance(task)
                 continue
-            
+
             if matches_patterns(
                 file_path.name, include_patterns, exclude_patterns, case_sensitive
             ):
                 found_files.append(file_path)
-            
+
             progress.advance(task)
-    
+
     return found_files
