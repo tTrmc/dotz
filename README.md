@@ -1,14 +1,32 @@
 # loom
 
 [![PyPI version](https://badge.fury.io/py/loomctl.svg)](https://badge.fury.io/py/loomctl)
+[![Python versions](https://img.shields.io/pypi/pyversions/loomctl.svg)](https://pypi.org/project/loomctl/)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![CI](https://github.com/tTrmc/loom/workflows/CI/badge.svg)](https://github.com/tTrmc/loom/actions)
-[![Last Commit](https://img.shields.io/github/last-commit/tTrmc/loom.svg)](https://github.com/tTrmc/loom/commits/main)
+[![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](https://github.com/tTrmc/loom/actions)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/tTrmc/loom/pulls)
 [![GitHub issues](https://img.shields.io/github/issues/tTrmc/loom.svg)](https://github.com/tTrmc/loom/issues)
 
 > A minimal **dotfiles** manager for Linux, backed by Git.
 
-**loom** simplifies tracking, versioning, and synchronizing your configuration files across machines.
+**loom** simplifies tracking, versioning, and synchronizing your configuration files across machines. An open source project welcoming community contributions.
+
+## Table of Contents
+
+* [Features](#features)
+* [Installation](#installation)
+* [Quick Start](#quick-start)
+* [Usage](#usage)
+* [Project Structure](#project-structure)
+* [Configuration](#configuration)
+* [Testing](#testing)
+* [Roadmap](#roadmap)
+* [Contributing](#contributing)
+* [Support](#support)
+* [Acknowledgments](#acknowledgments)
+* [License](#license)
 
 ## Features
 
@@ -285,16 +303,26 @@ loom config set search_settings.recursive false
 
 ## Testing
 
-To run the test suite (requires [pytest](https://pytest.org/)):
+loom has a comprehensive test suite to ensure reliability and catch regressions. Contributors are encouraged to run tests before submitting changes.
+
+### Running Tests
+
+**Quick test run:**
 
 ```bash
 pip install pytest
 pytest
 ```
 
-### Test Coverage
+**With coverage:**
 
-The project includes comprehensive tests with **148 passing tests** covering:
+```bash
+pytest --cov=loom
+```
+
+### Test Categories
+
+The project includes **148 passing tests** covering:
 
 * **CLI commands**: All loom commands and options
 * **Core functionality**: File management, Git operations, configuration
@@ -314,7 +342,7 @@ pytest --cov=loom             # Run tests with coverage report
 make test-cov                 # Run tests with HTML coverage report
 ```
 
-**Development workflow:**
+### Development Workflow
 
 ```bash
 make help          # Show all available commands
@@ -324,18 +352,119 @@ make format        # Auto-format code
 make build         # Build distribution packages
 ```
 
-This will discover and run all tests in the `tests/` directory with proper environment isolation and cleanup.
+### Writing Tests
+
+When contributing new features:
+
+* Add tests to the appropriate test file in `tests/`
+* Follow existing test patterns and naming conventions
+* Ensure tests are isolated and don't depend on external state
+* Test both success and failure scenarios
+* Update test documentation if needed
+
+All tests run in isolated temporary environments to prevent interference with your actual loom configuration.
+
+---
+
+## Roadmap
+
+loom is actively developed as a personal project with community input welcome. Here are some areas being explored:
+
+### Planned Features
+
+* **Cross-platform support**: Extend beyond Linux to macOS
+* **Plugin system**: Allow custom extensions and integrations
+* **Advanced conflict resolution**: Better handling of merge conflicts
+* **Performance optimizations**: Faster operations for large dotfile collections
+* **Enhanced CLI**: More interactive commands and better user experience
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute, report bugs, or suggest features.
+Contributions are welcome!
+
+### Ways to Contribute
+
+* **Report bugs**: Found an issue? [Open a bug report](https://github.com/tTrmc/loom/issues/new?labels=bug&template=bug_report.md)
+* **Request features**: Have an idea? [Submit a feature request](https://github.com/tTrmc/loom/issues/new?labels=enhancement&template=feature_request.md)
+* **Improve documentation**: Help make the docs clearer and more comprehensive
+* **Submit code**: Fix bugs or implement new features with a pull request
+* **Review PRs**: Help review and test pull requests from other contributors
+* **Share feedback**: Let me know how loom works for you and what could be better
+
+### Getting Started
+
+1. **Fork the repository** and clone it locally
+2. **Set up development environment**:
+
+   ```bash
+   git clone https://github.com/yourusername/loom.git
+   cd loom
+   ./setup-dev.sh  # Sets up virtual environment and installs dependencies
+   ```
+
+3. **Make your changes** and add tests if applicable
+4. **Run the test suite** to ensure everything works:
+
+   ```bash
+   make test           # Run all tests
+   make lint           # Check code quality
+   make format         # Auto-format code
+   ```
+
+5. **Submit a pull request** with a clear description of your changes
+
+### Development Guidelines
+
+* Follow the existing code style and conventions
+* Write tests for new features and bug fixes
+* Update documentation when adding new functionality
+* Keep commits focused and write clear commit messages
+
+### Need Help?
+
+* Check out [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines
+* Browse [existing issues](https://github.com/tTrmc/loom/issues) to see what needs work
+* Join discussions in [pull requests](https://github.com/tTrmc/loom/pulls)
+* Feel free to ask questions in issues or discussions
+
+---
+
+## Support
+
+### Getting Help
+
+* **Documentation**: Check this README and the built-in help (`loom --help`)
+* **Issues**: [Search existing issues](https://github.com/tTrmc/loom/issues) or create a new one
+* **Troubleshooting**: Use `loom diagnose` for common problems
+
+### Reporting Issues
+
+When reporting bugs, please include:
+
+* Your operating system and Python version
+* loom version (`loom version`)
+* Steps to reproduce the issue
+* Expected vs. actual behavior
+* Any error messages or logs
+
+---
+
+## Acknowledgments
+
+This project has benefited from the contributions and support of the following people:
+
+### Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=tTrmc/loom)](https://github.com/tTrmc/loom/graphs/contributors)
 
 ---
 
 ## License
 
 This project is distributed under the **GPL-3.0-or-later** license. See the [LICENSE](LICENSE) file for details.
+
+By contributing to loom, you agree that your contributions will be licensed under the same license.
 
 ---
