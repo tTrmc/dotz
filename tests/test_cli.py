@@ -221,7 +221,7 @@ class TestStatusCommand:
         result = self.runner.invoke(cli.app, ["status"])
 
         assert result.exit_code == 0
-        assert "No changes" in result.output
+        assert "Repository is clean" in result.output
 
     @patch("loom.cli.get_repo_status")
     def test_status_with_changes(self, mock_status: Mock, temp_home: Path) -> None:
@@ -241,7 +241,7 @@ class TestStatusCommand:
         assert "Modified files:" in result.output
         assert "Staged files:" in result.output
         assert "Unpushed changes:" in result.output
-        assert "not tracked by loom:" in result.output
+        assert "Untracked dotfiles in home directory:" in result.output
 
 
 class TestListFilesCommand:

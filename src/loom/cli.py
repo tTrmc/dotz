@@ -1,11 +1,13 @@
+"""CLI commands for loom - a Git-backed dotfiles manager."""
+
 import json
 from contextlib import nullcontext
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import typer
-from git import Repo
+from git import InvalidGitRepositoryError, Repo
 from rich.console import Console
 from rich.status import Status
 from typing_extensions import Annotated
@@ -36,7 +38,19 @@ from .core import (
 )
 from .watcher import main as watcher_main
 
-app = typer.Typer(help="loom - a Git-backed dot-files manager")
+# Constants
+DEFAULT_VERSION = "0.3.0"
+MAX_DISPLAYED_FILES = 10
+MAX_DISPLAYED_BACKUPS = 5
+
+# Global app and console instances
+app = typer.Typer(help="loom - a Git-backed dotfiles manager")
+console = Console()
+
+# Global path variables - initialized on first use
+HOME: Path
+LOOM_DIR: Path
+WORK_TREE: Path
 
 
 def get_cli_paths() -> Tuple[Path, Path, Path]:
@@ -47,9 +61,6 @@ def get_cli_paths() -> Tuple[Path, Path, Path]:
     return home, loom_dir, work_tree
 
 
-HOME, LOOM_DIR, WORK_TREE = get_cli_paths()
-
-
 def refresh_cli_paths() -> None:
     """Refresh CLI paths when HOME environment changes."""
     global HOME, LOOM_DIR, WORK_TREE
@@ -57,11 +68,54 @@ def refresh_cli_paths() -> None:
 
 
 def update_cli_paths(home_dir: Path) -> None:
-    """Update CLI paths. Useful for testing."""
+    """Update CLI paths for testing purposes."""
     global HOME, LOOM_DIR, WORK_TREE
     HOME = home_dir
     LOOM_DIR = home_dir / ".loom"
     WORK_TREE = home_dir / ".loom" / "repo"
+
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+
+def format_file_size(size_bytes: int) -> str:
+    """Format file size in human-readable format."""
+    if size_bytes < 1024:
+        return f"{size_bytes} bytes"
+    elif size_bytes < 1024 * 1024:
+        size_kb = size_bytes / 1024
+        return f"{size_kb:.1f} KB"
+    else:
+        size_mb = size_bytes / (1024 * 1024)
+        return f"{size_mb:.1f} MB"
+
+
+def parse_backup_filename(backup_name: str) -> Tuple[str, str, str]:
+    """Parse backup filename to extract original path, operation, and timestamp."""
+    parts = backup_name.split("_")
+    if len(parts) >= 3:
+        operation_idx = -2
+        original_parts = parts[:operation_idx]
+        original_file = "/".join(original_parts)
+        operation = parts[operation_idx]
+        timestamp = parts[-1]
+
+        # Format timestamp for display
+        try:
+            dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+            formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            formatted_time = timestamp
+
+        return original_file, operation, formatted_time
+    else:
+        return backup_name, "unknown", "unknown"
+
+
+# Initialize global paths
+HOME, LOOM_DIR, WORK_TREE = get_cli_paths()
 
 
 @app.command()
@@ -105,37 +159,37 @@ def init(
                         break
                     else:
                         typer.secho(
-                            "Invalid URL format. Please use https://, git@, or "
-                            "ssh:// URLs.",
+                            "Invalid URL format. Please use https://, git@, or ssh://",
                             fg=typer.colors.RED,
+                            err=True,
                         )
                 else:
                     typer.secho(
-                        "URL cannot be empty. Please enter a valid URL or press "
-                        "Ctrl+C to skip.",
+                        "URL cannot be empty. Please enter a valid URL.",
                         fg=typer.colors.RED,
+                        err=True,
                     )
         else:
             remote = ""
 
         # Initial dotfiles setup
         typer.echo()
-        typer.secho("Initial Dotfiles Setup", fg=typer.colors.BLUE, bold=True)
+        typer.secho("Initial Dotfiles Setup", fg=typer.colors.CYAN, bold=True)
         typer.echo(
             "Would you like to automatically add common dotfiles to get started?"
         )
         typer.echo("This will search for and add files like:")
-        typer.echo("  • Shell configs: .bashrc, .zshrc, .profile")
-        typer.echo("  • Git config: .gitconfig, .gitignore_global")
-        typer.echo("  • SSH config: .ssh/config")
-        typer.echo("  • Editor configs: .vimrc, .tmux.conf")
+        typer.echo("  Shell configs: .bashrc, .zshrc, .profile")
+        typer.echo("  Git config: .gitconfig, .gitignore_global")
+        typer.echo("  SSH config: .ssh/config")
+        typer.echo("  Editor configs: .vimrc, .tmux.conf")
 
         setup_dotfiles = typer.confirm(
             "\nAutomatically discover and add common dotfiles?", default=True
         )
 
         typer.echo()
-        typer.secho("Initializing loom repository...", fg=typer.colors.CYAN)
+        typer.secho("Initializing loom repository...", fg=typer.colors.BLUE)
     else:
         setup_dotfiles = False
 
@@ -146,7 +200,7 @@ def init(
     # Handle initial dotfiles setup if requested
     if setup_dotfiles:
         typer.echo()
-        typer.secho("Discovering common dotfiles...", fg=typer.colors.CYAN)
+        typer.secho("Discovering common dotfiles...", fg=typer.colors.BLUE)
 
         home = get_home_dir()
         common_dotfiles = [
@@ -174,7 +228,7 @@ def init(
                 f"Found {len(found_files)} common dotfiles:", fg=typer.colors.GREEN
             )
             for f in found_files:
-                typer.echo(f"  • {f}")
+                typer.echo(f"  {f}")
 
             if typer.confirm(
                 f"\nAdd these {len(found_files)} files to loom?", default=True
@@ -187,16 +241,15 @@ def init(
                         )
                         if success:
                             added_count += 1
-                            typer.secho(f"  ✓ Added {dotfile}", fg=typer.colors.GREEN)
+                            typer.secho(f"Added {dotfile}", fg=typer.colors.GREEN)
                     except Exception:
-                        typer.secho(
-                            f"  ! Could not add {dotfile}", fg=typer.colors.YELLOW
-                        )
+                        typer.secho(f"Could not add {dotfile}", fg=typer.colors.YELLOW)
 
                 if added_count > 0:
                     typer.secho(
-                        f"\nSuccessfully added {added_count} dotfiles!",
+                        f"Successfully added {added_count} dotfiles",
                         fg=typer.colors.GREEN,
+                        bold=True,
                     )
                 else:
                     typer.secho("No dotfiles were added.", fg=typer.colors.YELLOW)
@@ -204,37 +257,40 @@ def init(
                 typer.secho("Skipped automatic dotfile setup.", fg=typer.colors.YELLOW)
         else:
             typer.secho(
-                "No common dotfiles found in your home directory.",
+                "No common dotfiles found in your home directory",
                 fg=typer.colors.YELLOW,
             )
             typer.echo("You can add dotfiles later with: loom add <filename>")
 
     # Show completion message
     typer.echo()
-    typer.secho("Repository initialization complete!", fg=typer.colors.GREEN, bold=True)
+    typer.secho(
+        "Loom repository initialized successfully", fg=typer.colors.GREEN, bold=True
+    )
 
     if remote:
         typer.secho(
             "Next steps:",
             fg=typer.colors.CYAN,
         )
-        typer.echo("  • Add more dotfiles: loom add <filename>")
-        typer.echo("  • Push to remote: loom push")
-        typer.echo("  • Check status: loom status")
+        typer.echo("  Add more dotfiles: loom add <filename>")
+        typer.echo("  Push to remote: loom push")
+        typer.echo("  Check status: loom status")
     else:
         typer.secho(
             "Next steps:",
             fg=typer.colors.CYAN,
         )
-        typer.echo("  • Add dotfiles: loom add <filename>")
-        typer.echo("  • Add remote later: git -C ~/.loom/repo remote add origin <url>")
-        typer.echo("  • Check status: loom status")
+        typer.echo("  Add dotfiles: loom add <filename>")
+        typer.echo("  Add remote later: git -C ~/.loom/repo remote add origin <url>")
+        typer.echo("  Check status: loom status")
 
 
-console = Console()
+# ============================================================================
+# MAIN COMMANDS
+# ============================================================================
 
 
-# Update or add the add command to use progress indicators
 @app.command()
 def add(
     path: str = typer.Argument(..., help="Path to add to the project"),
@@ -264,86 +320,110 @@ def add(
 
     if not target_path.exists():
         if not quiet:
-            console.print(f"[red]Error: Path {path} does not exist[/red]")
+            typer.secho(
+                f"Error: Path {path} does not exist", fg=typer.colors.RED, err=True
+            )
         raise typer.Exit(1)
 
     if target_path.is_file():
-        # Single file - simple status
-        with (
-            Status(f"Adding file {target_path.name}...", console=console)
-            if not quiet
-            else nullcontext()
-        ):
-            success = core.add_dotfile(
-                target_path, push=push, quiet=quiet, recursive=recursive
-            )
-
-        if success and not quiet:
-            console.print(f"[green]✓[/green] Added {target_path.name}")
-        elif not success:
-            if not quiet:
-                console.print(f"[red]Failed to add {target_path.name}[/red]")
-            raise typer.Exit(1)
-
+        _handle_single_file_add(target_path, push, quiet, recursive)
     elif target_path.is_dir():
-        # Directory - show progress for multiple files
-        config = core.load_config()
-        files_to_add = core.find_config_files(target_path, config, recursive)
+        _handle_directory_add(target_path, path, recursive, push, quiet)
 
-        if not files_to_add:
-            if not quiet:
-                console.print(f"[yellow]No matching files found in {path}[/yellow]")
-            return
 
-        # Use progress function for multiple files
-        try:
-            # Try to use progress function if available
-            result: Dict[str, int] = core.add_dotfiles_with_progress(
-                files_to_add, push=push, quiet=quiet, description="Adding files"
+def _handle_single_file_add(
+    target_path: Path, push: bool, quiet: bool, recursive: bool
+) -> None:
+    """Handle adding a single file."""
+    with (
+        Status(f"Adding {target_path.name}...", console=console)
+        if not quiet
+        else nullcontext()
+    ):
+        success = core.add_dotfile(
+            target_path, push=push, quiet=quiet, recursive=recursive
+        )
+
+    if success and not quiet:
+        typer.secho(f"Added {target_path.name}", fg=typer.colors.GREEN)
+    elif not success:
+        if not quiet:
+            typer.secho(
+                f"Failed to add {target_path.name}", fg=typer.colors.RED, err=True
+            )
+        raise typer.Exit(1)
+
+
+def _handle_directory_add(
+    target_path: Path, original_path: str, recursive: bool, push: bool, quiet: bool
+) -> None:
+    """Handle adding a directory with multiple files."""
+    config = core.load_config()
+    files_to_add = core.find_config_files(target_path, config, recursive)
+
+    if not files_to_add:
+        if not quiet:
+            typer.secho(
+                f"No matching files found in {original_path}", fg=typer.colors.YELLOW
+            )
+        return
+
+    try:
+        # Use progress function if available
+        result: Dict[str, int] = core.add_dotfiles_with_progress(
+            files_to_add, push=push, quiet=quiet, description="Adding files"
+        )
+        _display_add_results(result, original_path, quiet)
+    except AttributeError:
+        # Fallback to basic add_dotfile for each file
+        _fallback_directory_add(files_to_add, original_path, push, quiet)
+
+
+def _display_add_results(result: Dict[str, int], path: str, quiet: bool) -> None:
+    """Display results of add operation."""
+    if not quiet:
+        total = result["success"] + result["failed"]
+        typer.secho(
+            f"Added {result['success']}/{total} files from {path}",
+            fg=typer.colors.GREEN,
+        )
+        if result["failed"] > 0:
+            typer.secho(
+                f"{result['failed']} files failed to add", fg=typer.colors.YELLOW
             )
 
-            if not quiet:
-                total = result["success"] + result["failed"]
-                console.print(
-                    f"[green]✓[/green] Added {result['success']}/{total} files "
-                    f"from {path}"
-                )
 
-                if result["failed"] > 0:
-                    console.print(
-                        f"[yellow]⚠[/yellow] {result['failed']} files failed to add"
-                    )
-        except AttributeError:
-            # Fallback to basic add_dotfile for each file
-            success_count = 0
-            failed_count = 0
+def _fallback_directory_add(
+    files_to_add: List[Path], original_path: str, push: bool, quiet: bool
+) -> None:
+    """Fallback method for adding directory files."""
+    success_count = 0
+    failed_count = 0
 
-            for file_path in files_to_add:
-                try:
-                    if core.add_dotfile(file_path, push=False, quiet=True):
-                        success_count += 1
-                    else:
-                        failed_count += 1
-                except Exception:
-                    failed_count += 1
+    for file_path in files_to_add:
+        try:
+            if core.add_dotfile(file_path, push=False, quiet=True):
+                success_count += 1
+            else:
+                failed_count += 1
+        except Exception:
+            failed_count += 1
 
-            if push and success_count > 0:
-                core.push_repo(quiet=quiet)
+    if push and success_count > 0:
+        core.push_repo(quiet=quiet)
 
-            if not quiet:
-                total = success_count + failed_count
-                console.print(
-                    f"[green]✓[/green] Added {success_count}/{total} files "
-                    f"from {path}"
-                )
-
-                if failed_count > 0:
-                    console.print(
-                        f"[yellow]⚠[/yellow] {failed_count} files failed to add"
-                    )
+    if not quiet:
+        total = success_count + failed_count
+        console.print(
+            f"[green]✓[/green] Added {success_count}/{total} files from {original_path}"
+        )
+        if failed_count > 0:
+            console.print(
+                f"[bold yellow]Warning:[/bold yellow] {failed_count} files "
+                "failed to add"
+            )
 
 
-# Add restore-all command if it doesn't exist
 @app.command()
 def restore_all(
     push: Annotated[
@@ -377,7 +457,7 @@ def restore_all(
             fg=typer.colors.CYAN,
         )
         for file_path in tracked_files[:10]:  # Show first 10
-            typer.secho(f"  • {file_path}", fg=typer.colors.WHITE)
+            typer.secho(f"  {file_path}", fg=typer.colors.WHITE)
 
         if len(tracked_files) > 10:
             typer.secho(
@@ -400,7 +480,7 @@ def restore_all(
 
         if not tracked_files:
             if not quiet:
-                console.print("[yellow]No tracked files to restore[/yellow]")
+                typer.secho("No tracked files to restore", fg=typer.colors.YELLOW)
             return
 
         # Convert to Path objects
@@ -413,11 +493,14 @@ def restore_all(
             )
             if not quiet:
                 total = result["success"] + result["failed"]
-                console.print(
-                    f"[green]✓[/green] Restored {result['success']}/{total} files"
+                typer.secho(
+                    f"Restored {result['success']}/{total} files",
+                    fg=typer.colors.GREEN,
                 )
                 if result["failed"] > 0:
-                    console.print(f"[yellow]⚠[/yellow] {result['failed']} files failed")
+                    typer.secho(
+                        f"{result['failed']} files failed", fg=typer.colors.YELLOW
+                    )
         except AttributeError:
             # Fallback to basic restore for each file
             success_count = 0
@@ -443,7 +526,10 @@ def restore_all(
                     f"[green]✓[/green] Restored {success_count}/{total} files"
                 )
                 if failed_count > 0:
-                    console.print(f"[yellow]⚠[/yellow] {failed_count} files failed")
+                    console.print(
+                        f"[bold yellow]Warning:[/bold yellow] {failed_count} "
+                        "files failed"
+                    )
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error during restore: {e}[/red]")
@@ -471,6 +557,11 @@ def delete(
         raise typer.Exit(code=1)
 
 
+# ============================================================================
+# REPOSITORY STATUS AND MANAGEMENT COMMANDS
+# ============================================================================
+
+
 @app.command()
 def status() -> None:
     """
@@ -479,37 +570,37 @@ def status() -> None:
     """
     status_data = get_repo_status()
 
-    typer.secho("Status of loom repository:", fg=typer.colors.WHITE)
+    typer.secho("Loom repository status:", fg=typer.colors.WHITE, bold=True)
 
     if (
         not status_data["untracked"]
         and not status_data["modified"]
         and not status_data["staged"]
     ):
-        typer.secho("✓ No changes", fg=typer.colors.GREEN)
+        typer.secho("Repository is clean", fg=typer.colors.GREEN)
     else:
         if status_data["untracked"]:
             typer.secho("Untracked files:", fg=typer.colors.YELLOW)
             for file in status_data["untracked"]:
-                typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
+                typer.secho(f"  {file}", fg=typer.colors.YELLOW)
         if status_data["modified"]:
             typer.secho("Modified files:", fg=typer.colors.YELLOW)
             for file in status_data["modified"]:
-                typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
+                typer.secho(f"  {file}", fg=typer.colors.YELLOW)
         if status_data["staged"]:
             typer.secho("Staged files:", fg=typer.colors.YELLOW)
             for file in status_data["staged"]:
-                typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
+                typer.secho(f"  {file}", fg=typer.colors.YELLOW)
 
     if status_data["unpushed"]:
         typer.secho("Unpushed changes:", fg=typer.colors.YELLOW)
         for file in status_data["unpushed"]:
-            typer.secho(f"  - {file}", fg=typer.colors.YELLOW)
+            typer.secho(f"  {file}", fg=typer.colors.YELLOW)
 
     if status_data["untracked_home_dotfiles"]:
-        typer.secho("Dotfiles in $HOME not tracked by loom:", fg=typer.colors.MAGENTA)
+        typer.secho("Untracked dotfiles in home directory:", fg=typer.colors.CYAN)
         for f in status_data["untracked_home_dotfiles"]:
-            typer.secho(f"  - {f}", fg=typer.colors.MAGENTA)
+            typer.secho(f"  {f}", fg=typer.colors.CYAN)
 
 
 @app.command()
@@ -522,9 +613,9 @@ def list_files() -> None:
         typer.secho("No files tracked by loom.", fg=typer.colors.YELLOW)
         return
 
-    typer.secho("Files tracked by loom:", fg=typer.colors.WHITE)
+    typer.secho("Tracked files:", fg=typer.colors.WHITE, bold=True)
     for f in tracked_files:
-        typer.secho(f"  - {f}", fg=typer.colors.YELLOW)
+        typer.secho(f"  {f}", fg=typer.colors.GREEN)
 
 
 @app.command()
@@ -600,16 +691,19 @@ def version() -> None:
 
         version_str = get_version("loomctl")
     except ImportError:
-        version_str = "0.3.1"  # Fallback version
+        version_str = DEFAULT_VERSION
 
     typer.secho(f"loom version {version_str}", fg=typer.colors.GREEN)
 
 
+# ============================================================================
+# UTILITY COMMANDS
+# ============================================================================
+
+
 @app.command()
 def completion() -> None:
-    """
-    Show instructions for enabling shell completion.
-    """
+    """Show instructions for enabling shell completion."""
     typer.echo("Run: loom --install-completion")
 
 
@@ -618,41 +712,46 @@ def diagnose() -> None:
     """
     Diagnose common loom and git issues and print helpful advice.
     """
-    from git import InvalidGitRepositoryError
-
-    typer.secho("Running loom diagnostics...\n", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Loom Diagnostics", fg=typer.colors.WHITE, bold=True)
+    typer.echo()
 
     # Check repo existence
     if not LOOM_DIR.exists() or not WORK_TREE.exists():
-        typer.secho("ERROR: loom repo not initialized.", fg=typer.colors.RED)
-        typer.secho("Run: loom init", fg=typer.colors.YELLOW)
+        typer.secho(
+            "ERROR: Loom repository not initialized", fg=typer.colors.RED, bold=True
+        )
+        typer.secho("Solution: Run 'loom init' to initialize", fg=typer.colors.CYAN)
         return
 
     # Check if .git exists
     git_dir = WORK_TREE / ".git"
     if not git_dir.exists():
-        typer.secho("ERROR: No .git directory found in loom repo.", fg=typer.colors.RED)
-        typer.secho("Try re-initializing with: loom init", fg=typer.colors.YELLOW)
+        typer.secho(
+            "ERROR: No git directory found in loom repository", fg=typer.colors.RED
+        )
+        typer.secho(
+            "Solution: Try re-initializing with 'loom init'", fg=typer.colors.CYAN
+        )
         return
 
     # Try loading the repo
     try:
         repo = Repo(str(WORK_TREE))
     except InvalidGitRepositoryError:
-        typer.secho("ERROR: Invalid git repository in loom repo.", fg=typer.colors.RED)
+        typer.secho("ERROR: Invalid git repository", fg=typer.colors.RED)
         return
 
     # Check for remotes
     remotes = list(repo.remotes)
     if not remotes:
-        typer.secho("WARNING: No git remote set.", fg=typer.colors.YELLOW)
+        typer.secho("WARNING: No git remote configured", fg=typer.colors.YELLOW)
         typer.secho(
-            "Set one with: git -C ~/.loom/repo remote add origin <url>",
-            fg=typer.colors.YELLOW,
+            "Add remote: git -C ~/.loom/repo remote add origin <url>",
+            fg=typer.colors.CYAN,
         )
     else:
         typer.secho(
-            f"✓ Remote(s) found: {', '.join(r.name for r in remotes)}",
+            f"Remote(s) configured: {', '.join(r.name for r in remotes)}",
             fg=typer.colors.GREEN,
         )
 
@@ -662,50 +761,50 @@ def diagnose() -> None:
         tracking = branch.tracking_branch()
         if tracking is None:
             typer.secho(
-                f"WARNING: Branch '{branch.name}' is not tracking a remote " "branch.",
+                f"WARNING: Branch '{branch.name}' is not tracking remote branch",
                 fg=typer.colors.YELLOW,
             )
             typer.secho(
-                f"Set upstream with: git -C ~/.loom/repo branch "
+                f"Set upstream: git -C ~/.loom/repo branch "
                 f"--set-upstream-to=origin/{branch.name} {branch.name}",
-                fg=typer.colors.YELLOW,
+                fg=typer.colors.CYAN,
             )
         else:
             typer.secho(
-                f"✓ Branch '{branch.name}' is tracking '{tracking}'",
+                f"Branch '{branch.name}' tracking '{tracking}'",
                 fg=typer.colors.GREEN,
             )
     except Exception:
         typer.secho(
-            "WARNING: Could not determine active branch or tracking info.",
+            "WARNING: Could not determine branch tracking information",
             fg=typer.colors.YELLOW,
         )
 
     # Check for uncommitted changes
     if repo.is_dirty(untracked_files=True):
-        typer.secho(
-            "WARNING: There are uncommitted changes in your loom repo.",
-            fg=typer.colors.YELLOW,
-        )
-        typer.secho("Run: loom status", fg=typer.colors.YELLOW)
+        typer.secho("WARNING: Uncommitted changes detected", fg=typer.colors.YELLOW)
+        typer.secho("Check status: loom status", fg=typer.colors.CYAN)
     else:
-        typer.secho("✓ No uncommitted changes.", fg=typer.colors.GREEN)
+        typer.secho("Repository is clean", fg=typer.colors.GREEN)
 
     # Check tracked directories
     tracked_dirs_file = LOOM_DIR / "tracked_dirs.json"
     if not tracked_dirs_file.exists() or not json.loads(
         tracked_dirs_file.read_text() or "[]"
     ):
-        typer.secho("WARNING: No tracked directories found.", fg=typer.colors.YELLOW)
-        typer.secho("Add one with: loom add <directory>", fg=typer.colors.YELLOW)
+        typer.secho("WARNING: No tracked directories found", fg=typer.colors.YELLOW)
+        typer.secho("Add directories: loom add <directory>", fg=typer.colors.CYAN)
     else:
         dirs = json.loads(tracked_dirs_file.read_text())
-        typer.secho(f"✓ Tracked directories: {', '.join(dirs)}", fg=typer.colors.GREEN)
+        typer.secho(f"Tracked directories: {', '.join(dirs)}", fg=typer.colors.GREEN)
 
-    typer.secho("\nDiagnosis complete.", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Diagnosis complete", fg=typer.colors.WHITE, bold=True)
 
 
-# Configuration management commands
+# ============================================================================
+# CONFIGURATION MANAGEMENT COMMANDS
+# ============================================================================
+
 config_app = typer.Typer(help="Manage loom configuration")
 app.add_typer(config_app, name="config")
 
@@ -929,7 +1028,10 @@ def validate(
         raise typer.Exit(code=1)
 
 
-# Backup management commands
+# ============================================================================
+# BACKUP MANAGEMENT COMMANDS
+# ============================================================================
+
 backup_app = typer.Typer(help="Manage loom backups")
 app.add_typer(backup_app, name="backup")
 
@@ -1008,37 +1110,14 @@ def backup_list(
 
     for backup_path in backups:
         backup_name = backup_path.name
+        original_file, operation, formatted_time = parse_backup_filename(backup_name)
 
-        # Parse backup filename to extract information
-        parts = backup_name.split("_")
-        if len(parts) >= 3:
-            # Reconstruct original path (everything before operation and timestamp)
-            operation_idx = -2
-            original_parts = parts[:operation_idx]
-            original_file = "/".join(original_parts)
-            operation = parts[operation_idx]
-            timestamp = parts[-1]
-
-            # Format timestamp for display
-            try:
-                dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
-                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                formatted_time = timestamp
-
+        if original_file != backup_name:  # Successfully parsed
             if verbose:
-                # Get file size
                 size = backup_path.stat().st_size
-                size_str = f"{size:,} bytes"
-                if size > 1024:
-                    size_kb = size / 1024
-                    if size_kb > 1024:
-                        size_mb = size_kb / 1024
-                        size_str = f"{size_mb:.1f} MB"
-                    else:
-                        size_str = f"{size_kb:.1f} KB"
+                size_str = format_file_size(size)
 
-                typer.secho(f"📦 {original_file}", fg=typer.colors.CYAN, bold=True)
+                typer.secho(f"{original_file}", fg=typer.colors.CYAN, bold=True)
                 typer.secho(f"   Operation: {operation}", fg=typer.colors.WHITE)
                 typer.secho(f"   Created:   {formatted_time}", fg=typer.colors.WHITE)
                 typer.secho(f"   Size:      {size_str}", fg=typer.colors.WHITE)
@@ -1048,12 +1127,12 @@ def backup_list(
                 typer.echo()
             else:
                 typer.secho(
-                    f"📦 {original_file:<30} {operation:<12} {formatted_time}",
+                    f"{original_file:<30} {operation:<12} {formatted_time}",
                     fg=typer.colors.CYAN,
                 )
         else:
             # Fallback for malformed backup names
-            typer.secho(f"📦 {backup_name}", fg=typer.colors.YELLOW)
+            typer.secho(f"{backup_name}", fg=typer.colors.YELLOW)
 
 
 @backup_app.command("restore")
@@ -1101,27 +1180,23 @@ def backup_restore(
 
     # Parse backup filename to show what will be restored
     backup_name = backup_path.name
-    parts = backup_name.split("_")
-    if len(parts) >= 3:
-        operation_idx = -2
-        original_parts = parts[:operation_idx]
-        original_file = "/".join(original_parts)
+    original_file, operation, formatted_time = parse_backup_filename(backup_name)
 
+    if original_file != backup_name:  # Successfully parsed
         if not confirm and not quiet:
             typer.secho(
                 f"This will restore '{original_file}' from backup.",
                 fg=typer.colors.CYAN,
             )
-            typer.secho(
-                f"Backup: {backup_file}",
-                fg=typer.colors.WHITE,
-            )
+            typer.secho(f"Backup: {backup_file}", fg=typer.colors.WHITE)
+            typer.secho(f"Created: {formatted_time}", fg=typer.colors.WHITE)
+            typer.secho(f"Operation: {operation}", fg=typer.colors.WHITE)
 
             home = get_home_dir()
             target_path = home / original_file
             if target_path.exists():
                 typer.secho(
-                    f"⚠️  This will overwrite the current file at {original_file}",
+                    f"WARNING: This will overwrite the current file at {original_file}",
                     fg=typer.colors.YELLOW,
                     bold=True,
                 )
@@ -1161,8 +1236,6 @@ def backup_clean(
     Removes backup files older than the specified number of days.
     Default is to remove backups older than 30 days.
     """
-    from datetime import datetime, timedelta
-
     backups = list_backups()
 
     if not backups:
@@ -1196,7 +1269,7 @@ def backup_clean(
         for backup_path in old_backups[:5]:  # Show first 5
             backup_time = datetime.fromtimestamp(backup_path.stat().st_mtime)
             typer.secho(
-                f"  📦 {backup_path.name} ({backup_time.strftime('%Y-%m-%d')})",
+                f"  {backup_path.name} ({backup_time.strftime('%Y-%m-%d')})",
                 fg=typer.colors.WHITE,
             )
 
@@ -1219,25 +1292,25 @@ def backup_clean(
             backup_path.unlink()
             removed_count += 1
             if not quiet:
-                typer.secho(f"✓ Removed {backup_path.name}", fg=typer.colors.GREEN)
+                typer.secho(f"Removed {backup_path.name}", fg=typer.colors.GREEN)
         except Exception as e:
             failed_count += 1
             if not quiet:
                 typer.secho(
-                    f"✗ Failed to remove {backup_path.name}: {e}",
+                    f"Failed to remove {backup_path.name}: {e}",
                     fg=typer.colors.RED,
                 )
 
     if not quiet:
         if removed_count > 0:
             typer.secho(
-                f"✓ Successfully removed {removed_count} backup(s)",
+                f"Successfully removed {removed_count} backup(s)",
                 fg=typer.colors.GREEN,
                 bold=True,
             )
         if failed_count > 0:
             typer.secho(
-                f"✗ Failed to remove {failed_count} backup(s)",
+                f"Failed to remove {failed_count} backup(s)",
                 fg=typer.colors.RED,
                 bold=True,
             )
@@ -1251,10 +1324,10 @@ def backup_help() -> None:
 
     typer.secho("\nBackup System:", fg=typer.colors.YELLOW, bold=True)
     typer.echo("  Loom automatically creates backups when:")
-    typer.echo("  • Restoring files that would overwrite existing files")
-    typer.echo("  • Cloning a repository that would overwrite existing files")
-    typer.echo("  • Running operations that modify existing dotfiles")
-    typer.echo("  • You manually create backups with 'loom backup create'")
+    typer.echo("  Restoring files that would overwrite existing files")
+    typer.echo("  Cloning a repository that would overwrite existing files")
+    typer.echo("  Running operations that modify existing dotfiles")
+    typer.echo("  You manually create backups with 'loom backup create'")
 
     typer.secho("\nBackup Location:", fg=typer.colors.YELLOW, bold=True)
     typer.echo("  All backups are stored in: ~/.loom/backups/")
@@ -1278,10 +1351,10 @@ def backup_help() -> None:
     typer.echo("  loom backup clean --older-than 30 --yes " "# Skip confirmation")
 
     typer.secho("\nSafety Features:", fg=typer.colors.CYAN, bold=True)
-    typer.echo("  • Existing files are automatically backed up before restoration")
-    typer.echo("  • Backups include timestamps for easy identification")
-    typer.echo("  • Multiple backups of the same file are preserved")
-    typer.echo("  • Confirmation prompts prevent accidental operations")
+    typer.echo("  Existing files are automatically backed up before restoration")
+    typer.echo("  Backups include timestamps for easy identification")
+    typer.echo("  Multiple backups of the same file are preserved")
+    typer.echo("  Confirmation prompts prevent accidental operations")
 
 
 if __name__ == "__main__":

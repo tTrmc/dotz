@@ -1,7 +1,10 @@
+"""Core functionality for loom - a Git-backed dotfiles manager."""
+
 import fnmatch
 import json
 import os
 import shutil
+import tarfile
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +22,22 @@ from rich.progress import (
 )
 from rich.status import Status
 
+# Constants
+LOOM_DIR_NAME = ".loom"
+REPO_DIR_NAME = "repo"
+TRACKED_DIRS_FILENAME = "tracked_dirs.json"
+CONFIG_FILENAME = "config.json"
+BACKUP_DIR_NAME = "backups"
+PROGRESS_THRESHOLD = 50  # Show progress bar for operations with 50+ items
+
+# Global console instance
+console = Console()
+
+
+# ============================================================================
+# PATH MANAGEMENT
+# ============================================================================
+
 
 def get_home_dir() -> Path:
     """Get the home directory, respecting environment variables for testing."""
@@ -33,11 +52,11 @@ def get_loom_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
     if home_dir is None:
         home_dir = get_home_dir()
 
-    loom_dir = home_dir / ".loom"
-    work_tree = loom_dir / "repo"
-    tracked_dirs_file = loom_dir / "tracked_dirs.json"
-    config_file = loom_dir / "config.json"
-    backup_dir = loom_dir / "backups"
+    loom_dir = home_dir / LOOM_DIR_NAME
+    work_tree = loom_dir / REPO_DIR_NAME
+    tracked_dirs_file = loom_dir / TRACKED_DIRS_FILENAME
+    config_file = loom_dir / CONFIG_FILENAME
+    backup_dir = loom_dir / BACKUP_DIR_NAME
 
     return {
         "home": home_dir,
@@ -49,14 +68,21 @@ def get_loom_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
     }
 
 
-# Global paths - can be overridden for testing
-_paths = get_loom_paths()
-HOME = _paths["home"]
-LOOM_DIR = _paths["loom_dir"]
-WORK_TREE = _paths["work_tree"]
-TRACKED_DIRS_FILE = _paths["tracked_dirs_file"]
-CONFIG_FILE = _paths["config_file"]
-BACKUP_DIR = _paths["backup_dir"]
+def update_paths(home_dir: Optional[Path] = None) -> None:
+    """Update global paths. Useful for testing or when HOME changes."""
+    global HOME, LOOM_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE, BACKUP_DIR
+    paths = get_loom_paths(home_dir)
+    HOME = paths["home"]
+    LOOM_DIR = paths["loom_dir"]
+    WORK_TREE = paths["work_tree"]
+    TRACKED_DIRS_FILE = paths["tracked_dirs_file"]
+    CONFIG_FILE = paths["config_file"]
+    BACKUP_DIR = paths["backup_dir"]
+
+
+# ============================================================================
+# GLOBAL CONFIGURATION AND PATHS
+# ============================================================================
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -89,13 +115,28 @@ DEFAULT_CONFIG = {
     },
 }
 
+# Global paths - can be overridden for testing
+_paths = get_loom_paths()
+HOME = _paths["home"]
+LOOM_DIR = _paths["loom_dir"]
+WORK_TREE = _paths["work_tree"]
+TRACKED_DIRS_FILE = _paths["tracked_dirs_file"]
+CONFIG_FILE = _paths["config_file"]
+BACKUP_DIR = _paths["backup_dir"]
+
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
 
 def ensure_repo() -> Repo:
+    """Ensure that a loom repository exists and return it."""
     try:
         return Repo(str(WORK_TREE))
     except Exception:
         typer.secho(
-            "Error: loom repository not initialized. Run `loom init` first.",
+            "Error: Loom repository not initialized. Run 'loom init' first.",
             fg=typer.colors.RED,
             err=True,
         )
@@ -113,6 +154,65 @@ def count_files_in_directory(path: Path) -> int:
                 count += 1
         return count
     return 0
+
+
+def parse_backup_filename(backup_name: str) -> tuple[str, str, str]:
+    """Parse backup filename to extract original path, operation, and timestamp.
+
+    Returns:
+        Tuple of (original_path, operation, formatted_timestamp)
+    """
+    # Remove .tar.gz extension if present
+    name = backup_name
+    if name.endswith(".tar.gz"):
+        name = name[:-7]
+
+    parts = name.split("_")
+    if len(parts) < 3:
+        return backup_name, "unknown", "unknown"
+
+    # Remove timestamp parts from the end (format: YYYYMMDD_HHMMSS)
+    remaining_parts = parts[:]
+    if (
+        len(remaining_parts) >= 2
+        and remaining_parts[-1].isdigit()
+        and len(remaining_parts[-1]) == 6
+        and remaining_parts[-2].isdigit()
+        and len(remaining_parts[-2]) == 8
+    ):
+        timestamp = f"{remaining_parts[-2]}_{remaining_parts[-1]}"
+        remaining_parts = remaining_parts[:-2]
+    else:
+        timestamp = "unknown"
+
+    # Remove operation part (should be last now)
+    if remaining_parts:
+        operation = remaining_parts[-1]
+        remaining_parts = remaining_parts[:-1]
+    else:
+        operation = "unknown"
+
+    if not remaining_parts:
+        return backup_name, operation, timestamp
+
+    original_path = "/".join(remaining_parts)
+
+    # Format timestamp for display
+    try:
+        if timestamp != "unknown":
+            dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+            formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            formatted_time = timestamp
+    except ValueError:
+        formatted_time = timestamp
+
+    return original_path, operation, formatted_time
+
+
+# ============================================================================
+# TRACKED DIRECTORY MANAGEMENT
+# ============================================================================
 
 
 def save_tracked_dir(dir_path: Path) -> None:
@@ -142,14 +242,19 @@ def remove_tracked_dir(dir_path: Path) -> None:
             json.dump(tracked, f)
 
 
+# ============================================================================
+# REPOSITORY INITIALIZATION AND MANAGEMENT
+# ============================================================================
+
+
 def init_repo(remote: str = "", quiet: bool = False) -> bool:
     if LOOM_DIR.exists():
         if not quiet:
-            typer.secho("loom already initialised at ~/.loom", fg=typer.colors.YELLOW)
+            typer.secho("Loom already initialized", fg=typer.colors.YELLOW)
         return False
 
     if not quiet:
-        typer.secho("Initialising loom...", fg=typer.colors.WHITE)
+        typer.secho("Initializing loom repository...", fg=typer.colors.BLUE)
     LOOM_DIR.mkdir()
     WORK_TREE.mkdir()
 
@@ -157,10 +262,10 @@ def init_repo(remote: str = "", quiet: bool = False) -> bool:
     repo.git.config("user.name", "loom")
     repo.git.config("user.email", "loom@example.com")
     if not quiet:
-        typer.secho("Creating initial commit...", fg=typer.colors.CYAN)
+        typer.secho("Creating initial commit...", fg=typer.colors.BLUE)
     repo.git.commit("--allow-empty", "-m", "Initial commit")
     if not quiet:
-        typer.secho("Created empty initial commit", fg=typer.colors.GREEN)
+        typer.secho("Initial commit created", fg=typer.colors.GREEN)
 
     # Create default configuration file
     save_config(DEFAULT_CONFIG)
@@ -175,17 +280,19 @@ def init_repo(remote: str = "", quiet: bool = False) -> bool:
         repo.create_remote("origin", remote)
         if not quiet:
             typer.secho(
-                "WARNING: If you are adding sensitive information, make sure "
-                "your remote repository is private!",
-                fg=typer.colors.RED,
+                "WARNING: Ensure your remote repository is private for sensitive data",
+                fg=typer.colors.YELLOW,
                 bold=True,
             )
 
     if not quiet:
-        typer.secho(
-            "Initialised loom repository in ~/.loom/repo", fg=typer.colors.GREEN
-        )
+        typer.secho("Loom repository initialized successfully", fg=typer.colors.GREEN)
     return True
+
+
+# ============================================================================
+# DOTFILE MANAGEMENT
+# ============================================================================
 
 
 def add_dotfile(
@@ -200,7 +307,7 @@ def add_dotfile(
 
     if not src.exists():
         if not quiet:
-            typer.secho(f"Error: {src} not found.", fg=typer.colors.RED, err=True)
+            typer.secho(f"Error: {src} not found", fg=typer.colors.RED, err=True)
         return False
 
     rel = src.relative_to(HOME)
@@ -222,7 +329,7 @@ def add_dotfile(
             src.unlink()
             src.symlink_to(dest)
             if not quiet:
-                typer.secho(f"✓ Added {rel}", fg=typer.colors.GREEN)
+                typer.secho(f"Added {rel}", fg=typer.colors.GREEN)
         except (PermissionError, OSError) as e:
             if not quiet:
                 typer.secho(
@@ -238,7 +345,7 @@ def add_dotfile(
         dotfiles = find_config_files(src, config, recursive)
         if not dotfiles:
             if not quiet:
-                typer.secho(f"No config files found in {rel}.", fg=typer.colors.YELLOW)
+                typer.secho(f"No config files found in {rel}", fg=typer.colors.YELLOW)
             return True
 
         # Copy the entire directory structure to loom repo
@@ -260,13 +367,13 @@ def add_dotfile(
 
         if not quiet:
             typer.secho(
-                f"✓ Added {len(dotfiles)} dotfiles from {rel}", fg=typer.colors.GREEN
+                f"Added {len(dotfiles)} dotfiles from {rel}", fg=typer.colors.GREEN
             )
 
     else:
         if not quiet:
             typer.secho(
-                f"Error: {src} is not a regular file or directory.",
+                f"Error: {src} is not a regular file or directory",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -309,7 +416,7 @@ def delete_dotfile(paths: List[Path], push: bool = False, quiet: bool = False) -
         if not src.is_symlink():
             if not quiet:
                 typer.secho(
-                    f"Error: {src} is not a symlink managed by loom.",
+                    f"Error: {src} is not a symlink managed by loom",
                     fg=typer.colors.RED,
                     err=True,
                 )
@@ -322,7 +429,7 @@ def delete_dotfile(paths: List[Path], push: bool = False, quiet: bool = False) -
         if not dest.exists():
             if not quiet:
                 typer.secho(
-                    f"Error: {dest} does not exist in the loom repository.",
+                    f"Error: {dest} does not exist in the loom repository",
                     fg=typer.colors.RED,
                     err=True,
                 )
@@ -345,7 +452,7 @@ def delete_dotfile(paths: List[Path], push: bool = False, quiet: bool = False) -
 
         removed_files.append(rel)
         if not quiet:
-            typer.secho(f"✓ Removed {rel}", fg=typer.colors.GREEN)
+            typer.secho(f"Removed {rel}", fg=typer.colors.GREEN)
 
     # Commit all removals in one commit
     if removed_files:
@@ -411,7 +518,7 @@ def restore_dotfile(path: Path, quiet: bool = False, push: bool = False) -> bool
     # Create symlink from home to repo (not a copy)
     src.symlink_to(dest)
     if not quiet:
-        typer.secho(f"✓ Restored {rel}", fg=typer.colors.GREEN)
+        typer.secho(f"Restored {rel}", fg=typer.colors.GREEN)
 
     if push:
         try:
@@ -456,7 +563,7 @@ def pull_repo(quiet: bool = False) -> bool:
     try:
         origin.pull()
         if not quiet:
-            typer.secho("✓ Pulled latest changes from origin", fg=typer.colors.GREEN)
+            typer.secho("Pulled latest changes from origin", fg=typer.colors.GREEN)
         return True
     except GitCommandError as e:
         msg = str(e)
@@ -537,7 +644,7 @@ def push_repo(quiet: bool = False) -> bool:
                         )
             return False
         if not quiet:
-            typer.secho("✓ Pushed local commits to origin", fg=typer.colors.GREEN)
+            typer.secho("Pushed local commits to origin", fg=typer.colors.GREEN)
         return True
     except GitCommandError as e:
         msg = str(e)
@@ -603,6 +710,11 @@ def list_tracked_files() -> List[str]:
     repo = ensure_repo()
     files_output: str = repo.git.ls_files()
     return files_output.splitlines()
+
+
+# ============================================================================
+# CONFIGURATION MANAGEMENT
+# ============================================================================
 
 
 def load_config() -> Dict[str, Any]:
@@ -838,18 +950,6 @@ def reset_config(quiet: bool = False) -> bool:
     if not quiet:
         typer.secho("✓ Configuration reset to defaults", fg=typer.colors.GREEN)
     return True
-
-
-def update_paths(home_dir: Optional[Path] = None) -> None:
-    """Update global paths. Useful for testing or when HOME changes."""
-    global HOME, LOOM_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE, BACKUP_DIR
-    paths = get_loom_paths(home_dir)
-    HOME = paths["home"]
-    LOOM_DIR = paths["loom_dir"]
-    WORK_TREE = paths["work_tree"]
-    TRACKED_DIRS_FILE = paths["tracked_dirs_file"]
-    CONFIG_FILE = paths["config_file"]
-    BACKUP_DIR = paths["backup_dir"]
 
 
 def clone_repo(remote_url: str, quiet: bool = False) -> bool:
@@ -1350,7 +1450,7 @@ def validate_symlinks(
             )
         else:
             typer.secho(
-                f"\n⚠ Found {total_issues} issues with symlinks:",
+                f"\nFound {total_issues} issues with symlinks:",
                 fg=typer.colors.YELLOW,
                 bold=True,
             )
@@ -1395,6 +1495,11 @@ def validate_symlinks(
     return results
 
 
+# ============================================================================
+# BACKUP MANAGEMENT
+# ============================================================================
+
+
 def create_backup(
     file_path: Path, operation: str = "restore", quiet: bool = False
 ) -> Optional[Path]:
@@ -1434,8 +1539,6 @@ def create_backup(
             shutil.copy2(file_path, backup_path)
         elif file_path.is_dir():
             # Create a tar archive for directories
-            import tarfile
-
             with tarfile.open(backup_path, "w:gz") as tar:
                 tar.add(file_path, arcname=file_path.name)
         else:
@@ -1444,7 +1547,7 @@ def create_backup(
 
         if not quiet:
             typer.secho(
-                f"📦 Backed up {relative_path} to backups/{backup_name}",
+                f"Backed up {relative_path} to backups/{backup_name}",
                 fg=typer.colors.BLUE,
             )
 
@@ -1547,8 +1650,6 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
         # Restore from backup
         if backup_path.suffix == ".gz" or backup_path.name.endswith(".tar.gz"):
             # Extract tar archive
-            import tarfile
-
             with tarfile.open(backup_path, "r:gz") as tar:
                 tar.extractall(path=original_path.parent)
         else:
@@ -1567,7 +1668,9 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
         return False
 
 
-console = Console()
+# ============================================================================
+# PROGRESS TRACKING FUNCTIONS
+# ============================================================================
 
 
 def add_dotfiles_with_progress(
@@ -1699,7 +1802,8 @@ def find_config_files_with_progress(
 
         files_to_check = [f for f in all_files if f.is_file()]
 
-    if len(files_to_check) < 50:  # Use progress bar only for large directories
+    # Use progress bar only for large directories
+    if len(files_to_check) < PROGRESS_THRESHOLD:
         return find_config_files(directory, config, recursive)
 
     include_patterns = config["file_patterns"]["include"]
