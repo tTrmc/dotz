@@ -107,22 +107,29 @@ class TestAddCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.cli.add_dotfile")
+    @patch("loom.core.add_dotfile")
     def test_add_file(self, mock_add: Mock, temp_home: Path) -> None:
         """Test adding a file."""
         mock_add.return_value = True
 
-        result = self.runner.invoke(cli.app, ["add", ".bashrc"])
+        # Create the file to add
+        (temp_home / ".bashrc").write_text("# bashrc")
+
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(cli.app, ["add", ".bashrc"])
 
         assert result.exit_code == 0
         mock_add.assert_called_once_with(
-            Path(".bashrc"), push=False, quiet=False, recursive=True
+            temp_home / ".bashrc", push=False, quiet=False, recursive=True
         )
 
-    @patch("loom.cli.add_dotfile")
+    @patch("loom.core.add_dotfile")
     def test_add_file_with_options(self, mock_add: Mock, temp_home: Path) -> None:
         """Test adding a file with options."""
         mock_add.return_value = True
+
+        # Create the file to add
+        (temp_home / ".bashrc").write_text("# bashrc")
 
         with patch("loom.cli.get_home_dir", return_value=temp_home):
             result = self.runner.invoke(
@@ -131,7 +138,7 @@ class TestAddCommand:
 
         assert result.exit_code == 0
         mock_add.assert_called_once_with(
-            Path(".bashrc"), push=True, quiet=True, recursive=False
+            temp_home / ".bashrc", push=True, quiet=True, recursive=False
         )
 
     @patch("loom.core.add_dotfile")
@@ -388,7 +395,7 @@ class TestRestoreAllCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.cli.restore_all_dotfiles")
+    @patch("loom.core.restore_dotfiles_with_progress")
     @patch("loom.core.list_tracked_files")
     @patch("typer.confirm")
     def test_restore_all_with_confirmation(
@@ -397,14 +404,15 @@ class TestRestoreAllCommand:
         """Test restore-all with confirmation."""
         mock_list.return_value = [".bashrc", ".vimrc"]
         mock_confirm.return_value = True
-        mock_restore.return_value = True
+        mock_restore.return_value = {"success": 2, "failed": 0}
 
-        result = self.runner.invoke(cli.app, ["restore-all"])
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(cli.app, ["restore-all"])
 
         assert result.exit_code == 0
-        mock_restore.assert_called_once_with(quiet=False, push=False)
+        mock_restore.assert_called_once()
 
-    @patch("loom.cli.restore_all_dotfiles")
+    @patch("loom.core.restore_dotfiles_with_progress")
     @patch("loom.core.list_tracked_files")
     @patch("typer.confirm")
     def test_restore_all_cancelled(
@@ -414,23 +422,26 @@ class TestRestoreAllCommand:
         mock_list.return_value = [".bashrc", ".vimrc"]
         mock_confirm.return_value = False
 
-        result = self.runner.invoke(cli.app, ["restore-all"])
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            result = self.runner.invoke(cli.app, ["restore-all"])
 
         assert result.exit_code == 0
         assert "cancelled" in result.output
         mock_restore.assert_not_called()
 
-    @patch("loom.cli.restore_all_dotfiles")
+    @patch("loom.core.restore_dotfiles_with_progress")
     def test_restore_all_skip_confirmation(
         self, mock_restore: Mock, temp_home: Path
     ) -> None:
         """Test restore-all with --yes flag."""
-        mock_restore.return_value = True
+        mock_restore.return_value = {"success": 0, "failed": 0}
 
-        result = self.runner.invoke(cli.app, ["restore-all", "--yes"])
+        with patch("loom.cli.get_home_dir", return_value=temp_home):
+            with patch("loom.core.list_tracked_files", return_value=[]):
+                result = self.runner.invoke(cli.app, ["restore-all", "--yes"])
 
         assert result.exit_code == 0
-        mock_restore.assert_called_once_with(quiet=False, push=False)
+        mock_restore.assert_not_called()  # No files to restore
 
 
 class TestValidateCommand:

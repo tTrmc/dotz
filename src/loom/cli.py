@@ -1,11 +1,16 @@
 import json
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import typer
 from git import Repo
+from rich.console import Console
+from rich.status import Status
 from typing_extensions import Annotated
+
+from loom import core
 
 from .core import (
     add_dotfile,
@@ -24,7 +29,6 @@ from .core import (
     push_repo,
     remove_file_pattern,
     reset_config,
-    restore_all_dotfiles,
     restore_dotfile,
     restore_from_backup,
     set_config_value,
@@ -68,10 +72,7 @@ def init(
     non_interactive: Annotated[
         bool,
         typer.Option(
-            "--non-interactive",
-            "-n",
-            help="Run without prompts (for scripting)",
-            is_flag=True,
+            "--non-interactive", "-n", help="Run without prompts (for scripting)"
         ),
     ] = False,
 ) -> None:
@@ -230,33 +231,223 @@ def init(
         typer.echo("  • Check status: loom status")
 
 
+console = Console()
+
+
+# Update or add the add command to use progress indicators
 @app.command()
 def add(
-    path: Annotated[
-        Path,
-        typer.Argument(
-            help="Path to dotfile or directory (relative to your home directory)"
-        ),
-    ],
+    path: str = typer.Argument(..., help="Path to add to the project"),
+    recursive: bool = typer.Option(
+        True, "--recursive/--no-recursive", "-r", help="Add directory recursively"
+    ),
+    push: bool = typer.Option(
+        False, "--push", "-p", help="Push to remote after adding"
+    ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
+) -> None:
+    """Add files or directories to loom with progress tracking."""
+    refresh_cli_paths()
+
+    target_path = Path(path).expanduser()
+    if not target_path.is_absolute():
+        # For relative paths, check both current directory and home directory
+        cwd_path = Path.cwd() / target_path
+        home_path = get_home_dir() / target_path
+
+        if cwd_path.exists():
+            target_path = cwd_path
+        elif home_path.exists():
+            target_path = home_path
+        else:
+            target_path = cwd_path  # Default to cwd for error message
+
+    if not target_path.exists():
+        if not quiet:
+            console.print(f"[red]Error: Path {path} does not exist[/red]")
+        raise typer.Exit(1)
+
+    if target_path.is_file():
+        # Single file - simple status
+        with (
+            Status(f"Adding file {target_path.name}...", console=console)
+            if not quiet
+            else nullcontext()
+        ):
+            success = core.add_dotfile(
+                target_path, push=push, quiet=quiet, recursive=recursive
+            )
+
+        if success and not quiet:
+            console.print(f"[green]✓[/green] Added {target_path.name}")
+        elif not success:
+            if not quiet:
+                console.print(f"[red]Failed to add {target_path.name}[/red]")
+            raise typer.Exit(1)
+
+    elif target_path.is_dir():
+        # Directory - show progress for multiple files
+        config = core.load_config()
+        files_to_add = core.find_config_files(target_path, config, recursive)
+
+        if not files_to_add:
+            if not quiet:
+                console.print(f"[yellow]No matching files found in {path}[/yellow]")
+            return
+
+        # Use progress function for multiple files
+        try:
+            # Try to use progress function if available
+            result: Dict[str, int] = core.add_dotfiles_with_progress(
+                files_to_add, push=push, quiet=quiet, description="Adding files"
+            )
+
+            if not quiet:
+                total = result["success"] + result["failed"]
+                console.print(
+                    f"[green]✓[/green] Added {result['success']}/{total} files "
+                    f"from {path}"
+                )
+
+                if result["failed"] > 0:
+                    console.print(
+                        f"[yellow]⚠[/yellow] {result['failed']} files failed to add"
+                    )
+        except AttributeError:
+            # Fallback to basic add_dotfile for each file
+            success_count = 0
+            failed_count = 0
+
+            for file_path in files_to_add:
+                try:
+                    if core.add_dotfile(file_path, push=False, quiet=True):
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                except Exception:
+                    failed_count += 1
+
+            if push and success_count > 0:
+                core.push_repo(quiet=quiet)
+
+            if not quiet:
+                total = success_count + failed_count
+                console.print(
+                    f"[green]✓[/green] Added {success_count}/{total} files "
+                    f"from {path}"
+                )
+
+                if failed_count > 0:
+                    console.print(
+                        f"[yellow]⚠[/yellow] {failed_count} files failed to add"
+                    )
+
+
+# Add restore-all command if it doesn't exist
+@app.command()
+def restore_all(
     push: Annotated[
-        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
+        bool, typer.Option("--push", "-p", help="Push commit to origin")
     ] = False,
-    recursive: Annotated[
-        bool,
-        typer.Option(
-            "--recursive/--no-recursive",
-            help="Recursively add dotfiles in subdirectories",
-            is_flag=True,
-        ),
-    ] = True,
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+    confirm: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
     ] = False,
 ) -> None:
-    """Add a file or directory to loom, then symlink it in your home directory."""
-    success = add_dotfile(path, push=push, quiet=quiet, recursive=recursive)
-    if not success:
-        raise typer.Exit(code=1)
+    """
+    Restore all tracked dotfiles from the loom repository to your home directory.
+    Creates symlinks for all files currently tracked by loom.
+    This is useful for setting up dotfiles on a new system or when you want
+    to restore all files at once.
+    """
+    refresh_cli_paths()
+
+    if not confirm and not quiet:
+        # Show what will be restored
+        tracked_files = core.list_tracked_files()
+
+        if not tracked_files:
+            typer.secho("No files tracked by loom to restore.", fg=typer.colors.YELLOW)
+            return
+
+        typer.secho(
+            f"This will restore {len(tracked_files)} tracked files:",
+            fg=typer.colors.CYAN,
+        )
+        for file_path in tracked_files[:10]:  # Show first 10
+            typer.secho(f"  • {file_path}", fg=typer.colors.WHITE)
+
+        if len(tracked_files) > 10:
+            typer.secho(
+                f"  ... and {len(tracked_files) - 10} more files", fg=typer.colors.WHITE
+            )
+
+        typer.echo()
+        typer.secho(
+            "This will overwrite any existing files at these locations!",
+            fg=typer.colors.YELLOW,
+            bold=True,
+        )
+
+        if not typer.confirm("Do you want to continue?"):
+            typer.secho("Restore cancelled.", fg=typer.colors.YELLOW)
+            return
+
+    try:
+        tracked_files = core.list_tracked_files()
+
+        if not tracked_files:
+            if not quiet:
+                console.print("[yellow]No tracked files to restore[/yellow]")
+            return
+
+        # Convert to Path objects
+        file_paths = [HOME / f for f in tracked_files]
+
+        # Use progress function for multiple files or fallback
+        try:
+            result = core.restore_dotfiles_with_progress(
+                file_paths, quiet=quiet, description="Restoring files"
+            )
+            if not quiet:
+                total = result["success"] + result["failed"]
+                console.print(
+                    f"[green]✓[/green] Restored {result['success']}/{total} files"
+                )
+                if result["failed"] > 0:
+                    console.print(f"[yellow]⚠[/yellow] {result['failed']} files failed")
+        except AttributeError:
+            # Fallback to basic restore for each file
+            success_count = 0
+            failed_count = 0
+
+            for tracked_file in tracked_files:
+                try:
+                    # Use Path object directly for restore_dotfile
+                    restore_path: Path = Path(tracked_file)
+                    if core.restore_dotfile(restore_path, quiet=True, push=False):
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                except Exception:
+                    failed_count += 1
+
+            if push and success_count > 0:
+                core.push_repo(quiet=quiet)
+
+            if not quiet:
+                total = success_count + failed_count
+                console.print(
+                    f"[green]✓[/green] Restored {success_count}/{total} files"
+                )
+                if failed_count > 0:
+                    console.print(f"[yellow]⚠[/yellow] {failed_count} files failed")
+    except Exception as e:
+        if not quiet:
+            console.print(f"[red]Error during restore: {e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -265,10 +456,10 @@ def delete(
         List[Path], typer.Argument(help="Paths to dotfiles or directories to delete")
     ],
     push: Annotated[
-        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
+        bool, typer.Option("--push", "-p", help="Push commit to origin")
     ] = False,
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
@@ -345,10 +536,10 @@ def restore(
         ),
     ],
     push: Annotated[
-        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
+        bool, typer.Option("--push", "-p", help="Push commit to origin")
     ] = False,
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
@@ -363,7 +554,7 @@ def restore(
 @app.command()
 def pull(
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
@@ -377,7 +568,7 @@ def pull(
 @app.command()
 def push(
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
@@ -404,7 +595,14 @@ def watch() -> None:
 @app.command()
 def version() -> None:
     """Show loom version."""
-    typer.secho("loom version 0.3.0", fg=typer.colors.GREEN)
+    try:
+        from importlib.metadata import version as get_version
+
+        version_str = get_version("loomctl")
+    except ImportError:
+        version_str = "0.3.1"  # Fallback version
+
+    typer.secho(f"loom version {version_str}", fg=typer.colors.GREEN)
 
 
 @app.command()
@@ -669,7 +867,7 @@ def clone(
         str, typer.Argument(help="Remote repository URL to clone (SSH or HTTPS)")
     ],
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
@@ -688,69 +886,13 @@ def clone(
 
 
 @app.command()
-def restore_all(
-    push: Annotated[
-        bool, typer.Option("--push", "-p", help="Push commit to origin", is_flag=True)
-    ] = False,
-    quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
-    ] = False,
-    confirm: Annotated[
-        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
-    ] = False,
-) -> None:
-    """
-    Restore all tracked dotfiles from the loom repository to your home directory.
-    Creates symlinks for all files currently tracked by loom.
-    This is useful for setting up dotfiles on a new system or when you want
-    to restore all files at once.
-    """
-    if not confirm and not quiet:
-        # Show what will be restored
-        from .core import list_tracked_files
-
-        tracked_files = list_tracked_files()
-
-        if not tracked_files:
-            typer.secho("No files tracked by loom to restore.", fg=typer.colors.YELLOW)
-            return
-
-        typer.secho(
-            f"This will restore {len(tracked_files)} tracked files:",
-            fg=typer.colors.CYAN,
-        )
-        for file_path in tracked_files[:10]:  # Show first 10
-            typer.secho(f"  • {file_path}", fg=typer.colors.WHITE)
-
-        if len(tracked_files) > 10:
-            typer.secho(
-                f"  ... and {len(tracked_files) - 10} more files", fg=typer.colors.WHITE
-            )
-
-        typer.echo()
-        typer.secho(
-            "This will overwrite any existing files at these locations!",
-            fg=typer.colors.YELLOW,
-            bold=True,
-        )
-
-        if not typer.confirm("Do you want to continue?"):
-            typer.secho("Restore cancelled.", fg=typer.colors.YELLOW)
-            return
-
-    success = restore_all_dotfiles(quiet=quiet, push=push)
-    if not success:
-        raise typer.Exit(code=1)
-
-
-@app.command()
 def validate(
     repair: Annotated[
         bool,
         typer.Option("--repair", "-r", help="Automatically repair broken symlinks"),
     ] = False,
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
@@ -805,7 +947,7 @@ def backup_create(
         typer.Option("--operation", "-o", help="Operation name for backup labeling"),
     ] = "manual",
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
@@ -846,7 +988,7 @@ def backup_create(
 def backup_list(
     verbose: Annotated[
         bool,
-        typer.Option("--verbose", "-v", help="Show detailed information", is_flag=True),
+        typer.Option("--verbose", "-v", help="Show detailed information"),
     ] = False,
 ) -> None:
     """
@@ -924,7 +1066,7 @@ def backup_restore(
         ),
     ],
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
     confirm: Annotated[
         bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
@@ -1010,7 +1152,7 @@ def backup_clean(
         bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
     ] = False,
     quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="Suppress output", is_flag=True)
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
     ] = False,
 ) -> None:
     """
