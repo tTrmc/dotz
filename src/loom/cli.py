@@ -52,6 +52,14 @@ def refresh_cli_paths() -> None:
     HOME, LOOM_DIR, WORK_TREE = get_cli_paths()
 
 
+def update_cli_paths(home_dir: Path) -> None:
+    """Update CLI paths. Useful for testing."""
+    global HOME, LOOM_DIR, WORK_TREE
+    HOME = home_dir
+    LOOM_DIR = home_dir / ".loom"
+    WORK_TREE = home_dir / ".loom" / "repo"
+
+
 @app.command()
 def init(
     remote: Annotated[

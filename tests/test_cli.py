@@ -42,7 +42,7 @@ class TestInitCommand:
         self.runner = CliRunner()
 
     @patch("loom.cli.init_repo")
-    def test_init_basic(self, mock_init, temp_home: Path) -> None:
+    def test_init_basic(self, mock_init: Mock, temp_home: Path) -> None:
         """Test basic init command."""
         mock_init.return_value = True
 
@@ -53,7 +53,7 @@ class TestInitCommand:
             mock_init.assert_called_once_with(remote="", quiet=False)
 
     @patch("loom.cli.init_repo")
-    def test_init_with_remote(self, mock_init, temp_home: Path) -> None:
+    def test_init_with_remote(self, mock_init: Mock, temp_home: Path) -> None:
         """Test init with remote URL."""
         mock_init.return_value = True
         remote_url = "https://github.com/user/dotfiles.git"
@@ -67,7 +67,7 @@ class TestInitCommand:
             mock_init.assert_called_once_with(remote=remote_url, quiet=False)
 
     @patch("loom.cli.init_repo")
-    def test_init_failure(self, mock_init, temp_home: Path) -> None:
+    def test_init_failure(self, mock_init: Mock, temp_home: Path) -> None:
         """Test init command failure."""
         mock_init.return_value = False
 
@@ -80,7 +80,7 @@ class TestInitCommand:
     @patch("loom.cli.add_dotfile")
     @patch("typer.confirm")
     def test_init_interactive_with_dotfiles(
-        self, mock_confirm, mock_add, mock_init, temp_home: Path
+        self, mock_confirm: Mock, mock_add: Mock, mock_init: Mock, temp_home: Path
     ) -> None:
         """Test interactive init with automatic dotfile setup."""
         mock_init.return_value = True
@@ -108,7 +108,7 @@ class TestAddCommand:
         self.runner = CliRunner()
 
     @patch("loom.cli.add_dotfile")
-    def test_add_file(self, mock_add, temp_home: Path) -> None:
+    def test_add_file(self, mock_add: Mock, temp_home: Path) -> None:
         """Test adding a file."""
         mock_add.return_value = True
 
@@ -120,7 +120,7 @@ class TestAddCommand:
         )
 
     @patch("loom.cli.add_dotfile")
-    def test_add_file_with_options(self, mock_add, temp_home: Path) -> None:
+    def test_add_file_with_options(self, mock_add: Mock, temp_home: Path) -> None:
         """Test adding a file with options."""
         mock_add.return_value = True
 
@@ -135,7 +135,7 @@ class TestAddCommand:
         )
 
     @patch("loom.core.add_dotfile")
-    def test_add_file_failure(self, mock_add, temp_home: Path) -> None:
+    def test_add_file_failure(self, mock_add: Mock, temp_home: Path) -> None:
         """Test add command failure."""
         mock_add.return_value = False
 
@@ -152,7 +152,7 @@ class TestDeleteCommand:
         self.runner = CliRunner()
 
     @patch("loom.cli.delete_dotfile")
-    def test_delete_file(self, mock_delete, temp_home: Path) -> None:
+    def test_delete_file(self, mock_delete: Mock, temp_home: Path) -> None:
         """Test deleting a file."""
         mock_delete.return_value = True
 
@@ -162,7 +162,7 @@ class TestDeleteCommand:
         mock_delete.assert_called_once_with([Path(".bashrc")], push=False, quiet=False)
 
     @patch("loom.cli.delete_dotfile")
-    def test_delete_multiple_files(self, mock_delete, temp_home: Path) -> None:
+    def test_delete_multiple_files(self, mock_delete: Mock, temp_home: Path) -> None:
         """Test deleting multiple files."""
         mock_delete.return_value = True
 
@@ -174,7 +174,7 @@ class TestDeleteCommand:
         )
 
     @patch("loom.cli.delete_dotfile")
-    def test_delete_with_options(self, mock_delete, temp_home: Path) -> None:
+    def test_delete_with_options(self, mock_delete: Mock, temp_home: Path) -> None:
         """Test delete with options."""
         mock_delete.return_value = True
 
@@ -184,7 +184,7 @@ class TestDeleteCommand:
         mock_delete.assert_called_once_with([Path(".bashrc")], push=True, quiet=True)
 
     @patch("loom.cli.delete_dotfile")
-    def test_delete_failure(self, mock_delete, temp_home: Path) -> None:
+    def test_delete_failure(self, mock_delete: Mock, temp_home: Path) -> None:
         """Test delete command failure."""
         mock_delete.return_value = False
 
@@ -200,8 +200,8 @@ class TestStatusCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.get_repo_status")
-    def test_status_clean(self, mock_status, temp_home: Path) -> None:
+    @patch("loom.cli.get_repo_status")
+    def test_status_clean(self, mock_status: Mock, temp_home: Path) -> None:
         """Test status when repository is clean."""
         mock_status.return_value = {
             "untracked": [],
@@ -216,8 +216,8 @@ class TestStatusCommand:
         assert result.exit_code == 0
         assert "No changes" in result.output
 
-    @patch("loom.core.get_repo_status")
-    def test_status_with_changes(self, mock_status, temp_home: Path) -> None:
+    @patch("loom.cli.get_repo_status")
+    def test_status_with_changes(self, mock_status: Mock, temp_home: Path) -> None:
         """Test status with changes."""
         mock_status.return_value = {
             "untracked": [".new_file"],
@@ -244,8 +244,8 @@ class TestListFilesCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.list_tracked_files")
-    def test_list_files_empty(self, mock_list, temp_home: Path) -> None:
+    @patch("loom.cli.list_tracked_files")
+    def test_list_files_empty(self, mock_list: Mock, temp_home: Path) -> None:
         """Test listing when no files are tracked."""
         mock_list.return_value = []
 
@@ -254,8 +254,8 @@ class TestListFilesCommand:
         assert result.exit_code == 0
         assert "No files tracked" in result.output
 
-    @patch("loom.core.list_tracked_files")
-    def test_list_files_with_files(self, mock_list, temp_home: Path) -> None:
+    @patch("loom.cli.list_tracked_files")
+    def test_list_files_with_files(self, mock_list: Mock, temp_home: Path) -> None:
         """Test listing tracked files."""
         mock_list.return_value = [".bashrc", ".vimrc", ".gitconfig"]
 
@@ -274,8 +274,8 @@ class TestRestoreCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.restore_dotfile")
-    def test_restore_file(self, mock_restore, temp_home: Path) -> None:
+    @patch("loom.cli.restore_dotfile")
+    def test_restore_file(self, mock_restore: Mock, temp_home: Path) -> None:
         """Test restoring a file."""
         mock_restore.return_value = True
 
@@ -284,8 +284,8 @@ class TestRestoreCommand:
         assert result.exit_code == 0
         mock_restore.assert_called_once_with(Path(".bashrc"), quiet=False, push=False)
 
-    @patch("loom.core.restore_dotfile")
-    def test_restore_with_options(self, mock_restore, temp_home: Path) -> None:
+    @patch("loom.cli.restore_dotfile")
+    def test_restore_with_options(self, mock_restore: Mock, temp_home: Path) -> None:
         """Test restore with options."""
         mock_restore.return_value = True
 
@@ -296,8 +296,8 @@ class TestRestoreCommand:
         assert result.exit_code == 0
         mock_restore.assert_called_once_with(Path(".bashrc"), quiet=True, push=True)
 
-    @patch("loom.core.restore_dotfile")
-    def test_restore_failure(self, mock_restore, temp_home: Path) -> None:
+    @patch("loom.cli.restore_dotfile")
+    def test_restore_failure(self, mock_restore: Mock, temp_home: Path) -> None:
         """Test restore command failure."""
         mock_restore.return_value = False
 
@@ -313,8 +313,8 @@ class TestPullPushCommands:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.pull_repo")
-    def test_pull_success(self, mock_pull, temp_home: Path) -> None:
+    @patch("loom.cli.pull_repo")
+    def test_pull_success(self, mock_pull: Mock, temp_home: Path) -> None:
         """Test successful pull."""
         mock_pull.return_value = True
 
@@ -323,8 +323,8 @@ class TestPullPushCommands:
         assert result.exit_code == 0
         mock_pull.assert_called_once_with(quiet=False)
 
-    @patch("loom.core.pull_repo")
-    def test_pull_failure(self, mock_pull, temp_home: Path) -> None:
+    @patch("loom.cli.pull_repo")
+    def test_pull_failure(self, mock_pull: Mock, temp_home: Path) -> None:
         """Test pull failure."""
         mock_pull.return_value = False
 
@@ -332,8 +332,8 @@ class TestPullPushCommands:
 
         assert result.exit_code == 1
 
-    @patch("loom.core.push_repo")
-    def test_push_success(self, mock_push, temp_home: Path) -> None:
+    @patch("loom.cli.push_repo")
+    def test_push_success(self, mock_push: Mock, temp_home: Path) -> None:
         """Test successful push."""
         mock_push.return_value = True
 
@@ -342,8 +342,8 @@ class TestPullPushCommands:
         assert result.exit_code == 0
         mock_push.assert_called_once_with(quiet=False)
 
-    @patch("loom.core.push_repo")
-    def test_push_failure(self, mock_push, temp_home: Path) -> None:
+    @patch("loom.cli.push_repo")
+    def test_push_failure(self, mock_push: Mock, temp_home: Path) -> None:
         """Test push failure."""
         mock_push.return_value = False
 
@@ -359,8 +359,8 @@ class TestCloneCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.clone_repo")
-    def test_clone_success(self, mock_clone, temp_home: Path) -> None:
+    @patch("loom.cli.clone_repo")
+    def test_clone_success(self, mock_clone: Mock, temp_home: Path) -> None:
         """Test successful clone."""
         mock_clone.return_value = True
         remote_url = "https://github.com/user/dotfiles.git"
@@ -370,8 +370,8 @@ class TestCloneCommand:
         assert result.exit_code == 0
         mock_clone.assert_called_once_with(remote_url, quiet=False)
 
-    @patch("loom.core.clone_repo")
-    def test_clone_failure(self, mock_clone, temp_home: Path) -> None:
+    @patch("loom.cli.clone_repo")
+    def test_clone_failure(self, mock_clone: Mock, temp_home: Path) -> None:
         """Test clone failure."""
         mock_clone.return_value = False
         remote_url = "https://github.com/user/dotfiles.git"
@@ -388,11 +388,11 @@ class TestRestoreAllCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.restore_all_dotfiles")
+    @patch("loom.cli.restore_all_dotfiles")
     @patch("loom.core.list_tracked_files")
     @patch("typer.confirm")
     def test_restore_all_with_confirmation(
-        self, mock_confirm, mock_list, mock_restore, temp_home: Path
+        self, mock_confirm: Mock, mock_list: Mock, mock_restore: Mock, temp_home: Path
     ) -> None:
         """Test restore-all with confirmation."""
         mock_list.return_value = [".bashrc", ".vimrc"]
@@ -404,11 +404,11 @@ class TestRestoreAllCommand:
         assert result.exit_code == 0
         mock_restore.assert_called_once_with(quiet=False, push=False)
 
-    @patch("loom.core.restore_all_dotfiles")
+    @patch("loom.cli.restore_all_dotfiles")
     @patch("loom.core.list_tracked_files")
     @patch("typer.confirm")
     def test_restore_all_cancelled(
-        self, mock_confirm, mock_list, mock_restore, temp_home: Path
+        self, mock_confirm: Mock, mock_list: Mock, mock_restore: Mock, temp_home: Path
     ) -> None:
         """Test restore-all cancelled by user."""
         mock_list.return_value = [".bashrc", ".vimrc"]
@@ -420,8 +420,10 @@ class TestRestoreAllCommand:
         assert "cancelled" in result.output
         mock_restore.assert_not_called()
 
-    @patch("loom.core.restore_all_dotfiles")
-    def test_restore_all_skip_confirmation(self, mock_restore, temp_home: Path) -> None:
+    @patch("loom.cli.restore_all_dotfiles")
+    def test_restore_all_skip_confirmation(
+        self, mock_restore: Mock, temp_home: Path
+    ) -> None:
         """Test restore-all with --yes flag."""
         mock_restore.return_value = True
 
@@ -438,8 +440,8 @@ class TestValidateCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.validate_symlinks")
-    def test_validate_success(self, mock_validate, temp_home: Path) -> None:
+    @patch("loom.cli.validate_symlinks")
+    def test_validate_success(self, mock_validate: Mock, temp_home: Path) -> None:
         """Test successful validation."""
         mock_validate.return_value = {
             "broken": [],
@@ -454,8 +456,8 @@ class TestValidateCommand:
         assert result.exit_code == 0
         mock_validate.assert_called_once_with(repair=False, quiet=False)
 
-    @patch("loom.core.validate_symlinks")
-    def test_validate_with_repair(self, mock_validate, temp_home: Path) -> None:
+    @patch("loom.cli.validate_symlinks")
+    def test_validate_with_repair(self, mock_validate: Mock, temp_home: Path) -> None:
         """Test validation with repair."""
         mock_validate.return_value = {
             "broken": [],
@@ -471,7 +473,7 @@ class TestValidateCommand:
         mock_validate.assert_called_once_with(repair=True, quiet=False)
 
     @patch("loom.core.validate_symlinks")
-    def test_validate_with_issues(self, mock_validate, temp_home: Path) -> None:
+    def test_validate_with_issues(self, mock_validate: Mock, temp_home: Path) -> None:
         """Test validation with issues found."""
         mock_validate.return_value = {
             "broken": [".bashrc"],
@@ -486,7 +488,7 @@ class TestValidateCommand:
         assert result.exit_code == 1  # Should exit with error if issues found
 
     @patch("loom.core.validate_symlinks")
-    def test_validate_failure(self, mock_validate, temp_home: Path) -> None:
+    def test_validate_failure(self, mock_validate: Mock, temp_home: Path) -> None:
         """Test validation failure."""
         mock_validate.return_value = None
 
@@ -502,8 +504,8 @@ class TestConfigCommands:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.load_config")
-    def test_config_show_all(self, mock_load, temp_home: Path) -> None:
+    @patch("loom.cli.load_config")
+    def test_config_show_all(self, mock_load: Mock, temp_home: Path) -> None:
         """Test showing all configuration."""
         mock_config = {"test": "value"}
         mock_load.return_value = mock_config
@@ -513,8 +515,8 @@ class TestConfigCommands:
         assert result.exit_code == 0
         assert '"test": "value"' in result.output
 
-    @patch("loom.core.get_config_value")
-    def test_config_show_key(self, mock_get, temp_home: Path) -> None:
+    @patch("loom.cli.get_config_value")
+    def test_config_show_key(self, mock_get: Mock, temp_home: Path) -> None:
         """Test showing specific config key."""
         mock_get.return_value = ["value1", "value2"]
 
@@ -523,8 +525,8 @@ class TestConfigCommands:
         assert result.exit_code == 0
         mock_get.assert_called_once_with("test.key", quiet=True)
 
-    @patch("loom.core.get_config_value")
-    def test_config_show_nonexistent_key(self, mock_get, temp_home: Path) -> None:
+    @patch("loom.cli.get_config_value")
+    def test_config_show_nonexistent_key(self, mock_get: Mock, temp_home: Path) -> None:
         """Test showing non-existent config key."""
         mock_get.return_value = None
 
@@ -532,8 +534,8 @@ class TestConfigCommands:
 
         assert result.exit_code == 1
 
-    @patch("loom.core.set_config_value")
-    def test_config_set(self, mock_set, temp_home: Path) -> None:
+    @patch("loom.cli.set_config_value")
+    def test_config_set(self, mock_set: Mock, temp_home: Path) -> None:
         """Test setting config value."""
         mock_set.return_value = True
 
@@ -542,8 +544,8 @@ class TestConfigCommands:
         assert result.exit_code == 0
         mock_set.assert_called_once_with("test.key", "new_value")
 
-    @patch("loom.core.set_config_value")
-    def test_config_set_failure(self, mock_set, temp_home: Path) -> None:
+    @patch("loom.cli.set_config_value")
+    def test_config_set_failure(self, mock_set: Mock, temp_home: Path) -> None:
         """Test config set failure."""
         mock_set.return_value = False
 
@@ -551,8 +553,8 @@ class TestConfigCommands:
 
         assert result.exit_code == 1
 
-    @patch("loom.core.add_file_pattern")
-    def test_config_add_pattern(self, mock_add, temp_home: Path) -> None:
+    @patch("loom.cli.add_file_pattern")
+    def test_config_add_pattern(self, mock_add: Mock, temp_home: Path) -> None:
         """Test adding file pattern."""
         mock_add.return_value = True
 
@@ -561,8 +563,8 @@ class TestConfigCommands:
         assert result.exit_code == 0
         mock_add.assert_called_once_with("*.xml", "include")
 
-    @patch("loom.core.add_file_pattern")
-    def test_config_add_exclude_pattern(self, mock_add, temp_home: Path) -> None:
+    @patch("loom.cli.add_file_pattern")
+    def test_config_add_exclude_pattern(self, mock_add: Mock, temp_home: Path) -> None:
         """Test adding exclude pattern."""
         mock_add.return_value = True
 
@@ -573,8 +575,8 @@ class TestConfigCommands:
         assert result.exit_code == 0
         mock_add.assert_called_once_with("*.log", "exclude")
 
-    @patch("loom.core.remove_file_pattern")
-    def test_config_remove_pattern(self, mock_remove, temp_home: Path) -> None:
+    @patch("loom.cli.remove_file_pattern")
+    def test_config_remove_pattern(self, mock_remove: Mock, temp_home: Path) -> None:
         """Test removing file pattern."""
         mock_remove.return_value = True
 
@@ -583,10 +585,10 @@ class TestConfigCommands:
         assert result.exit_code == 0
         mock_remove.assert_called_once_with("*.xml", "include")
 
-    @patch("loom.core.reset_config")
+    @patch("loom.cli.reset_config")
     @patch("typer.confirm")
     def test_config_reset_with_confirmation(
-        self, mock_confirm, mock_reset, temp_home: Path
+        self, mock_confirm: Mock, mock_reset: Mock, temp_home: Path
     ) -> None:
         """Test config reset with confirmation."""
         mock_confirm.return_value = True
@@ -600,7 +602,7 @@ class TestConfigCommands:
     @patch("loom.core.reset_config")
     @patch("typer.confirm")
     def test_config_reset_cancelled(
-        self, mock_confirm, mock_reset, temp_home: Path
+        self, mock_confirm: Mock, mock_reset: Mock, temp_home: Path
     ) -> None:
         """Test config reset cancelled."""
         mock_confirm.return_value = False
@@ -611,8 +613,10 @@ class TestConfigCommands:
         assert "cancelled" in result.output
         mock_reset.assert_not_called()
 
-    @patch("loom.core.reset_config")
-    def test_config_reset_skip_confirmation(self, mock_reset, temp_home: Path) -> None:
+    @patch("loom.cli.reset_config")
+    def test_config_reset_skip_confirmation(
+        self, mock_reset: Mock, temp_home: Path
+    ) -> None:
         """Test config reset with --yes flag."""
         mock_reset.return_value = True
 
@@ -621,8 +625,8 @@ class TestConfigCommands:
         assert result.exit_code == 0
         mock_reset.assert_called_once()
 
-    @patch("loom.core.load_config")
-    def test_config_list_patterns(self, mock_load, temp_home: Path) -> None:
+    @patch("loom.cli.load_config")
+    def test_config_list_patterns(self, mock_load: Mock, temp_home: Path) -> None:
         """Test listing file patterns."""
         mock_config = {
             "file_patterns": {
@@ -649,9 +653,11 @@ class TestBackupCommands:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.core.create_backup")
-    @patch("loom.core.get_home_dir")
-    def test_backup_create(self, mock_home, mock_create, temp_home: Path) -> None:
+    @patch("loom.cli.create_backup")
+    @patch("loom.cli.get_home_dir")
+    def test_backup_create(
+        self, mock_home: Mock, mock_create: Mock, temp_home: Path
+    ) -> None:
         """Test creating a backup."""
         mock_home.return_value = temp_home
         test_file = temp_home / ".bashrc"
@@ -666,7 +672,7 @@ class TestBackupCommands:
     @patch("loom.core.create_backup")
     @patch("loom.core.get_home_dir")
     def test_backup_create_nonexistent(
-        self, mock_home, mock_create, temp_home: Path
+        self, mock_home: Mock, mock_create: Mock, temp_home: Path
     ) -> None:
         """Test creating backup of non-existent file."""
         mock_home.return_value = temp_home
@@ -677,7 +683,7 @@ class TestBackupCommands:
         mock_create.assert_not_called()
 
     @patch("loom.core.list_backups")
-    def test_backup_list_empty(self, mock_list, temp_home: Path) -> None:
+    def test_backup_list_empty(self, mock_list: Mock, temp_home: Path) -> None:
         """Test listing when no backups exist."""
         mock_list.return_value = []
 
@@ -686,8 +692,8 @@ class TestBackupCommands:
         assert result.exit_code == 0
         assert "No backups found" in result.output
 
-    @patch("loom.core.list_backups")
-    def test_backup_list_with_backups(self, mock_list, temp_home: Path) -> None:
+    @patch("loom.cli.list_backups")
+    def test_backup_list_with_backups(self, mock_list: Mock, temp_home: Path) -> None:
         """Test listing backups."""
         backup_path = Path("/backups/.bashrc_manual_20250708_143022")
         mock_list.return_value = [backup_path]
@@ -697,11 +703,11 @@ class TestBackupCommands:
         assert result.exit_code == 0
         assert ".bashrc" in result.output
 
-    @patch("loom.core.restore_from_backup")
-    @patch("loom.core.list_backups")
+    @patch("loom.cli.restore_from_backup")
+    @patch("loom.cli.list_backups")
     @patch("typer.confirm")
     def test_backup_restore(
-        self, mock_confirm, mock_list, mock_restore, temp_home: Path
+        self, mock_confirm: Mock, mock_list: Mock, mock_restore: Mock, temp_home: Path
     ) -> None:
         """Test restoring from backup."""
         backup_path = Path("/backups/.bashrc_manual_20250708_143022")
@@ -717,7 +723,7 @@ class TestBackupCommands:
         mock_restore.assert_called_once()
 
     @patch("loom.core.list_backups")
-    def test_backup_restore_nonexistent(self, mock_list, temp_home: Path) -> None:
+    def test_backup_restore_nonexistent(self, mock_list: Mock, temp_home: Path) -> None:
         """Test restoring non-existent backup."""
         mock_list.return_value = []
 
@@ -735,8 +741,8 @@ class TestWatchCommand:
         """Set up test runner."""
         self.runner = CliRunner()
 
-    @patch("loom.watcher.main")
-    def test_watch_command(self, mock_watcher, temp_home: Path) -> None:
+    @patch("loom.cli.watcher_main")
+    def test_watch_command(self, mock_watcher: Mock, temp_home: Path) -> None:
         """Test watch command starts watcher."""
         # Mock KeyboardInterrupt to simulate stopping
         mock_watcher.side_effect = KeyboardInterrupt()
@@ -789,7 +795,9 @@ class TestDiagnoseCommand:
             assert "not initialized" in result.output
 
     @patch("loom.core.Repo")
-    def test_diagnose_with_repo(self, mock_repo_class, initialized_loom: Path) -> None:
+    def test_diagnose_with_repo(
+        self, mock_repo_class: Mock, initialized_loom: Path
+    ) -> None:
         """Test diagnose with existing repo."""
         mock_repo = Mock()
         mock_repo_class.return_value = mock_repo

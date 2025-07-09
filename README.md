@@ -1,33 +1,30 @@
-[![PyPI version](https://badge.fury.io/py/loom.svg)](https://badge.fury.io/py/loom)
+# loom
+
+[![PyPI version](https://badge.fury.io/py/loomctl.svg)](https://badge.fury.io/py/loomctl)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![CI](https://github.com/tTrmc/loom/workflows/CI/badge.svg)](https://github.com/tTrmc/loom/actions)
 [![Last Commit](https://img.shields.io/github/last-commit/tTrmc/loom.svg)](https://github.com/tTrmc/loom/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/tTrmc/loom.svg)](https://github.com/tTrmc/loom/issues)
 
-<div align="center">
-  <h3>
-    A minimal <strong>dotfiles</strong> manager for Linux, backed by Git.
-  </h3>
-  <p>
-    <em>loom</em> simplifies tracking, versioning, and synchronizing your configuration files across machines.
-  </p>
-</div>
+> A minimal **dotfiles** manager for Linux, backed by Git.
+
+**loom** simplifies tracking, versioning, and synchronizing your configuration files across machines.
 
 ## Features
 
-* **Easy setup**: Initialize a local loom repository with a single command.
-* **Git-based**: Provides full version history, branching, and remote synchronization.
-* **File management**: Add and remove dotfiles with automatic symlinking.
-* **Recursive directory support**: Add all dotfiles (optionally recursively) from a directory.
-* **Tracked directories**: Only directories you add are watched for new dotfiles.
-* **Configurable patterns**: Customize which file types to track with include/exclude patterns.
-* **Status overview**: Display untracked, modified, and staged files at a glance.
-* **Configuration management**: Built-in commands to manage file patterns and search settings.
-* **File watching**: Automatic detection and addition of new configuration files.
-* **Diagnostics**: Built-in `diagnose` command for troubleshooting.
-* **Shell completion**: Tab-completion for all commands and options.
-* **Robust & testable**: Comprehensive test suite with environment isolation.
-* **Portable**: Requires only Python 3.9+ and Git.
+* **Easy setup**: Initialize a local loom repository with a single command
+* **Git-based**: Full version history, branching, and remote synchronization
+* **File management**: Add and remove dotfiles with automatic symlinking
+* **Recursive directory support**: Add all dotfiles (optionally recursively) from a directory
+* **Tracked directories**: Only directories you add are watched for new dotfiles
+* **Configurable patterns**: Customize which file types to track with include/exclude patterns
+* **Status overview**: Display untracked, modified, and staged files at a glance
+* **Configuration management**: Built-in commands to manage file patterns and search settings
+* **File watching**: Automatic detection and addition of new configuration files
+* **Diagnostics**: Built-in `diagnose` command for troubleshooting
+* **Shell completion**: Tab-completion for all commands and options
+* **Robust & testable**: Comprehensive test suite with environment isolation
+* **Portable**: Requires only Python 3.9+ and Git
 
 ---
 
@@ -36,24 +33,27 @@
 ### For End Users (Recommended)
 
 **From PyPI:**
+
 ```bash
-pip install loom
+pip install loomctl
 ```
 
 **Using pipx (isolated environment):**
+
 ```bash
 # Install pipx if needed
 sudo apt install pipx           # Debian/Ubuntu
 # or
 sudo pacman -S python-pipx      # Arch Linux
 
-# Install loom
-pipx install loom
+# Install loomctl
+pipx install loomctl
 ```
 
 ### For Developers
 
 **Quick setup:**
+
 ```bash
 git clone https://github.com/tTrmc/loom.git
 cd loom
@@ -61,6 +61,7 @@ cd loom
 ```
 
 **Manual setup:**
+
 ```bash
 git clone https://github.com/tTrmc/loom.git
 cd loom
@@ -76,17 +77,19 @@ loom --help
 ```
 
 **Requirements:**
-- Python 3.9 or newer
-- Git
+
+* Python 3.9 or newer
+* Git
 
 ---
 
 >[!CAUTION]
 >**NEVER use public Git repositories with loom.** Your dotfiles often contain:
->- SSH keys and certificates
->- API tokens and passwords
->- Personal file paths and system information
->- Application configurations with sensitive data
+>
+>* SSH keys and certificates
+>* API tokens and passwords
+>* Personal file paths and system information
+>* Application configurations with sensitive data
 >
 >**Always use private repositories** or consider excluding sensitive files with loom's pattern configuration.
 
@@ -95,6 +98,7 @@ loom --help
 ## Quick Start
 
 ### Initialize your loom repository
+
 ```bash
 # Local repository only
 loom init
@@ -104,6 +108,7 @@ loom init --remote git@github.com:yourusername/dotfiles-private.git
 ```
 
 ### Add your first dotfile
+
 ```bash
 # Add a single file
 loom add .bashrc
@@ -116,6 +121,7 @@ loom add .vimrc --push
 ```
 
 ### Sync across machines
+
 ```bash
 # Pull latest changes
 loom pull
@@ -131,12 +137,14 @@ loom push
 ### Repository Management
 
 **Initialize:**
+
 ```bash
 loom init                                                    # Local only
 loom init --remote git@github.com:user/dotfiles-private.git # With remote
 ```
 
 **Sync:**
+
 ```bash
 loom pull    # Fetch and merge changes
 loom push    # Push local commits
@@ -145,6 +153,7 @@ loom push    # Push local commits
 ### File Management
 
 **Add files:**
+
 ```bash
 loom add .bashrc              # Single file
 loom add .config              # Directory (recursive by default)
@@ -153,12 +162,14 @@ loom add .vimrc --push        # Add and push
 ```
 
 **Remove files:**
+
 ```bash
 loom delete .vimrc            # Remove file
 loom delete .vimrc --push     # Remove and push
 ```
 
 **Restore files:**
+
 ```bash
 loom restore .vimrc           # Restore single file
 loom restore .config          # Restore directory
@@ -176,11 +187,13 @@ loom version       # Show version
 ### Advanced Features
 
 **File watching:**
+
 ```bash
 loom watch    # Automatically add new dotfiles in tracked directories
 ```
 
 **Shell completion:**
+
 ```bash
 loom --install-completion    # Enable tab completion
 ```
@@ -204,7 +217,7 @@ loom config help              # Show detailed help
 
 ## Project Structure
 
-```
+```text
 loom/
 ├── src/
 │   └── loom/
@@ -236,20 +249,22 @@ loom uses configurable file patterns to determine which files to track. The conf
 ### Default File Patterns
 
 **Include patterns** (files that will be tracked):
-- `.*` - All dotfiles (files starting with `.`)
-- `*.conf`, `*.config`, `*.cfg`, `*.ini` - Configuration files
-- `*.toml`, `*.yaml`, `*.yml`, `*.json` - Structured config files
+
+* `.*` - All dotfiles (files starting with `.`)
+* `*.conf`, `*.config`, `*.cfg`, `*.ini` - Configuration files
+* `*.toml`, `*.yaml`, `*.yml`, `*.json` - Structured config files
 
 **Exclude patterns** (files that will be ignored):
-- `.DS_Store`, `.Trash*` - System files
-- `.cache`, `.git`, `.svn` - Cache and VCS directories  
-- `*.log`, `*.tmp` - Temporary files
+
+* `.DS_Store`, `.Trash*` - System files
+* `.cache`, `.git`, `.svn` - Cache and VCS directories
+* `*.log`, `*.tmp` - Temporary files
 
 ### Search Settings
 
-- `recursive`: Search subdirectories recursively (default: `true`)
-- `case_sensitive`: Case-sensitive pattern matching (default: `false`)
-- `follow_symlinks`: Follow symbolic links during search (default: `false`)
+* `recursive`: Search subdirectories recursively (default: `true`)
+* `case_sensitive`: Case-sensitive pattern matching (default: `false`)
+* `follow_symlinks`: Follow symbolic links during search (default: `false`)
 
 ### Customizing Configuration
 
@@ -279,14 +294,14 @@ pytest
 
 ### Test Coverage
 
-The project includes comprehensive tests with **73 passing tests** covering:
+The project includes comprehensive tests with **148 passing tests** covering:
 
-- **CLI commands**: All loom commands and options
-- **Core functionality**: File management, Git operations, configuration
-- **Configuration management**: Pattern matching, settings, validation  
-- **File watching**: Automatic detection and tracking of new files
-- **Error handling**: Graceful handling of edge cases and failures
-- **Environment isolation**: Tests run in isolated temporary environments
+* **CLI commands**: All loom commands and options
+* **Core functionality**: File management, Git operations, configuration
+* **Configuration management**: Pattern matching, settings, validation
+* **File watching**: Automatic detection and tracking of new files
+* **Error handling**: Graceful handling of edge cases and failures
+* **Environment isolation**: Tests run in isolated temporary environments
 
 ### Development Testing
 
@@ -295,7 +310,7 @@ For development, install with test dependencies:
 ```bash
 pip install -e ".[dev,test]"  # Install with all dependencies
 pytest -v                     # Run tests with verbose output
-pytest --cov=loom          # Run tests with coverage report
+pytest --cov=loom             # Run tests with coverage report
 make test-cov                 # Run tests with HTML coverage report
 ```
 

@@ -11,7 +11,7 @@ from unittest.mock import Mock
 import pytest
 from git import Repo
 
-from loom import core, watcher
+from loom import cli, core, watcher
 
 
 @pytest.fixture
@@ -27,6 +27,7 @@ def temp_home(tmp_path: Path) -> Generator[Path, None, None]:
     # Update loom paths to use the temp home
     core.update_paths(home_dir)
     watcher.update_watcher_paths(home_dir)
+    cli.update_cli_paths(home_dir)
 
     yield home_dir
 

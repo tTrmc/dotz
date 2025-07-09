@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import click
 import pytest
 from git import Repo
 
@@ -189,13 +190,13 @@ class TestErrorHandling:
     def test_operations_without_init(self, temp_home: Path) -> None:
         """Test operations without initializing repository."""
         # Try operations without init
-        with pytest.raises(SystemExit):
+        with pytest.raises(click.exceptions.Exit):
             core.add_dotfile(Path(".bashrc"), quiet=True)
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(click.exceptions.Exit):
             core.delete_dotfile([Path(".bashrc")], quiet=True)
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(click.exceptions.Exit):
             core.restore_dotfile(Path(".bashrc"), quiet=True)
 
     def test_invalid_config_handling(self, temp_home: Path) -> None:
@@ -440,7 +441,7 @@ class TestPerformance:
 
         # Create moderately large file (1MB)
         large_file = temp_home / ".large_config"
-        content = "# Large config file\n" + "data\n" * 50000
+        content = "# Large config file\n" + "data\n" * 200000  # Increase to ~1MB
         large_file.write_text(content)
 
         # Add large file

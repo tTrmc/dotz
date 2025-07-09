@@ -204,14 +204,23 @@ def add_dotfile(
         return True
 
     if src.is_file():
-        shutil.copy2(src, dest)
-        tracked_path = dest.relative_to(WORK_TREE).as_posix()
-        repo.index.add([tracked_path])
-        repo.index.commit(f"Add {rel}")
-        src.unlink()
-        src.symlink_to(dest)
-        if not quiet:
-            typer.secho(f"✓ Added {rel}", fg=typer.colors.GREEN)
+        try:
+            shutil.copy2(src, dest)
+            tracked_path = dest.relative_to(WORK_TREE).as_posix()
+            repo.index.add([tracked_path])
+            repo.index.commit(f"Add {rel}")
+            src.unlink()
+            src.symlink_to(dest)
+            if not quiet:
+                typer.secho(f"✓ Added {rel}", fg=typer.colors.GREEN)
+        except (PermissionError, OSError) as e:
+            if not quiet:
+                typer.secho(
+                    f"Error: Could not add {rel}: {e}",
+                    fg=typer.colors.RED,
+                    err=True,
+                )
+            return False
 
     elif src.is_dir():
         save_tracked_dir(src)
@@ -363,6 +372,7 @@ def delete_dotfile(paths: List[Path], push: bool = False, quiet: bool = False) -
 
 
 def restore_dotfile(path: Path, quiet: bool = False, push: bool = False) -> bool:
+    ensure_repo()
     src = (HOME / path).expanduser()
     rel = src.relative_to(HOME)
     dest = WORK_TREE / rel
@@ -1404,13 +1414,20 @@ def create_backup(
     backup_name = (
         f"{relative_path.as_posix().replace('/', '_')}_{operation}_{timestamp}"
     )
+    # Add .tar.gz extension for directories
+    if file_path.is_dir():
+        backup_name += ".tar.gz"
     backup_path = BACKUP_DIR / backup_name
 
     try:
         if file_path.is_file():
             shutil.copy2(file_path, backup_path)
         elif file_path.is_dir():
-            shutil.copytree(file_path, backup_path)
+            # Create a tar archive for directories
+            import tarfile
+
+            with tarfile.open(backup_path, "w:gz") as tar:
+                tar.add(file_path, arcname=file_path.name)
         else:
             # Handle symlinks and other special files
             shutil.copy2(file_path, backup_path, follow_symlinks=False)
@@ -1464,6 +1481,11 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
 
     # Parse backup filename to determine original location
     backup_name = backup_path.name
+
+    # Remove .tar.gz extension if present
+    if backup_name.endswith(".tar.gz"):
+        backup_name = backup_name[:-7]
+
     parts = backup_name.split("_")
     if len(parts) < 3:
         if not quiet:
@@ -1474,9 +1496,34 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
         return False
 
     # Reconstruct original path (everything before the operation and timestamp)
-    operation_idx = -2  # Operation is second to last part
-    original_parts = parts[:operation_idx]
-    original_relative = "/".join(original_parts)
+    # Find the operation part (second to last before timestamp)
+    remaining_parts = parts[:]
+
+    # Remove timestamp parts from the end (format: YYYYMMDD_HHMMSS)
+    if len(remaining_parts) >= 2:
+        # Check if last two parts look like timestamp
+        if (
+            remaining_parts[-1].isdigit()
+            and len(remaining_parts[-1]) == 6
+            and remaining_parts[-2].isdigit()
+            and len(remaining_parts[-2]) == 8
+        ):
+            remaining_parts = remaining_parts[:-2]
+
+    # Remove operation part (should be last now)
+    if remaining_parts:
+        remaining_parts = remaining_parts[:-1]
+
+    if not remaining_parts:
+        if not quiet:
+            typer.secho(
+                f"Error: Could not parse original path from backup filename: "
+                f"{backup_name}",
+                fg=typer.colors.RED,
+            )
+        return False
+
+    original_relative = "/".join(remaining_parts)
     original_path = HOME / original_relative
 
     try:
@@ -1488,7 +1535,15 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
             create_backup(original_path, operation="pre_restore", quiet=quiet)
 
         # Restore from backup
-        shutil.copy2(backup_path, original_path)
+        if backup_path.suffix == ".gz" or backup_path.name.endswith(".tar.gz"):
+            # Extract tar archive
+            import tarfile
+
+            with tarfile.open(backup_path, "r:gz") as tar:
+                tar.extractall(path=original_path.parent)
+        else:
+            # Copy regular file
+            shutil.copy2(backup_path, original_path)
 
         if not quiet:
             typer.secho(

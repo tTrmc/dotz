@@ -58,9 +58,12 @@ def get_tracked_dirs() -> List[str]:
     tracked_file = LOOM_DIR / "tracked_dirs.json"
     if not tracked_file.exists():
         return []
-    with open(tracked_file, "r") as f:
-        data = json.load(f)
-        return data if isinstance(data, list) else []
+    try:
+        with open(tracked_file, "r") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, IOError):
+        return []
 
 
 class LoomEventHandler(FileSystemEventHandler):
