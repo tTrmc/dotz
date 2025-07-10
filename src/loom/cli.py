@@ -4,7 +4,7 @@ import json
 from contextlib import nullcontext
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import typer
 from git import InvalidGitRepositoryError, Repo
@@ -18,8 +18,10 @@ from .core import (
     add_dotfile,
     add_file_pattern,
     clone_repo,
+    commit_repo,
     create_backup,
     delete_dotfile,
+    diff_files,
     get_config_value,
     get_home_dir,
     get_repo_status,
@@ -583,19 +585,36 @@ def status() -> None:
             typer.secho("Untracked files:", fg=typer.colors.YELLOW)
             for file in status_data["untracked"]:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
+            typer.secho(
+                "  → Run 'loom commit -m \"Add new files\"' to commit these",
+                fg=typer.colors.CYAN
+            )
         if status_data["modified"]:
             typer.secho("Modified files:", fg=typer.colors.YELLOW)
             for file in status_data["modified"]:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
+            typer.secho(
+                "  → Run 'loom diff' to see changes, "
+                "'loom commit -m \"Update dotfiles\"' to commit",
+                fg=typer.colors.CYAN
+            )
         if status_data["staged"]:
             typer.secho("Staged files:", fg=typer.colors.YELLOW)
             for file in status_data["staged"]:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
+            typer.secho(
+                "  → Run 'loom commit -m \"Commit staged changes\"' to commit",
+                fg=typer.colors.CYAN
+            )
 
     if status_data["unpushed"]:
         typer.secho("Unpushed changes:", fg=typer.colors.YELLOW)
         for file in status_data["unpushed"]:
             typer.secho(f"  {file}", fg=typer.colors.YELLOW)
+        typer.secho(
+            "  → Run 'loom push' to push commits to remote repository",
+            fg=typer.colors.CYAN
+        )
 
     if status_data["untracked_home_dotfiles"]:
         typer.secho("Untracked dotfiles in home directory:", fg=typer.colors.CYAN)
@@ -1357,5 +1376,63 @@ def backup_help() -> None:
     typer.echo("  Confirmation prompts prevent accidental operations")
 
 
-if __name__ == "__main__":
-    app()
+@app.command()
+def commit(
+    message: Annotated[
+        str,
+        typer.Option("--message", "-m", help="Commit message")
+    ] = "",
+    files: Annotated[
+        Optional[List[str]],
+        typer.Option("--file", "-f", help="Specific files to commit (optional)")
+    ] = None,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """
+    Commit modified files in the loom repository.
+
+    This command stages and commits changes to tracked dotfiles.
+    If no files are specified, all modified files will be committed.
+    """
+    if not message:
+        # Get status to show what will be committed
+        status_data = get_repo_status()
+
+        if not status_data["modified"] and not status_data["untracked"]:
+            typer.secho("No changes to commit", fg=typer.colors.YELLOW)
+            return
+
+        typer.secho("Files to be committed:", fg=typer.colors.CYAN)
+        for file in status_data["modified"]:
+            typer.secho(f"  modified: {file}", fg=typer.colors.YELLOW)
+        for file in status_data["untracked"]:
+            typer.secho(f"  new file: {file}", fg=typer.colors.GREEN)
+
+        message = typer.prompt("Enter commit message")
+
+    success = commit_repo(message=message, files=files, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def diff(
+    files: Annotated[
+        Optional[List[str]],
+        typer.Argument(help="Files to show diff for (optional - shows all if empty)")
+    ] = None,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """
+    Show differences in modified files.
+
+    Displays what has changed in your dotfiles since the last commit.
+    If no files are specified, shows changes for all modified files.
+    """
+    success = diff_files(files=files, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)

@@ -1837,3 +1837,89 @@ def find_config_files_with_progress(
             progress.advance(task)
 
     return found_files
+
+
+def commit_repo(
+    message: str, files: Optional[List[str]] = None, quiet: bool = False
+) -> bool:
+    """Commit changes in the loom repository."""
+    try:
+        repo = ensure_repo()
+
+        if files:
+            # Add specific files
+            for file in files:
+                try:
+                    repo.index.add([file])
+                except Exception as e:
+                    if not quiet:
+                        typer.secho(
+                            f"Warning: Could not add {file}: {e}",
+                            fg=typer.colors.YELLOW,
+                        )
+        else:
+            # Add all modified and untracked files
+            repo.git.add("-A")
+
+        # Check if there are changes to commit
+        if not repo.index.diff("HEAD") and not repo.untracked_files:
+            if not quiet:
+                typer.secho("No changes to commit", fg=typer.colors.YELLOW)
+            return True
+
+        commit = repo.index.commit(message)
+        if not quiet:
+            typer.secho(
+                f"Committed changes: {commit.hexsha[:8]}", fg=typer.colors.GREEN
+            )
+            typer.secho(f"Message: {message}", fg=typer.colors.WHITE)
+        return True
+    except Exception as e:
+        if not quiet:
+            typer.secho(f"Failed to commit changes: {e}", fg=typer.colors.RED, err=True)
+        return False
+
+
+def diff_files(files: Optional[List[str]] = None, quiet: bool = False) -> bool:
+    """Show diff for files in the loom repository."""
+    try:
+        repo = ensure_repo()
+
+        if files:
+            # Show diff for specific files
+            for file in files:
+                try:
+                    diff = repo.git.diff(file)
+                    if diff:
+                        if not quiet:
+                            typer.secho(
+                                f"Changes in {file}:", fg=typer.colors.CYAN, bold=True
+                            )
+                            typer.echo(diff)
+                    else:
+                        if not quiet:
+                            typer.secho(f"No changes in {file}", fg=typer.colors.YELLOW)
+                except Exception as e:
+                    if not quiet:
+                        typer.secho(
+                            f"Error showing diff for {file}: {e}",
+                            fg=typer.colors.RED,
+                            err=True,
+                        )
+        else:
+            # Show diff for all modified files
+            diff = repo.git.diff()
+            if diff:
+                if not quiet:
+                    typer.secho(
+                        "Changes in repository:", fg=typer.colors.CYAN, bold=True
+                    )
+                    typer.echo(diff)
+            else:
+                if not quiet:
+                    typer.secho("No changes to show", fg=typer.colors.YELLOW)
+        return True
+    except Exception as e:
+        if not quiet:
+            typer.secho(f"Error showing diff: {e}", fg=typer.colors.RED, err=True)
+        return False
