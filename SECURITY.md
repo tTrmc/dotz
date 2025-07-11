@@ -133,7 +133,7 @@ dotz config add-pattern "*secret*" --type exclude
 This security policy applies to:
 
 * The dotz project hosted at <https://github.com/tTrmc/dotz>
-* The dotzctl package distributed via PyPI
+* The dotz package distributed via PyPI
 * Official documentation and examples
 * Related tooling and scripts in the repository
 

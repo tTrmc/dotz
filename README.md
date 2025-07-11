@@ -1,7 +1,7 @@
 # dotz
 
-[![PyPI version](https://badge.fury.io/py/dotzctl.svg)](https://badge.fury.io/py/dotzctl)
-[![Python versions](https://img.shields.io/pypi/pyversions/dotzctl.svg)](https://pypi.org/project/dotzctl/)
+[![PyPI version](https://badge.fury.io/py/dotz.svg)](https://badge.fury.io/py/dotz)
+[![Python versions](https://img.shields.io/pypi/pyversions/dotz.svg)](https://pypi.org/project/dotz/)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![CI](https://github.com/tTrmc/dotz/workflows/CI/badge.svg)](https://github.com/tTrmc/dotz/actions)
 [![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](https://github.com/tTrmc/dotz/actions)
@@ -53,7 +53,7 @@
 **From PyPI:**
 
 ```bash
-pip install dotzctl
+pip install dotz
 ```
 
 **Using pipx (isolated environment):**
@@ -64,8 +64,8 @@ sudo apt install pipx           # Debian/Ubuntu
 # or
 sudo pacman -S python-pipx      # Arch Linux
 
-# Install dotzctl
-pipx install dotzctl
+# Install dotz
+pipx install dotz
 ```
 
 ### For Developers
