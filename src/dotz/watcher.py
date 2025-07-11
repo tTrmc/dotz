@@ -15,32 +15,32 @@ def get_watcher_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
     if home_dir is None:
         home_dir = get_home_dir()
 
-    loom_dir = home_dir / ".loom"
+    dotz_dir = home_dir / ".dotz"
 
     return {
         "home": home_dir,
-        "loom_dir": loom_dir,
+        "dotz_dir": dotz_dir,
     }
 
 
 # Global paths - can be overridden for testing
 _paths = get_watcher_paths()
 HOME = _paths["home"]
-LOOM_DIR = _paths["loom_dir"]
+DOTZ_DIR = _paths["dotz_dir"]
 
 
 def update_watcher_paths(home_dir: Optional[Path] = None) -> None:
     """Update global watcher paths. Useful for testing."""
-    global HOME, LOOM_DIR
+    global HOME, DOTZ_DIR
     paths = get_watcher_paths(home_dir)
     HOME = paths["home"]
-    LOOM_DIR = paths["loom_dir"]
+    DOTZ_DIR = paths["dotz_dir"]
 
 
 def is_in_tracked_directory(relative_path: Path) -> bool:
     """
     Return True if 'relative_path' (inside HOME) is under a directory already
-    tracked by loom.
+    tracked by dotz.
     """
     repo = ensure_repo()
     tracked_items = set(repo.git.ls_files().splitlines())
@@ -55,7 +55,7 @@ def is_in_tracked_directory(relative_path: Path) -> bool:
 
 
 def get_tracked_dirs() -> List[str]:
-    tracked_file = LOOM_DIR / "tracked_dirs.json"
+    tracked_file = DOTZ_DIR / "tracked_dirs.json"
     if not tracked_file.exists():
         return []
     try:
@@ -66,7 +66,7 @@ def get_tracked_dirs() -> List[str]:
         return []
 
 
-class LoomEventHandler(FileSystemEventHandler):
+class DotzEventHandler(FileSystemEventHandler):
     def __init__(self) -> None:
         super().__init__()
         self.config = load_config()
@@ -109,17 +109,17 @@ class LoomEventHandler(FileSystemEventHandler):
     def on_modified(self, event: FileSystemEvent) -> None:
         # Reload config when it changes to pick up new patterns
         src_path_str = str(event.src_path)
-        if src_path_str.endswith("config.json") and ".loom" in src_path_str:
+        if src_path_str.endswith("config.json") and ".dotz" in src_path_str:
             self.config = load_config()
             print("Configuration reloaded")
 
 
 def main() -> None:
     observer = Observer()
-    event_handler = LoomEventHandler()
+    event_handler = DotzEventHandler()
     tracked_dirs = get_tracked_dirs()
     if not tracked_dirs:
-        print("No tracked directories. Add one with loom add <dir>")
+        print("No tracked directories. Add one with dotz add <dir>")
         return
     for d in tracked_dirs:
         observer.schedule(event_handler, d, recursive=True)

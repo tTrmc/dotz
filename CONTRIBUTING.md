@@ -1,6 +1,6 @@
-# Contributing to loom
+# Contributing to dotz
 
-Thank you for your interest in contributing to loom! I welcome all pull requests, bug reports, and feature suggestions.
+Thank you for your interest in contributing to dotz! I welcome all pull requests, bug reports, and feature suggestions.
 
 ## Table of Contents
 
@@ -20,8 +20,8 @@ Thank you for your interest in contributing to loom! I welcome all pull requests
 2. **Clone your fork** locally:
 
    ```bash
-   git clone https://github.com/yourusername/loom.git
-   cd loom
+   git clone https://github.com/yourusername/dotz.git
+   cd dotz
    ```
 
 3. **Set up the development environment**:
@@ -59,8 +59,8 @@ Thank you for your interest in contributing to loom! I welcome all pull requests
 ### Quick Setup
 
 ```bash
-git clone https://github.com/yourusername/loom.git
-cd loom
+git clone https://github.com/yourusername/dotz.git
+cd dotz
 ./setup-dev.sh
 ```
 
@@ -135,7 +135,7 @@ from pathlib import Path
 import typer
 from git import Repo
 
-from loom.core import LoomCore
+from dotz.core import DotzCore
 ```
 
 ## Testing
@@ -150,7 +150,7 @@ pytest
 pytest -v
 
 # Run with coverage report
-pytest --cov=loom
+pytest --cov=dotz
 
 # Run specific test file
 pytest tests/test_core.py
@@ -176,7 +176,7 @@ Test file structure:
 import pytest
 from unittest.mock import Mock, patch
 
-from loom.core import LoomCore
+from dotz.core import DotzCore
 
 
 class TestFeatureName:
@@ -192,7 +192,7 @@ class TestFeatureName:
 ### Test Environment
 
 * Tests run in isolated temporary directories
-* No interference with your actual loom configuration
+* No interference with your actual dotz configuration
 * Automatic cleanup after test completion
 
 ## Commit Guidelines
@@ -283,7 +283,7 @@ When reporting bugs, please include:
 * **Environment information**:
   * Operating system and version
   * Python version (`python --version`)
-  * loom version (`loom version`)
+  * dotz version (`dotz version`)
   * Relevant configuration details
 * **Error messages or logs** (if any)
 * **Additional context** that might be helpful
@@ -318,7 +318,7 @@ When suggesting new features:
 
 Keep these principles in mind:
 
-* **Simplicity**: loom should be easy to use and understand
+* **Simplicity**: dotz should be easy to use and understand
 * **Reliability**: Robust error handling and comprehensive testing
 * **Performance**: Efficient operations, especially for large configurations
 * **Compatibility**: Support for different Linux distributions and Python versions
@@ -360,4 +360,4 @@ Contributors are acknowledged in:
 * **Git commit history**
 * **Release notes** (for significant contributions)
 
-Thank you for helping make loom better!
+Thank you for helping make dotz better!

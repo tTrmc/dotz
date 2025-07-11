@@ -5,25 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> **Note**: This project was renamed from "dotkeep" to "loom" starting with version 0.4.0. 
+> **Note**: This project was renamed from "dotkeep" to "dotz" starting with version 0.4.0.
 > Historical entries below may reference the old "dotkeep" command name.
 
 ## [Unreleased]
 
-### Changed
-- **BREAKING**: Project renamed from "dotkeep" to "loom"
-- Command changed from `dotkeep` to `loom`
-- Configuration directory changed from `~/.dotkeep` to `~/.loom`
-- Package name changed from `dotkeep` to `loom`
+- **BREAKING**: Project renamed from "dotkeep" to "dotz"
+- Command changed from `dotkeep` to `dotz`  
+- Configuration directory changed from `~/.dotkeep` to `~/.dotz`
+- Package name changed from `dotkeepctl` to `dotz`
 
-### Added
 - Future features will be listed here
 
 ## [0.3.0] - 2025-07-05
 
-**Professional release with comprehensive improvements and modern packaging**
+### Professional release with comprehensive improvements and modern packaging
 
 ### Added
+
 - Comprehensive test suite with 73+ passing tests
 - Environment isolation for robust testing
 - Configuration management system with `dotkeep config` commands
@@ -36,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Development tooling (Makefile, setup-dev.sh)
 
 ### Changed
+
 - Refactored path management for better testability
 - Updated license field in pyproject.toml to modern SPDX string format
 - Enhanced fixtures for test isolation
@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Complete rewrite for robustness and maintainability
 
 ### Fixed
+
 - Test pollution issues between test runs
 - Path resolution in different environments
 - Configuration persistence and cleanup
@@ -53,40 +54,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Highlights
 
 #### **Recursive Directory Support**
+
 - Add all dotfiles in a directory and its subdirectories with `dotkeep add <dir>`
 - Use `--no-recursive` to restrict to top-level dotfiles only
 
 #### **Tracked Directories & Watcher**
+
 - Only explicitly added directories are monitored for new dotfiles
 - `dotkeep watch` automatically adds new dotfiles created in tracked directories
 
 #### **Diagnostics**
+
 - New `dotkeep diagnose` command checks for common setup and git issues, providing actionable guidance
 
 #### **Enhanced Git Integration**
+
 - Improved error messages for common git issues (e.g., divergent branches, missing upstream, rejected pushes)
 - Upstream branch is set automatically on first push if needed
 
 #### **Improved CLI Experience**
+
 - `--quiet` flag suppresses output for scripting and automation
 - `--push` flag available for `add`, `delete`, and `restore` to immediately push changes
 - `dotkeep version` displays the current version
 - `dotkeep --install-completion` enables shell tab-completion for all commands and options
 
 #### **Commit Efficiency**
+
 - Adding multiple dotfiles in a directory now results in a single commit, improving repository clarity
 
 ### Improvements & Fixes
+
 - Robust handling of symlinks and prevention of watcher loops
 - Tracked directories are automatically removed from tracking when all dotfiles inside are deleted
 - Consistent, user-friendly CLI output
 - Expanded and improved test suite for CLI and core logic
 
 ### Requirements
+
 - Python 3.8+
 - Git
 
 ### Installation
+
 ```bash
 git clone https://github.com/tTrmc/dotkeep.git
 cd dotkeep
@@ -94,6 +104,7 @@ pip install -e .
 ```
 
 ### Getting Started
+
 ```bash
 dotkeep init
 dotkeep add .bashrc
@@ -105,7 +116,8 @@ See the README for full usage instructions and advanced features.
 
 ## [0.1.0] - First Public Release
 
-**dotkeep** is a minimal, Git-backed dotfiles manager for Linux.  
+### dotkeep is a minimal, Git-backed dotfiles manager for Linux
+
 This is the first public release.
 
 ### Features
@@ -138,18 +150,21 @@ This is the first public release.
 - **List tracked files:**  
   `dotkeep list-files`: See all files currently managed by dotkeep.
 
-### Requirements
+### Requirements (v0.1.0)
+
 - Python 3.8+
 - Git
 
-### Installation
+### Installation (v0.1.0)
+
 ```bash
 git clone https://github.com/tTrmc/dotkeep.git
 cd dotkeep
 pip install -e .
 ```
 
-### Getting Started
+### Getting Started (v0.1.0)
+
 ```bash
 dotkeep init
 dotkeep add .bashrc

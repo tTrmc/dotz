@@ -1,4 +1,4 @@
-"""Core functionality for loom - a Git-backed dotfiles manager."""
+"""Core functionality for dotz - a Git-backed dotfiles manager."""
 
 import fnmatch
 import json
@@ -23,7 +23,7 @@ from rich.progress import (
 from rich.status import Status
 
 # Constants
-LOOM_DIR_NAME = ".loom"
+DOTZ_DIR_NAME = ".dotz"
 REPO_DIR_NAME = "repo"
 TRACKED_DIRS_FILENAME = "tracked_dirs.json"
 CONFIG_FILENAME = "config.json"
@@ -47,20 +47,20 @@ def get_home_dir() -> Path:
     return Path.home()
 
 
-def get_loom_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
-    """Get all loom-related paths based on home directory."""
+def get_dotz_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
+    """Get all dotz-related paths based on home directory."""
     if home_dir is None:
         home_dir = get_home_dir()
 
-    loom_dir = home_dir / LOOM_DIR_NAME
-    work_tree = loom_dir / REPO_DIR_NAME
-    tracked_dirs_file = loom_dir / TRACKED_DIRS_FILENAME
-    config_file = loom_dir / CONFIG_FILENAME
-    backup_dir = loom_dir / BACKUP_DIR_NAME
+    dotz_dir = home_dir / DOTZ_DIR_NAME
+    work_tree = dotz_dir / REPO_DIR_NAME
+    tracked_dirs_file = dotz_dir / TRACKED_DIRS_FILENAME
+    config_file = dotz_dir / CONFIG_FILENAME
+    backup_dir = dotz_dir / BACKUP_DIR_NAME
 
     return {
         "home": home_dir,
-        "loom_dir": loom_dir,
+        "dotz_dir": dotz_dir,
         "work_tree": work_tree,
         "tracked_dirs_file": tracked_dirs_file,
         "config_file": config_file,
@@ -70,10 +70,10 @@ def get_loom_paths(home_dir: Optional[Path] = None) -> Dict[str, Path]:
 
 def update_paths(home_dir: Optional[Path] = None) -> None:
     """Update global paths. Useful for testing or when HOME changes."""
-    global HOME, LOOM_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE, BACKUP_DIR
-    paths = get_loom_paths(home_dir)
+    global HOME, DOTZ_DIR, WORK_TREE, TRACKED_DIRS_FILE, CONFIG_FILE, BACKUP_DIR
+    paths = get_dotz_paths(home_dir)
     HOME = paths["home"]
-    LOOM_DIR = paths["loom_dir"]
+    DOTZ_DIR = paths["dotz_dir"]
     WORK_TREE = paths["work_tree"]
     TRACKED_DIRS_FILE = paths["tracked_dirs_file"]
     CONFIG_FILE = paths["config_file"]
@@ -116,9 +116,9 @@ DEFAULT_CONFIG = {
 }
 
 # Global paths - can be overridden for testing
-_paths = get_loom_paths()
+_paths = get_dotz_paths()
 HOME = _paths["home"]
-LOOM_DIR = _paths["loom_dir"]
+DOTZ_DIR = _paths["dotz_dir"]
 WORK_TREE = _paths["work_tree"]
 TRACKED_DIRS_FILE = _paths["tracked_dirs_file"]
 CONFIG_FILE = _paths["config_file"]
@@ -131,12 +131,12 @@ BACKUP_DIR = _paths["backup_dir"]
 
 
 def ensure_repo() -> Repo:
-    """Ensure that a loom repository exists and return it."""
+    """Ensure that a dotz repository exists and return it."""
     try:
         return Repo(str(WORK_TREE))
     except Exception:
         typer.secho(
-            "Error: Loom repository not initialized. Run 'loom init' first.",
+            "Error: Dotz repository not initialized. Run 'dotz init' first.",
             fg=typer.colors.RED,
             err=True,
         )
@@ -248,19 +248,19 @@ def remove_tracked_dir(dir_path: Path) -> None:
 
 
 def init_repo(remote: str = "", quiet: bool = False) -> bool:
-    if LOOM_DIR.exists():
+    if DOTZ_DIR.exists():
         if not quiet:
-            typer.secho("Loom already initialized", fg=typer.colors.YELLOW)
+            typer.secho("Dotz already initialized", fg=typer.colors.YELLOW)
         return False
 
     if not quiet:
-        typer.secho("Initializing loom repository...", fg=typer.colors.BLUE)
-    LOOM_DIR.mkdir()
+        typer.secho("Initializing dotz repository...", fg=typer.colors.BLUE)
+    DOTZ_DIR.mkdir()
     WORK_TREE.mkdir()
 
     repo = Repo.init(str(WORK_TREE))
-    repo.git.config("user.name", "loom")
-    repo.git.config("user.email", "loom@example.com")
+    repo.git.config("user.name", "dotz")
+    repo.git.config("user.email", "dotz@example.com")
     if not quiet:
         typer.secho("Creating initial commit...", fg=typer.colors.BLUE)
     repo.git.commit("--allow-empty", "-m", "Initial commit")
@@ -286,7 +286,7 @@ def init_repo(remote: str = "", quiet: bool = False) -> bool:
             )
 
     if not quiet:
-        typer.secho("Loom repository initialized successfully", fg=typer.colors.GREEN)
+        typer.secho("Dotz repository initialized successfully", fg=typer.colors.GREEN)
     return True
 
 
@@ -299,7 +299,7 @@ def add_dotfile(
     path: Path, push: bool = False, quiet: bool = False, recursive: bool = True
 ) -> bool:
     """
-    Add a file or directory to loom, then symlink it in your home directory.
+    Add a file or directory to dotz, then symlink it in your home directory.
     Set quiet=True to suppress typer.secho output (for watcher).
     """
     repo = ensure_repo()
@@ -348,7 +348,7 @@ def add_dotfile(
                 typer.secho(f"No config files found in {rel}", fg=typer.colors.YELLOW)
             return True
 
-        # Copy the entire directory structure to loom repo
+        # Copy the entire directory structure to dotz repo
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(src, dest)
@@ -416,7 +416,7 @@ def delete_dotfile(paths: List[Path], push: bool = False, quiet: bool = False) -
         if not src.is_symlink():
             if not quiet:
                 typer.secho(
-                    f"Error: {src} is not a symlink managed by loom",
+                    f"Error: {src} is not a symlink managed by dotz",
                     fg=typer.colors.RED,
                     err=True,
                 )
@@ -429,7 +429,7 @@ def delete_dotfile(paths: List[Path], push: bool = False, quiet: bool = False) -
         if not dest.exists():
             if not quiet:
                 typer.secho(
-                    f"Error: {dest} does not exist in the loom repository",
+                    f"Error: {dest} does not exist in the dotz repository",
                     fg=typer.colors.RED,
                     err=True,
                 )
@@ -498,7 +498,7 @@ def restore_dotfile(path: Path, quiet: bool = False, push: bool = False) -> bool
     if not dest.exists():
         if not quiet:
             typer.secho(
-                f"Error: {rel} is not tracked by loom.",
+                f"Error: {rel} is not tracked by dotz.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -553,7 +553,7 @@ def pull_repo(quiet: bool = False) -> bool:
         if not quiet:
             typer.secho(
                 "Error: No 'origin' remote found. Please set one with "
-                "`loom init --remote <URL>` or `git remote add origin <URL>`.",
+                "`dotz init --remote <URL>` or `git remote add origin <URL>`.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -570,7 +570,7 @@ def pull_repo(quiet: bool = False) -> bool:
         if "no tracking information" in msg.lower():
             typer.secho(
                 "Error: No tracking branch set for this branch.\n"
-                "Run: git -C ~/.loom/repo branch "
+                "Run: git -C ~/.dotz/repo branch "
                 "--set-upstream-to=origin/<branch> <branch>",
                 fg=typer.colors.RED,
                 err=True,
@@ -582,9 +582,9 @@ def pull_repo(quiet: bool = False) -> bool:
             typer.secho(
                 "Error: Local and remote branches have diverged.\n"
                 "You need to reconcile them. Try one of the following:\n"
-                "  git -C ~/.loom/repo pull --rebase\n"
-                "  git -C ~/.loom/repo pull --no-rebase\n"
-                "  git -C ~/.loom/repo pull --ff-only",
+                "  git -C ~/.dotz/repo pull --rebase\n"
+                "  git -C ~/.dotz/repo pull --no-rebase\n"
+                "  git -C ~/.dotz/repo pull --ff-only",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -603,7 +603,7 @@ def push_repo(quiet: bool = False) -> bool:
         if not quiet:
             typer.secho(
                 "Error: No 'origin' remote found. Please set one with "
-                "`loom init --remote <URL>` or `git remote add origin <URL>`.",
+                "`dotz init --remote <URL>` or `git remote add origin <URL>`.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -631,7 +631,7 @@ def push_repo(quiet: bool = False) -> bool:
                         typer.secho(
                             "Error: Push rejected (non-fast-forward). You may "
                             "need to pull first:\n"
-                            "  git -C ~/.loom/repo pull --rebase\n"
+                            "  git -C ~/.dotz/repo pull --rebase\n"
                             "Or resolve conflicts and try again.",
                             fg=typer.colors.RED,
                             err=True,
@@ -654,7 +654,7 @@ def push_repo(quiet: bool = False) -> bool:
         ):
             typer.secho(
                 "Error: No upstream branch set for this branch.\n"
-                "Run: git -C ~/.loom/repo branch "
+                "Run: git -C ~/.dotz/repo branch "
                 "--set-upstream-to=origin/<branch> <branch>",
                 fg=typer.colors.RED,
                 err=True,
@@ -688,7 +688,7 @@ def get_repo_status() -> Dict[str, List[str]]:
         except Exception:
             pass
 
-    # Dotfiles in $HOME not tracked by loom
+    # Dotfiles in $HOME not tracked by dotz
     config = load_config()
     home_config_files = find_config_files(HOME, config, recursive=False)
     home_config_file_names = [f.name for f in home_config_files]
@@ -752,7 +752,7 @@ def load_config() -> Dict[str, Any]:
 
 def save_config(config: Dict[str, Any]) -> None:
     """Save configuration to config file."""
-    LOOM_DIR.mkdir(exist_ok=True)
+    DOTZ_DIR.mkdir(exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
 
@@ -954,15 +954,15 @@ def reset_config(quiet: bool = False) -> bool:
 
 def clone_repo(remote_url: str, quiet: bool = False) -> bool:
     """
-    Clone an existing loom repository from a remote URL and automatically restore
+    Clone an existing dotz repository from a remote URL and automatically restore
     all tracked dotfiles to their home directory locations.
 
     This enables automated setup on fresh systems.
     """
-    if LOOM_DIR.exists():
+    if DOTZ_DIR.exists():
         if not quiet:
             typer.secho(
-                "Error: loom already initialized at ~/.loom. Use 'loom pull' to sync.",
+                "Error: dotz already initialized at ~/.dotz. Use 'dotz pull' to sync.",
                 fg=typer.colors.RED,
                 err=True,
             )
@@ -970,12 +970,12 @@ def clone_repo(remote_url: str, quiet: bool = False) -> bool:
 
     if not quiet:
         typer.secho(
-            f"Cloning loom repository from {remote_url}...", fg=typer.colors.WHITE
+            f"Cloning dotz repository from {remote_url}...", fg=typer.colors.WHITE
         )
 
     try:
-        # Create loom directory
-        LOOM_DIR.mkdir(parents=True, exist_ok=True)
+        # Create dotz directory
+        DOTZ_DIR.mkdir(parents=True, exist_ok=True)
 
         # Clone the repository
         repo = Repo.clone_from(remote_url, str(WORK_TREE))
@@ -983,9 +983,9 @@ def clone_repo(remote_url: str, quiet: bool = False) -> bool:
         if not quiet:
             typer.secho("✓ Repository cloned successfully", fg=typer.colors.GREEN)
 
-        # Set up Git config for loom
-        repo.git.config("user.name", "loom")
-        repo.git.config("user.email", "loom@example.com")
+        # Set up Git config for dotz
+        repo.git.config("user.name", "dotz")
+        repo.git.config("user.email", "dotz@example.com")
 
         # Get all tracked files from the repository
         tracked_files = repo.git.ls_files().splitlines()
@@ -1088,8 +1088,8 @@ def clone_repo(remote_url: str, quiet: bool = False) -> bool:
                 )
 
         # Clean up on failure
-        if LOOM_DIR.exists():
-            shutil.rmtree(LOOM_DIR)
+        if DOTZ_DIR.exists():
+            shutil.rmtree(DOTZ_DIR)
 
         return False
 
@@ -1100,16 +1100,16 @@ def clone_repo(remote_url: str, quiet: bool = False) -> bool:
             )
 
         # Clean up on failure
-        if LOOM_DIR.exists():
-            shutil.rmtree(LOOM_DIR)
+        if DOTZ_DIR.exists():
+            shutil.rmtree(DOTZ_DIR)
 
         return False
 
 
 def restore_all_dotfiles(quiet: bool = False, push: bool = False) -> bool:
     """
-    Restore all tracked dotfiles from the loom repository to their home directory
-    locations. This creates symlinks for all files currently tracked by loom.
+    Restore all tracked dotfiles from the dotz repository to their home directory
+    locations. This creates symlinks for all files currently tracked by dotz.
 
     This is useful for setting up dotfiles on a new system after cloning a
     repository or when you want to restore all files at once.
@@ -1128,7 +1128,7 @@ def restore_all_dotfiles(quiet: bool = False, push: bool = False) -> bool:
 
     if not tracked_files:
         if not quiet:
-            typer.secho("No files tracked by loom to restore.", fg=typer.colors.YELLOW)
+            typer.secho("No files tracked by dotz to restore.", fg=typer.colors.YELLOW)
         return True
 
     if not quiet:
@@ -1240,10 +1240,10 @@ def validate_symlinks(
     repair: bool = False, quiet: bool = False
 ) -> Dict[str, List[str]]:
     """
-    Validate all symlinks managed by loom and optionally repair broken ones.
+    Validate all symlinks managed by dotz and optionally repair broken ones.
 
     Returns a dictionary with categories of symlinks:
-    - 'valid': Working symlinks pointing to correct loom files
+    - 'valid': Working symlinks pointing to correct dotz files
     - 'broken': Symlinks that point to non-existent files
     - 'missing': Tracked files that should be symlinked but aren't
     - 'wrong_target': Symlinks pointing to wrong locations
@@ -1488,7 +1488,7 @@ def validate_symlinks(
                 )
         elif total_issues > 0:
             typer.secho(
-                "\nRun 'loom validate --repair' to fix these issues automatically.",
+                "\nRun 'dotz validate --repair' to fix these issues automatically.",
                 fg=typer.colors.CYAN,
             )
 
@@ -1842,7 +1842,7 @@ def find_config_files_with_progress(
 def commit_repo(
     message: str, files: Optional[List[str]] = None, quiet: bool = False
 ) -> bool:
-    """Commit changes in the loom repository."""
+    """Commit changes in the dotz repository."""
     try:
         repo = ensure_repo()
 
@@ -1881,7 +1881,7 @@ def commit_repo(
 
 
 def diff_files(files: Optional[List[str]] = None, quiet: bool = False) -> bool:
-    """Show diff for files in the loom repository."""
+    """Show diff for files in the dotz repository."""
     try:
         repo = ensure_repo()
 

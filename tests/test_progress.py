@@ -1,4 +1,4 @@
-"""Tests for progress indicators in loom CLI operations."""
+"""Tests for progress indicators in dotz CLI operations."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from typer.testing import CliRunner
 
-from loom import cli, core
+from dotz import cli, core
 
 
 class TestProgressIndicators:
@@ -28,10 +28,10 @@ class TestProgressIndicators:
             file_path.write_text(f"config {i}")
             files.append(file_path)
 
-        with patch("loom.core.add_dotfile") as mock_add:
+        with patch("dotz.core.add_dotfile") as mock_add:
             mock_add.return_value = True
 
-            with patch("loom.core.Progress") as mock_progress:
+            with patch("dotz.core.Progress") as mock_progress:
                 mock_progress_instance = MagicMock()
                 mock_progress.return_value.__enter__.return_value = (
                     mock_progress_instance
@@ -53,10 +53,10 @@ class TestProgressIndicators:
         for f in files:
             f.write_text("test content")
 
-        with patch("loom.core.add_dotfile") as mock_add:
+        with patch("dotz.core.add_dotfile") as mock_add:
             mock_add.return_value = True
 
-            with patch("loom.core.Progress") as mock_progress:
+            with patch("dotz.core.Progress") as mock_progress:
                 result = core.add_dotfiles_with_progress(files, push=False, quiet=True)
 
                 # Should process all files
@@ -72,7 +72,7 @@ class TestProgressIndicators:
         for f in files:
             f.write_text("test content")
 
-        with patch("loom.core.add_dotfile") as mock_add:
+        with patch("dotz.core.add_dotfile") as mock_add:
             # Make some additions fail
             mock_add.side_effect = [True, False, True]
 
@@ -90,10 +90,10 @@ class TestProgressIndicators:
             file_path.write_text(f"dotfile {i}")
             files.append(file_path)
 
-        with patch("loom.core.restore_dotfile") as mock_restore:
+        with patch("dotz.core.restore_dotfile") as mock_restore:
             mock_restore.return_value = True
 
-            with patch("loom.core.Progress") as mock_progress:
+            with patch("dotz.core.Progress") as mock_progress:
                 mock_progress_instance = MagicMock()
                 mock_progress.return_value.__enter__.return_value = (
                     mock_progress_instance
@@ -119,10 +119,10 @@ class TestProgressIndicators:
             file_path = large_dir / f"config{i}.conf"
             file_path.write_text(f"config {i}")
 
-        with patch("loom.core.find_config_files") as mock_find:
+        with patch("dotz.core.find_config_files") as mock_find:
             mock_find.return_value = []
 
-            with patch("loom.core.Progress") as mock_progress:
+            with patch("dotz.core.Progress") as mock_progress:
                 mock_progress_instance = MagicMock()
                 mock_progress.return_value.__enter__.return_value = (
                     mock_progress_instance
@@ -148,7 +148,7 @@ class TestProgressIndicators:
             file_path.write_text(f"config {i}")
             files.append(file_path)
 
-        with patch("loom.core.find_config_files") as mock_find:
+        with patch("dotz.core.find_config_files") as mock_find:
             mock_find.return_value = files
 
             result = core.find_config_files_with_progress(small_dir, quiet=False)
@@ -163,8 +163,8 @@ class TestProgressIndicators:
         for f in files:
             f.write_text("test content")
 
-        with patch("loom.core.add_dotfile") as mock_add:
-            with patch("loom.core.push_repo") as mock_push:
+        with patch("dotz.core.add_dotfile") as mock_add:
+            with patch("dotz.core.push_repo") as mock_push:
                 mock_add.return_value = True
                 mock_push.return_value = True
 
@@ -180,8 +180,8 @@ class TestProgressIndicators:
         for f in files:
             f.write_text("test content")
 
-        with patch("loom.core.add_dotfile") as mock_add:
-            with patch("loom.core.push_repo") as mock_push:
+        with patch("dotz.core.add_dotfile") as mock_add:
+            with patch("dotz.core.push_repo") as mock_push:
                 mock_add.return_value = False  # All operations fail
 
                 result = core.add_dotfiles_with_progress(files, push=True, quiet=True)
@@ -198,9 +198,9 @@ class TestProgressIndicators:
         assert result["success"] == 0
         assert result["failed"] == 0
 
-    @patch("loom.core.add_dotfiles_with_progress")
-    @patch("loom.core.find_config_files")
-    @patch("loom.core.load_config")
+    @patch("dotz.core.add_dotfiles_with_progress")
+    @patch("dotz.core.find_config_files")
+    @patch("dotz.core.load_config")
     def test_cli_add_directory_with_progress(
         self, mock_load_config, mock_find, mock_add_progress, temp_home: Path
     ):
@@ -221,7 +221,7 @@ class TestProgressIndicators:
         mock_find.return_value = files
         mock_add_progress.return_value = {"success": 60, "failed": 0}
 
-        with patch("loom.cli.refresh_cli_paths"):
+        with patch("dotz.cli.refresh_cli_paths"):
             result = self.runner.invoke(
                 cli.app, ["add", str(config_dir), "--recursive"]
             )
@@ -230,7 +230,7 @@ class TestProgressIndicators:
         assert result.exit_code == 0
         mock_add_progress.assert_called_once()
 
-    @patch("loom.core.add_dotfile")
+    @patch("dotz.core.add_dotfile")
     def test_cli_add_single_file_with_status(self, mock_add, temp_home: Path):
         """Test CLI add command shows status for single file."""
         # Create test file
@@ -239,14 +239,14 @@ class TestProgressIndicators:
 
         mock_add.return_value = True
 
-        with patch("loom.cli.refresh_cli_paths"):
+        with patch("dotz.cli.refresh_cli_paths"):
             result = self.runner.invoke(cli.app, ["add", str(test_file)])
 
         assert result.exit_code == 0
         mock_add.assert_called_once()
 
-    @patch("loom.core.restore_dotfiles_with_progress")
-    @patch("loom.core.list_tracked_files")
+    @patch("dotz.core.restore_dotfiles_with_progress")
+    @patch("dotz.core.list_tracked_files")
     def test_cli_restore_all_with_progress(
         self, mock_list, mock_restore_progress, temp_home: Path
     ):
@@ -256,8 +256,8 @@ class TestProgressIndicators:
         mock_list.return_value = tracked_files
         mock_restore_progress.return_value = {"success": 50, "failed": 0}
 
-        with patch("loom.cli.refresh_cli_paths"):
-            with patch("loom.cli.HOME", temp_home):
+        with patch("dotz.cli.refresh_cli_paths"):
+            with patch("dotz.cli.HOME", temp_home):
                 with patch("typer.confirm", return_value=True):
                     result = self.runner.invoke(cli.app, ["restore-all"])
 

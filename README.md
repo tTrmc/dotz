@@ -1,17 +1,17 @@
-# loom
+# dotz
 
-[![PyPI version](https://badge.fury.io/py/loomctl.svg)](https://badge.fury.io/py/loomctl)
-[![Python versions](https://img.shields.io/pypi/pyversions/loomctl.svg)](https://pypi.org/project/loomctl/)
+[![PyPI version](https://badge.fury.io/py/dotzctl.svg)](https://badge.fury.io/py/dotzctl)
+[![Python versions](https://img.shields.io/pypi/pyversions/dotzctl.svg)](https://pypi.org/project/dotzctl/)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
-[![CI](https://github.com/tTrmc/loom/workflows/CI/badge.svg)](https://github.com/tTrmc/loom/actions)
-[![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](https://github.com/tTrmc/loom/actions)
+[![CI](https://github.com/tTrmc/dotz/workflows/CI/badge.svg)](https://github.com/tTrmc/dotz/actions)
+[![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](https://github.com/tTrmc/dotz/actions)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/tTrmc/loom/pulls)
-[![GitHub issues](https://img.shields.io/github/issues/tTrmc/loom.svg)](https://github.com/tTrmc/loom/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/tTrmc/dotz/pulls)
+[![GitHub issues](https://img.shields.io/github/issues/tTrmc/dotz.svg)](https://github.com/tTrmc/dotz/issues)
 
 > A minimal **dotfiles** manager for Linux, backed by Git.
 
-**loom** simplifies tracking, versioning, and synchronizing your configuration files across machines. An open source project welcoming community contributions.
+**dotz** simplifies tracking, versioning, and synchronizing your configuration files across machines. An open source project welcoming community contributions.
 
 ## Table of Contents
 
@@ -30,7 +30,7 @@
 
 ## Features
 
-* **Easy setup**: Initialize a local loom repository with a single command
+* **Easy setup**: Initialize a local dotz repository with a single command
 * **Git-based**: Full version history, branching, and remote synchronization
 * **File management**: Add and remove dotfiles with automatic symlinking
 * **Recursive directory support**: Add all dotfiles (optionally recursively) from a directory
@@ -53,7 +53,7 @@
 **From PyPI:**
 
 ```bash
-pip install loomctl
+pip install dotzctl
 ```
 
 **Using pipx (isolated environment):**
@@ -64,8 +64,8 @@ sudo apt install pipx           # Debian/Ubuntu
 # or
 sudo pacman -S python-pipx      # Arch Linux
 
-# Install loomctl
-pipx install loomctl
+# Install dotzctl
+pipx install dotzctl
 ```
 
 ### For Developers
@@ -73,16 +73,16 @@ pipx install loomctl
 **Quick setup:**
 
 ```bash
-git clone https://github.com/tTrmc/loom.git
-cd loom
+git clone https://github.com/tTrmc/dotz.git
+cd dotz
 ./setup-dev.sh  # Sets up virtual environment and installs dependencies
 ```
 
 **Manual setup:**
 
 ```bash
-git clone https://github.com/tTrmc/loom.git
-cd loom
+git clone https://github.com/tTrmc/dotz.git
+cd dotz
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,test]"
@@ -91,7 +91,7 @@ pip install -e ".[dev,test]"
 ### Verify Installation
 
 ```bash
-loom --help
+dotz --help
 ```
 
 **Requirements:**
@@ -102,50 +102,50 @@ loom --help
 ---
 
 >[!CAUTION]
->**NEVER use public Git repositories with loom.** Your dotfiles often contain:
+>**NEVER use public Git repositories with dotz.** Your dotfiles often contain:
 >
 >* SSH keys and certificates
 >* API tokens and passwords
 >* Personal file paths and system information
 >* Application configurations with sensitive data
 >
->**Always use private repositories** or consider excluding sensitive files with loom's pattern configuration.
+>**Always use private repositories** or consider excluding sensitive files with dotz's pattern configuration.
 
 ---
 
 ## Quick Start
 
-### Initialize your loom repository
+### Initialize your dotz repository
 
 ```bash
 # Local repository only
-loom init
+dotz init
 
 # With private remote repository (recommended)
-loom init --remote git@github.com:yourusername/dotfiles-private.git
+dotz init --remote git@github.com:yourusername/dotfiles-private.git
 ```
 
 ### Add your first dotfile
 
 ```bash
 # Add a single file
-loom add .bashrc
+dotz add .bashrc
 
 # Add all dotfiles in a directory
-loom add .config
+dotz add .config
 
 # Add and push to remote
-loom add .vimrc --push
+dotz add .vimrc --push
 ```
 
 ### Sync across machines
 
 ```bash
 # Pull latest changes
-loom pull
+dotz pull
 
 # Push your changes
-loom push
+dotz push
 ```
 
 ---
@@ -157,15 +157,15 @@ loom push
 **Initialize:**
 
 ```bash
-loom init                                                    # Local only
-loom init --remote git@github.com:user/dotfiles-private.git # With remote
+dotz init                                                    # Local only
+dotz init --remote git@github.com:user/dotfiles-private.git # With remote
 ```
 
 **Sync:**
 
 ```bash
-loom pull    # Fetch and merge changes
-loom push    # Push local commits
+dotz pull    # Fetch and merge changes
+dotz push    # Push local commits
 ```
 
 ### File Management
@@ -173,33 +173,33 @@ loom push    # Push local commits
 **Add files:**
 
 ```bash
-loom add .bashrc              # Single file
-loom add .config              # Directory (recursive by default)
-loom add .config --no-recursive  # Top-level files only
-loom add .vimrc --push        # Add and push
+dotz add .bashrc              # Single file
+dotz add .config              # Directory (recursive by default)
+dotz add .config --no-recursive  # Top-level files only
+dotz add .vimrc --push        # Add and push
 ```
 
 **Remove files:**
 
 ```bash
-loom delete .vimrc            # Remove file
-loom delete .vimrc --push     # Remove and push
+dotz delete .vimrc            # Remove file
+dotz delete .vimrc --push     # Remove and push
 ```
 
 **Restore files:**
 
 ```bash
-loom restore .vimrc           # Restore single file
-loom restore .config          # Restore directory
+dotz restore .vimrc           # Restore single file
+dotz restore .config          # Restore directory
 ```
 
 ### Information Commands
 
 ```bash
-loom status        # Show repository status
-loom list-files    # List tracked files
-loom diagnose      # Troubleshoot issues
-loom version       # Show version
+dotz status        # Show repository status
+dotz list-files    # List tracked files
+dotz diagnose      # Troubleshoot issues
+dotz version       # Show version
 ```
 
 ### Advanced Features
@@ -207,13 +207,13 @@ loom version       # Show version
 **File watching:**
 
 ```bash
-loom watch    # Automatically add new dotfiles in tracked directories
+dotz watch    # Automatically add new dotfiles in tracked directories
 ```
 
 **Shell completion:**
 
 ```bash
-loom --install-completion    # Enable tab completion
+dotz --install-completion    # Enable tab completion
 ```
 
 ### Configuration Management
@@ -221,14 +221,14 @@ loom --install-completion    # Enable tab completion
 Manage file patterns and search settings:
 
 ```bash
-loom config show              # Show current configuration
-loom config list-patterns     # List file patterns
-loom config add-pattern "*.py"           # Include Python files
-loom config add-pattern "*.log" --type exclude  # Exclude log files
-loom config remove-pattern "*.py"        # Remove pattern
-loom config set search_settings.recursive false  # Disable recursion
-loom config reset             # Reset to defaults
-loom config help              # Show detailed help
+dotz config show              # Show current configuration
+dotz config list-patterns     # List file patterns
+dotz config add-pattern "*.py"           # Include Python files
+dotz config add-pattern "*.log" --type exclude  # Exclude log files
+dotz config remove-pattern "*.py"        # Remove pattern
+dotz config set search_settings.recursive false  # Disable recursion
+dotz config reset             # Reset to defaults
+dotz config help              # Show detailed help
 ```
 
 ---
@@ -236,9 +236,9 @@ loom config help              # Show detailed help
 ## Project Structure
 
 ```text
-loom/
+dotz/
 ├── src/
-│   └── loom/
+│   └── dotz/
 │       ├── __init__.py
 │       ├── cli.py          # Typer-based CLI entry point
 │       ├── core.py         # Core logic for dotfile management
@@ -256,13 +256,13 @@ loom/
 └── .gitignore              # Files and directories to exclude
 ```
 
-The `.git` folder is created inside `~/.loom/repo` once you initialize loom.
+The `.git` folder is created inside `~/.dotz/repo` once you initialize dotz.
 
 ---
 
 ## Configuration
 
-loom uses configurable file patterns to determine which files to track. The configuration is stored in `~/.loom/config.json`.
+dotz uses configurable file patterns to determine which files to track. The configuration is stored in `~/.dotz/config.json`.
 
 ### Default File Patterns
 
@@ -286,24 +286,24 @@ loom uses configurable file patterns to determine which files to track. The conf
 
 ### Customizing Configuration
 
-Use the `loom config` commands to customize which files are tracked:
+Use the `dotz config` commands to customize which files are tracked:
 
 ```bash
 # Add Python files to tracking
-loom config add-pattern "*.py"
+dotz config add-pattern "*.py"
 
 # Exclude compiled Python files  
-loom config add-pattern "*.pyc" --type exclude
+dotz config add-pattern "*.pyc" --type exclude
 
 # Disable recursive search
-loom config set search_settings.recursive false
+dotz config set search_settings.recursive false
 ```
 
 ---
 
 ## Testing
 
-loom has a comprehensive test suite to ensure reliability and catch regressions. Contributors are encouraged to run tests before submitting changes.
+dotz has a comprehensive test suite to ensure reliability and catch regressions. Contributors are encouraged to run tests before submitting changes.
 
 ### Running Tests
 
@@ -317,14 +317,14 @@ pytest
 **With coverage:**
 
 ```bash
-pytest --cov=loom
+pytest --cov=dotz
 ```
 
 ### Test Categories
 
 The project includes **148 passing tests** covering:
 
-* **CLI commands**: All loom commands and options
+* **CLI commands**: All dotz commands and options
 * **Core functionality**: File management, Git operations, configuration
 * **Configuration management**: Pattern matching, settings, validation
 * **File watching**: Automatic detection and tracking of new files
@@ -338,7 +338,7 @@ For development, install with test dependencies:
 ```bash
 pip install -e ".[dev,test]"  # Install with all dependencies
 pytest -v                     # Run tests with verbose output
-pytest --cov=loom             # Run tests with coverage report
+pytest --cov=dotz             # Run tests with coverage report
 make test-cov                 # Run tests with HTML coverage report
 ```
 
@@ -362,13 +362,13 @@ When contributing new features:
 * Test both success and failure scenarios
 * Update test documentation if needed
 
-All tests run in isolated temporary environments to prevent interference with your actual loom configuration.
+All tests run in isolated temporary environments to prevent interference with your actual dotz configuration.
 
 ---
 
 ## Roadmap
 
-loom is actively developed as a personal project with community input welcome. Here are some areas being explored:
+dotz is actively developed as a personal project with community input welcome. Here are some areas being explored:
 
 ### Planned Features
 
@@ -386,12 +386,12 @@ Contributions are welcome!
 
 ### Ways to Contribute
 
-* **Report bugs**: Found an issue? [Open a bug report](https://github.com/tTrmc/loom/issues/new?labels=bug&template=bug_report.md)
-* **Request features**: Have an idea? [Submit a feature request](https://github.com/tTrmc/loom/issues/new?labels=enhancement&template=feature_request.md)
+* **Report bugs**: Found an issue? [Open a bug report](https://github.com/tTrmc/dotz/issues/new?labels=bug&template=bug_report.md)
+* **Request features**: Have an idea? [Submit a feature request](https://github.com/tTrmc/dotz/issues/new?labels=enhancement&template=feature_request.md)
 * **Improve documentation**: Help make the docs clearer and more comprehensive
 * **Submit code**: Fix bugs or implement new features with a pull request
 * **Review PRs**: Help review and test pull requests from other contributors
-* **Share feedback**: Let me know how loom works for you and what could be better
+* **Share feedback**: Let me know how dotz works for you and what could be better
 
 ### Getting Started
 
@@ -399,8 +399,8 @@ Contributions are welcome!
 2. **Set up development environment**:
 
    ```bash
-   git clone https://github.com/yourusername/loom.git
-   cd loom
+   git clone https://github.com/yourusername/dotz.git
+   cd dotz
    ./setup-dev.sh  # Sets up virtual environment and installs dependencies
    ```
 
@@ -425,8 +425,8 @@ Contributions are welcome!
 ### Need Help?
 
 * Check out [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines
-* Browse [existing issues](https://github.com/tTrmc/loom/issues) to see what needs work
-* Join discussions in [pull requests](https://github.com/tTrmc/loom/pulls)
+* Browse [existing issues](https://github.com/tTrmc/dotz/issues) to see what needs work
+* Join discussions in [pull requests](https://github.com/tTrmc/dotz/pulls)
 * Feel free to ask questions in issues or discussions
 
 ---
@@ -435,16 +435,16 @@ Contributions are welcome!
 
 ### Getting Help
 
-* **Documentation**: Check this README and the built-in help (`loom --help`)
-* **Issues**: [Search existing issues](https://github.com/tTrmc/loom/issues) or create a new one
-* **Troubleshooting**: Use `loom diagnose` for common problems
+* **Documentation**: Check this README and the built-in help (`dotz --help`)
+* **Issues**: [Search existing issues](https://github.com/tTrmc/dotz/issues) or create a new one
+* **Troubleshooting**: Use `dotz diagnose` for common problems
 
 ### Reporting Issues
 
 When reporting bugs, please include:
 
 * Your operating system and Python version
-* loom version (`loom version`)
+* dotz version (`dotz version`)
 * Steps to reproduce the issue
 * Expected vs. actual behavior
 * Any error messages or logs
@@ -457,7 +457,7 @@ This project has benefited from the contributions and support of the following p
 
 ### Contributors
 
-[![Contributors](https://contrib.rocks/image?repo=tTrmc/loom)](https://github.com/tTrmc/loom/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=tTrmc/dotz)](https://github.com/tTrmc/dotz/graphs/contributors)
 
 ---
 
@@ -465,6 +465,6 @@ This project has benefited from the contributions and support of the following p
 
 This project is distributed under the **GPL-3.0-or-later** license. See the [LICENSE](LICENSE) file for details.
 
-By contributing to loom, you agree that your contributions will be licensed under the same license.
+By contributing to dotz, you agree that your contributions will be licensed under the same license.
 
 ---

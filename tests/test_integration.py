@@ -1,4 +1,4 @@
-"""Integration tests for loom functionality."""
+"""Integration tests for dotz functionality."""
 
 import json
 import os
@@ -10,7 +10,7 @@ import click
 import pytest
 from git import Repo
 
-from loom import core
+from dotz import core
 from tests.conftest import assert_symlink_correct, create_test_files
 
 
@@ -29,12 +29,12 @@ class TestEndToEndWorkflow:
         assert core.add_dotfile(Path(".bashrc"), quiet=True) is True
 
         # Verify file was copied and symlinked
-        loom_file = core.WORK_TREE / ".bashrc"
-        assert loom_file.exists()
-        assert_symlink_correct(dotfile, loom_file)
+        dotz_file = core.WORK_TREE / ".bashrc"
+        assert dotz_file.exists()
+        assert_symlink_correct(dotfile, dotz_file)
 
-        # Step 3: Modify file in loom repo
-        loom_file.write_text("# Modified bashrc\nexport EDITOR=vim\n")
+        # Step 3: Modify file in dotz repo
+        dotz_file.write_text("# Modified bashrc\nexport EDITOR=vim\n")
 
         # Step 4: Restore to get changes
         assert core.restore_dotfile(Path(".bashrc"), quiet=True) is True
@@ -149,7 +149,7 @@ class TestEndToEndWorkflow:
         dotfile.write_text("test content")
         assert core.add_dotfile(Path(".testfile"), quiet=True) is True
 
-        loom_file = core.WORK_TREE / ".testfile"
+        dotz_file = core.WORK_TREE / ".testfile"
 
         # Break the symlink
         dotfile.unlink()
@@ -165,7 +165,7 @@ class TestEndToEndWorkflow:
         assert results is not None
 
         # Verify repair
-        assert_symlink_correct(dotfile, loom_file)
+        assert_symlink_correct(dotfile, dotz_file)
 
 
 class TestErrorHandling:
@@ -288,9 +288,9 @@ class TestLargeFileOperations:
         assert core.add_dotfile(Path(".config"), quiet=True) is True
 
         # Verify structure is preserved
-        loom_config = core.WORK_TREE / ".config"
-        assert loom_config.exists()
-        assert len(list(loom_config.iterdir())) == 50
+        dotz_config = core.WORK_TREE / ".config"
+        assert dotz_config.exists()
+        assert len(list(dotz_config.iterdir())) == 50
 
     def test_file_count_accuracy(self, temp_home: Path) -> None:
         """Test file counting accuracy."""
@@ -325,9 +325,9 @@ class TestEdgeCases:
         assert core.add_dotfile(Path(".empty"), quiet=True) is True
 
         # Verify it was added correctly
-        loom_file = core.WORK_TREE / ".empty"
-        assert loom_file.exists()
-        assert loom_file.stat().st_size == 0
+        dotz_file = core.WORK_TREE / ".empty"
+        assert dotz_file.exists()
+        assert dotz_file.stat().st_size == 0
 
     def test_special_characters_in_filenames(self, temp_home: Path) -> None:
         """Test handling files with special characters."""
@@ -349,8 +349,8 @@ class TestEdgeCases:
                 result = core.add_dotfile(Path(filename), quiet=True)
                 # Some special characters might not be supported
                 if result:
-                    loom_file = core.WORK_TREE / filename
-                    assert loom_file.exists()
+                    dotz_file = core.WORK_TREE / filename
+                    assert dotz_file.exists()
             except (OSError, ValueError):
                 # Some systems don't support certain characters
                 pass
@@ -378,11 +378,11 @@ class TestEdgeCases:
         assert result is True
 
         # Verify deep file was included
-        loom_deep_file = core.WORK_TREE / ".config"
+        dotz_deep_file = core.WORK_TREE / ".config"
         for i in range(10):
-            loom_deep_file = loom_deep_file / f"level{i}"
-        loom_deep_file = loom_deep_file / "deep_file.conf"
-        assert loom_deep_file.exists()
+            dotz_deep_file = dotz_deep_file / f"level{i}"
+        dotz_deep_file = dotz_deep_file / "deep_file.conf"
+        assert dotz_deep_file.exists()
 
     def test_circular_symlinks(self, temp_home: Path) -> None:
         """Test handling of circular symlinks."""
@@ -449,6 +449,6 @@ class TestPerformance:
         assert result is True
 
         # Verify file was copied correctly
-        loom_file = core.WORK_TREE / ".large_config"
-        assert loom_file.exists()
-        assert loom_file.stat().st_size > 1000000  # Should be > 1MB
+        dotz_file = core.WORK_TREE / ".large_config"
+        assert dotz_file.exists()
+        assert dotz_file.stat().st_size > 1000000  # Should be > 1MB

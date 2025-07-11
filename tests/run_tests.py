@@ -15,7 +15,7 @@ def run_tests() -> int:
         "-m",
         "pytest",
         "tests/",
-        "--cov=src/loom",
+        "--cov=src/dotz",
         "--cov-report=term-missing",
         "--cov-report=html:htmlcov",
         "--cov-report=xml:coverage.xml",

@@ -1,1 +1,1 @@
-"""Test package for loom."""
+"""Test package for dotz."""

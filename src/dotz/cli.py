@@ -1,4 +1,4 @@
-"""CLI commands for loom - a Git-backed dotfiles manager."""
+"""CLI commands for dotz - a Git-backed dotfiles manager."""
 
 import json
 from contextlib import nullcontext
@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.status import Status
 from typing_extensions import Annotated
 
-from loom import core
+from dotz import core
 
 from .core import (
     add_dotfile,
@@ -46,35 +46,35 @@ MAX_DISPLAYED_FILES = 10
 MAX_DISPLAYED_BACKUPS = 5
 
 # Global app and console instances
-app = typer.Typer(help="loom - a Git-backed dotfiles manager")
+app = typer.Typer(help="dotz - a Git-backed dotfiles manager")
 console = Console()
 
 # Global path variables - initialized on first use
 HOME: Path
-LOOM_DIR: Path
+DOTZ_DIR: Path
 WORK_TREE: Path
 
 
 def get_cli_paths() -> Tuple[Path, Path, Path]:
     """Get CLI-related paths based on current home directory."""
     home = get_home_dir()
-    loom_dir = home / ".loom"
-    work_tree = loom_dir / "repo"
-    return home, loom_dir, work_tree
+    dotz_dir = home / ".dotz"
+    work_tree = dotz_dir / "repo"
+    return home, dotz_dir, work_tree
 
 
 def refresh_cli_paths() -> None:
     """Refresh CLI paths when HOME environment changes."""
-    global HOME, LOOM_DIR, WORK_TREE
-    HOME, LOOM_DIR, WORK_TREE = get_cli_paths()
+    global HOME, DOTZ_DIR, WORK_TREE
+    HOME, DOTZ_DIR, WORK_TREE = get_cli_paths()
 
 
 def update_cli_paths(home_dir: Path) -> None:
     """Update CLI paths for testing purposes."""
-    global HOME, LOOM_DIR, WORK_TREE
+    global HOME, DOTZ_DIR, WORK_TREE
     HOME = home_dir
-    LOOM_DIR = home_dir / ".loom"
-    WORK_TREE = home_dir / ".loom" / "repo"
+    DOTZ_DIR = home_dir / ".dotz"
+    WORK_TREE = home_dir / ".dotz" / "repo"
 
 
 # ============================================================================
@@ -117,7 +117,7 @@ def parse_backup_filename(backup_name: str) -> Tuple[str, str, str]:
 
 
 # Initialize global paths
-HOME, LOOM_DIR, WORK_TREE = get_cli_paths()
+HOME, DOTZ_DIR, WORK_TREE = get_cli_paths()
 
 
 @app.command()
@@ -132,11 +132,11 @@ def init(
         ),
     ] = False,
 ) -> None:
-    """Initialize a new loom repository."""
+    """Initialize a new dotz repository."""
     if not non_interactive and not remote:
-        typer.secho("loom Interactive Setup", fg=typer.colors.CYAN, bold=True)
+        typer.secho("dotz Interactive Setup", fg=typer.colors.CYAN, bold=True)
         typer.echo(
-            "Welcome! Let's configure your loom repository for managing dotfiles.\n"
+            "Welcome! Let's configure your dotz repository for managing dotfiles.\n"
         )
 
         # Remote URL configuration
@@ -191,7 +191,7 @@ def init(
         )
 
         typer.echo()
-        typer.secho("Initializing loom repository...", fg=typer.colors.BLUE)
+        typer.secho("Initializing dotz repository...", fg=typer.colors.BLUE)
     else:
         setup_dotfiles = False
 
@@ -233,7 +233,7 @@ def init(
                 typer.echo(f"  {f}")
 
             if typer.confirm(
-                f"\nAdd these {len(found_files)} files to loom?", default=True
+                f"\nAdd these {len(found_files)} files to dotz?", default=True
             ):
                 added_count = 0
                 for dotfile in found_files:
@@ -262,12 +262,12 @@ def init(
                 "No common dotfiles found in your home directory",
                 fg=typer.colors.YELLOW,
             )
-            typer.echo("You can add dotfiles later with: loom add <filename>")
+            typer.echo("You can add dotfiles later with: dotz add <filename>")
 
     # Show completion message
     typer.echo()
     typer.secho(
-        "Loom repository initialized successfully", fg=typer.colors.GREEN, bold=True
+        "Dotz repository initialized successfully", fg=typer.colors.GREEN, bold=True
     )
 
     if remote:
@@ -275,17 +275,17 @@ def init(
             "Next steps:",
             fg=typer.colors.CYAN,
         )
-        typer.echo("  Add more dotfiles: loom add <filename>")
-        typer.echo("  Push to remote: loom push")
-        typer.echo("  Check status: loom status")
+        typer.echo("  Add more dotfiles: dotz add <filename>")
+        typer.echo("  Push to remote: dotz push")
+        typer.echo("  Check status: dotz status")
     else:
         typer.secho(
             "Next steps:",
             fg=typer.colors.CYAN,
         )
-        typer.echo("  Add dotfiles: loom add <filename>")
-        typer.echo("  Add remote later: git -C ~/.loom/repo remote add origin <url>")
-        typer.echo("  Check status: loom status")
+        typer.echo("  Add dotfiles: dotz add <filename>")
+        typer.echo("  Add remote later: git -C ~/.dotz/repo remote add origin <url>")
+        typer.echo("  Check status: dotz status")
 
 
 # ============================================================================
@@ -304,7 +304,7 @@ def add(
     ),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ) -> None:
-    """Add files or directories to loom with progress tracking."""
+    """Add files or directories to dotz with progress tracking."""
     refresh_cli_paths()
 
     target_path = Path(path).expanduser()
@@ -439,8 +439,8 @@ def restore_all(
     ] = False,
 ) -> None:
     """
-    Restore all tracked dotfiles from the loom repository to your home directory.
-    Creates symlinks for all files currently tracked by loom.
+    Restore all tracked dotfiles from the dotz repository to your home directory.
+    Creates symlinks for all files currently tracked by dotz.
     This is useful for setting up dotfiles on a new system or when you want
     to restore all files at once.
     """
@@ -451,7 +451,7 @@ def restore_all(
         tracked_files = core.list_tracked_files()
 
         if not tracked_files:
-            typer.secho("No files tracked by loom to restore.", fg=typer.colors.YELLOW)
+            typer.secho("No files tracked by dotz to restore.", fg=typer.colors.YELLOW)
             return
 
         typer.secho(
@@ -551,7 +551,7 @@ def delete(
     ] = False,
 ) -> None:
     """
-    Remove a loom-managed file or directory and delete the symlink in your
+    Remove a dotz-managed file or directory and delete the symlink in your
     home directory.
     """
     success = delete_dotfile(path, push=push, quiet=quiet)
@@ -567,12 +567,12 @@ def delete(
 @app.command()
 def status() -> None:
     """
-    Show the status of your loom repo (untracked, modified, staged), and
-    dotfiles in $HOME not tracked by loom.
+    Show the status of your dotz repo (untracked, modified, staged), and
+    dotfiles in $HOME not tracked by dotz.
     """
     status_data = get_repo_status()
 
-    typer.secho("Loom repository status:", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Dotz repository status:", fg=typer.colors.WHITE, bold=True)
 
     if (
         not status_data["untracked"]
@@ -586,7 +586,7 @@ def status() -> None:
             for file in status_data["untracked"]:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
             typer.secho(
-                "  → Run 'loom commit -m \"Add new files\"' to commit these",
+                "  → Run 'dotz commit -m \"Add new files\"' to commit these",
                 fg=typer.colors.CYAN,
             )
         if status_data["modified"]:
@@ -594,8 +594,8 @@ def status() -> None:
             for file in status_data["modified"]:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
             typer.secho(
-                "  → Run 'loom diff' to see changes, "
-                "'loom commit -m \"Update dotfiles\"' to commit",
+                "  → Run 'dotz diff' to see changes, "
+                "'dotz commit -m \"Update dotfiles\"' to commit",
                 fg=typer.colors.CYAN,
             )
         if status_data["staged"]:
@@ -603,7 +603,7 @@ def status() -> None:
             for file in status_data["staged"]:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
             typer.secho(
-                "  → Run 'loom commit -m \"Commit staged changes\"' to commit",
+                "  → Run 'dotz commit -m \"Commit staged changes\"' to commit",
                 fg=typer.colors.CYAN,
             )
 
@@ -612,7 +612,7 @@ def status() -> None:
         for file in status_data["unpushed"]:
             typer.secho(f"  {file}", fg=typer.colors.YELLOW)
         typer.secho(
-            "  → Run 'loom push' to push commits to remote repository",
+            "  → Run 'dotz push' to push commits to remote repository",
             fg=typer.colors.CYAN,
         )
 
@@ -625,11 +625,11 @@ def status() -> None:
 @app.command()
 def list_files() -> None:
     """
-    List all files currently tracked by loom.
+    List all files currently tracked by dotz.
     """
     tracked_files = list_tracked_files()
     if not tracked_files:
-        typer.secho("No files tracked by loom.", fg=typer.colors.YELLOW)
+        typer.secho("No files tracked by dotz.", fg=typer.colors.YELLOW)
         return
 
     typer.secho("Tracked files:", fg=typer.colors.WHITE, bold=True)
@@ -653,7 +653,7 @@ def restore(
     ] = False,
 ) -> None:
     """
-    Restore a dotfile or directory from the loom repository to your home directory.
+    Restore a dotfile or directory from the dotz repository to your home directory.
     Overwrites any existing file or symlink at that location.
     """
     success = restore_dotfile(path, quiet=quiet, push=push)
@@ -668,7 +668,7 @@ def pull(
     ] = False,
 ) -> None:
     """
-    Pull the latest changes from the 'origin' remote into the local loom repository.
+    Pull the latest changes from the 'origin' remote into the local dotz repository.
     """
     success = pull_repo(quiet=quiet)
     if not success:
@@ -704,15 +704,15 @@ def watch() -> None:
 
 @app.command()
 def version() -> None:
-    """Show loom version."""
+    """Show dotz version."""
     try:
         from importlib.metadata import version as get_version
 
-        version_str = get_version("loomctl")
+        version_str = get_version("dotz")
     except ImportError:
         version_str = DEFAULT_VERSION
 
-    typer.secho(f"loom version {version_str}", fg=typer.colors.GREEN)
+    typer.secho(f"dotz version {version_str}", fg=typer.colors.GREEN)
 
 
 # ============================================================================
@@ -723,33 +723,33 @@ def version() -> None:
 @app.command()
 def completion() -> None:
     """Show instructions for enabling shell completion."""
-    typer.echo("Run: loom --install-completion")
+    typer.echo("Run: dotz --install-completion")
 
 
 @app.command()
 def diagnose() -> None:
     """
-    Diagnose common loom and git issues and print helpful advice.
+    Diagnose common dotz and git issues and print helpful advice.
     """
-    typer.secho("Loom Diagnostics", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Dotz Diagnostics", fg=typer.colors.WHITE, bold=True)
     typer.echo()
 
     # Check repo existence
-    if not LOOM_DIR.exists() or not WORK_TREE.exists():
+    if not DOTZ_DIR.exists() or not WORK_TREE.exists():
         typer.secho(
-            "ERROR: Loom repository not initialized", fg=typer.colors.RED, bold=True
+            "ERROR: Dotz repository not initialized", fg=typer.colors.RED, bold=True
         )
-        typer.secho("Solution: Run 'loom init' to initialize", fg=typer.colors.CYAN)
+        typer.secho("Solution: Run 'dotz init' to initialize", fg=typer.colors.CYAN)
         return
 
     # Check if .git exists
     git_dir = WORK_TREE / ".git"
     if not git_dir.exists():
         typer.secho(
-            "ERROR: No git directory found in loom repository", fg=typer.colors.RED
+            "ERROR: No git directory found in dotz repository", fg=typer.colors.RED
         )
         typer.secho(
-            "Solution: Try re-initializing with 'loom init'", fg=typer.colors.CYAN
+            "Solution: Try re-initializing with 'dotz init'", fg=typer.colors.CYAN
         )
         return
 
@@ -765,7 +765,7 @@ def diagnose() -> None:
     if not remotes:
         typer.secho("WARNING: No git remote configured", fg=typer.colors.YELLOW)
         typer.secho(
-            "Add remote: git -C ~/.loom/repo remote add origin <url>",
+            "Add remote: git -C ~/.dotz/repo remote add origin <url>",
             fg=typer.colors.CYAN,
         )
     else:
@@ -784,7 +784,7 @@ def diagnose() -> None:
                 fg=typer.colors.YELLOW,
             )
             typer.secho(
-                f"Set upstream: git -C ~/.loom/repo branch "
+                f"Set upstream: git -C ~/.dotz/repo branch "
                 f"--set-upstream-to=origin/{branch.name} {branch.name}",
                 fg=typer.colors.CYAN,
             )
@@ -802,17 +802,17 @@ def diagnose() -> None:
     # Check for uncommitted changes
     if repo.is_dirty(untracked_files=True):
         typer.secho("WARNING: Uncommitted changes detected", fg=typer.colors.YELLOW)
-        typer.secho("Check status: loom status", fg=typer.colors.CYAN)
+        typer.secho("Check status: dotz status", fg=typer.colors.CYAN)
     else:
         typer.secho("Repository is clean", fg=typer.colors.GREEN)
 
     # Check tracked directories
-    tracked_dirs_file = LOOM_DIR / "tracked_dirs.json"
+    tracked_dirs_file = DOTZ_DIR / "tracked_dirs.json"
     if not tracked_dirs_file.exists() or not json.loads(
         tracked_dirs_file.read_text() or "[]"
     ):
         typer.secho("WARNING: No tracked directories found", fg=typer.colors.YELLOW)
-        typer.secho("Add directories: loom add <directory>", fg=typer.colors.CYAN)
+        typer.secho("Add directories: dotz add <directory>", fg=typer.colors.CYAN)
     else:
         dirs = json.loads(tracked_dirs_file.read_text())
         typer.secho(f"Tracked directories: {', '.join(dirs)}", fg=typer.colors.GREEN)
@@ -824,7 +824,7 @@ def diagnose() -> None:
 # CONFIGURATION MANAGEMENT COMMANDS
 # ============================================================================
 
-config_app = typer.Typer(help="Manage loom configuration")
+config_app = typer.Typer(help="Manage dotz configuration")
 app.add_typer(config_app, name="config")
 
 
@@ -940,7 +940,7 @@ def config_list_patterns() -> None:
 @config_app.command("help")
 def config_help() -> None:
     """Show detailed help for configuration management."""
-    typer.secho("Loom Configuration Help", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Dotz Configuration Help", fg=typer.colors.WHITE, bold=True)
     typer.secho("=" * 50, fg=typer.colors.WHITE)
 
     typer.secho("\nFile Patterns:", fg=typer.colors.YELLOW, bold=True)
@@ -958,14 +958,14 @@ def config_help() -> None:
     typer.echo("  follow_symlinks: Whether to follow symbolic links")
 
     typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
-    typer.echo("  loom config add-pattern '*.py'        # Track Python files")
-    typer.echo("  loom config add-pattern '.env*'       # Track environment files")
-    typer.echo("  loom config add-pattern '*.log' -t exclude  # Ignore log files")
+    typer.echo("  dotz config add-pattern '*.py'        # Track Python files")
+    typer.echo("  dotz config add-pattern '.env*'       # Track environment files")
+    typer.echo("  dotz config add-pattern '*.log' -t exclude  # Ignore log files")
     typer.echo(
-        "  loom config set search_settings.recursive false  "
+        "  dotz config set search_settings.recursive false  "
         "# Disable recursive search"
     )
-    typer.echo("  loom config show file_patterns.include  # Show include patterns")
+    typer.echo("  dotz config show file_patterns.include  # Show include patterns")
 
     typer.secho("\nDefault patterns include:", fg=typer.colors.CYAN)
     typer.echo("  Dotfiles (.*), config files (*.conf, *.config, *.cfg, *.ini)")
@@ -976,7 +976,7 @@ def config_help() -> None:
     typer.echo("  Temporary files (*.log, *.tmp)")
 
     typer.secho("\nConfiguration is stored in:", fg=typer.colors.MAGENTA)
-    typer.echo("  ~/.loom/config.json")
+    typer.echo("  ~/.dotz/config.json")
 
 
 @app.command()
@@ -989,14 +989,14 @@ def clone(
     ] = False,
 ) -> None:
     """
-    Clone an existing loom repository from a remote URL and automatically restore
+    Clone an existing dotz repository from a remote URL and automatically restore
     all tracked dotfiles to their home directory locations.
 
     This enables automated setup on fresh systems.
 
     Examples:
-      loom clone git@github.com:username/dotfiles.git
-      loom clone https://github.com/username/dotfiles.git
+      dotz clone git@github.com:username/dotfiles.git
+      dotz clone https://github.com/username/dotfiles.git
     """
     success = clone_repo(remote_url, quiet=quiet)
     if not success:
@@ -1014,10 +1014,10 @@ def validate(
     ] = False,
 ) -> None:
     """
-    Validate all symlinks managed by loom and optionally repair broken ones.
+    Validate all symlinks managed by dotz and optionally repair broken ones.
 
     This command checks that all tracked dotfiles are properly symlinked from
-    your home directory to the loom repository. It can detect:
+    your home directory to the dotz repository. It can detect:
     - Broken symlinks (pointing to non-existent files)
     - Missing symlinks (tracked files not linked in home directory)
     - Wrong targets (symlinks pointing to wrong locations)
@@ -1051,7 +1051,7 @@ def validate(
 # BACKUP MANAGEMENT COMMANDS
 # ============================================================================
 
-backup_app = typer.Typer(help="Manage loom backups")
+backup_app = typer.Typer(help="Manage dotz backups")
 app.add_typer(backup_app, name="backup")
 
 
@@ -1074,7 +1074,7 @@ def backup_create(
     """
     Create a manual backup of a file or directory.
 
-    This creates a timestamped backup in the loom backups directory.
+    This creates a timestamped backup in the dotz backups directory.
     Useful before making manual changes to important dotfiles.
     """
     home = get_home_dir()
@@ -1160,7 +1160,7 @@ def backup_restore(
         str,
         typer.Argument(
             help="Backup filename to restore from "
-            "(use 'loom backup list' to see available backups)"
+            "(use 'dotz backup list' to see available backups)"
         ),
     ],
     quiet: Annotated[
@@ -1192,7 +1192,7 @@ def backup_restore(
             err=True,
         )
         typer.secho(
-            "Use 'loom backup list' to see available backups.",
+            "Use 'dotz backup list' to see available backups.",
             fg=typer.colors.YELLOW,
         )
         raise typer.Exit(code=1)
@@ -1338,18 +1338,18 @@ def backup_clean(
 @backup_app.command("help")
 def backup_help() -> None:
     """Show detailed help for backup management."""
-    typer.secho("Loom Backup Management Help", fg=typer.colors.WHITE, bold=True)
+    typer.secho("Dotz Backup Management Help", fg=typer.colors.WHITE, bold=True)
     typer.secho("=" * 50, fg=typer.colors.WHITE)
 
     typer.secho("\nBackup System:", fg=typer.colors.YELLOW, bold=True)
-    typer.echo("  Loom automatically creates backups when:")
+    typer.echo("  Dotz automatically creates backups when:")
     typer.echo("  Restoring files that would overwrite existing files")
     typer.echo("  Cloning a repository that would overwrite existing files")
     typer.echo("  Running operations that modify existing dotfiles")
-    typer.echo("  You manually create backups with 'loom backup create'")
+    typer.echo("  You manually create backups with 'dotz backup create'")
 
     typer.secho("\nBackup Location:", fg=typer.colors.YELLOW, bold=True)
-    typer.echo("  All backups are stored in: ~/.loom/backups/")
+    typer.echo("  All backups are stored in: ~/.dotz/backups/")
     typer.echo("  Backup files use format: <path>_<operation>_<timestamp>")
 
     typer.secho("\nCommands:", fg=typer.colors.YELLOW, bold=True)
@@ -1360,14 +1360,14 @@ def backup_help() -> None:
     typer.echo("  help      Show this help message")
 
     typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
-    typer.echo("  loom backup create .bashrc              " "# Backup .bashrc manually")
-    typer.echo("  loom backup list                        " "# List all backups")
-    typer.echo("  loom backup list --verbose              " "# List with details")
+    typer.echo("  dotz backup create .bashrc              " "# Backup .bashrc manually")
+    typer.echo("  dotz backup list                        " "# List all backups")
+    typer.echo("  dotz backup list --verbose              " "# List with details")
     typer.echo(
-        "  loom backup restore .bashrc_manual_20250708_143022  " "# Restore backup"
+        "  dotz backup restore .bashrc_manual_20250708_143022  " "# Restore backup"
     )
-    typer.echo("  loom backup clean --older-than 7        " "# Remove old backups")
-    typer.echo("  loom backup clean --older-than 30 --yes " "# Skip confirmation")
+    typer.echo("  dotz backup clean --older-than 7        " "# Remove old backups")
+    typer.echo("  dotz backup clean --older-than 30 --yes " "# Skip confirmation")
 
     typer.secho("\nSafety Features:", fg=typer.colors.CYAN, bold=True)
     typer.echo("  Existing files are automatically backed up before restoration")
@@ -1390,7 +1390,7 @@ def commit(
     ] = False,
 ) -> None:
     """
-    Commit modified files in the loom repository.
+    Commit modified files in the dotz repository.
 
     This command stages and commits changes to tracked dotfiles.
     If no files are specified, all modified files will be committed.

@@ -19,7 +19,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in loom, please report it by emailing [salemmoustafa442@gmail.com](mailto:salemmoustafa442@gmail.com).
+If you discover a security vulnerability in dotz, please report it by emailing [salemmoustafa442@gmail.com](mailto:salemmoustafa442@gmail.com).
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
@@ -52,7 +52,7 @@ When reporting a vulnerability, please include:
 
 ## Security Considerations
 
-loom manages sensitive configuration files that may contain:
+dotz manages sensitive configuration files that may contain:
 
 * API keys and authentication tokens
 * Database credentials and connection strings
@@ -81,8 +81,8 @@ loom manages sensitive configuration files that may contain:
 
 ### File Management
 
-1. **Review files before adding**: Always review what files you're adding to loom
-2. **Use .gitignore patterns**: Exclude sensitive files using loom's pattern system
+1. **Review files before adding**: Always review what files you're adding to dotz
+2. **Use .gitignore patterns**: Exclude sensitive files using dotz's pattern system
 3. **Rotate sensitive credentials**: Regularly rotate any credentials stored in config files
 4. **Audit tracked files**: Periodically review what files are being tracked
 
@@ -90,25 +90,25 @@ loom manages sensitive configuration files that may contain:
 
 1. **Use environment variables**: Consider environment variables for sensitive values instead of config files
 2. **Secure local environment**: Ensure your local development environment is secure
-3. **Regular updates**: Keep loom and its dependencies updated
+3. **Regular updates**: Keep dotz and its dependencies updated
 4. **Backup encryption**: Consider encrypting sensitive backup files
 
 ### Examples of Files to Exclude
 
 ```bash
 # Add patterns to exclude sensitive files
-loom config add-pattern "*.key" --type exclude
-loom config add-pattern "*_rsa" --type exclude
-loom config add-pattern "*.pem" --type exclude
-loom config add-pattern "*password*" --type exclude
-loom config add-pattern "*secret*" --type exclude
+dotz config add-pattern "*.key" --type exclude
+dotz config add-pattern "*_rsa" --type exclude
+dotz config add-pattern "*.pem" --type exclude
+dotz config add-pattern "*password*" --type exclude
+dotz config add-pattern "*secret*" --type exclude
 ```
 
 ## Security Features
 
 ### Built-in Protections
 
-* **Local operation**: loom operates locally and only syncs when explicitly requested
+* **Local operation**: dotz operates locally and only syncs when explicitly requested
 * **No automatic cloud syncing**: No data is sent to external services without user consent
 * **Git-based versioning**: Complete audit trail of all changes
 * **Symlink-based approach**: Preserves original file permissions and ownership
@@ -132,8 +132,8 @@ loom config add-pattern "*secret*" --type exclude
 
 This security policy applies to:
 
-* The loom project hosted at <https://github.com/tTrmc/loom>
-* The loomctl package distributed via PyPI
+* The dotz project hosted at <https://github.com/tTrmc/dotz>
+* The dotzctl package distributed via PyPI
 * Official documentation and examples
 * Related tooling and scripts in the repository
 
@@ -161,4 +161,4 @@ For security-related questions or concerns:
 * **GitHub Issues**: For general security questions (non-sensitive)
 * **GitHub Security**: For coordinated disclosure
 
-Thank you for helping keep loom secure!
+Thank you for helping keep dotz secure!

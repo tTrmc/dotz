@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "loomctl"
+name = "dotz"
 version = "0.3.0"
-description = "loomctl is a minimal, Git-backed dotfiles manager for Linux"
+description = "dotz is a minimal, Git-backed dotfiles manager for Linux"
 requires-python = ">=3.9"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -14,7 +14,7 @@ authors = [
   {name = "Moustafa Salem", email = "salemmoustafa442@gmail.com"}
 ]
 
-keywords = ["dotfiles", "git", "configuration", "linux", "symlink", "backup", "loomctl"]
+keywords = ["dotfiles", "git", "configuration", "linux", "symlink", "backup", "dotz"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -53,14 +53,14 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tTrmc/loom"
-Repository = "https://github.com/tTrmc/loom"
-Documentation = "https://github.com/tTrmc/loom#readme"
-Issues = "https://github.com/tTrmc/loom/issues"
-Changelog = "https://github.com/tTrmc/loom/releases"
+Homepage = "https://github.com/tTrmc/dotz"
+Repository = "https://github.com/tTrmc/dotz"
+Documentation = "https://github.com/tTrmc/dotz#readme"
+Issues = "https://github.com/tTrmc/dotz/issues"
+Changelog = "https://github.com/tTrmc/dotz/releases"
 
 [project.scripts]
-loom = "loom.cli:app"
+dotz = "dotz.cli:app"
 
 # Tool configurations
 [tool.setuptools]
@@ -70,7 +70,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-loom = ["py.typed"]
+dotz = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -155,7 +155,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "loom.*",
+    "dotz.*",
 ]
 ignore_missing_imports = true
 

@@ -1,9 +1,9 @@
 #!/bin/bash
-# Development setup script for loom
+# Development setup script for dotz
 
 set -e
 
-echo "Setting up loom development environment..."
+echo "Setting up dotz development environment..."
 
 # Check if Python 3.9+ is available
 python_version=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1-2)
@@ -50,5 +50,5 @@ echo "  make test          # Run tests"
 echo "  make test-cov      # Run tests with coverage"
 echo "  make lint          # Run linting"
 echo "  make format        # Format code"
-echo "  loom --help     # Test CLI"
+echo "  dotz --help     # Test CLI"
 echo ""

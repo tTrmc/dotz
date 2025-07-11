@@ -1,4 +1,4 @@
-"""Tests for loom.watcher module."""
+"""Tests for dotz.watcher module."""
 
 import json
 import os
@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 from watchdog.events import FileCreatedEvent, FileModifiedEvent
 
-from loom import watcher
+from dotz import watcher
 from tests.conftest import create_test_files
 
 
@@ -20,14 +20,14 @@ class TestWatcherPaths:
         paths = watcher.get_watcher_paths(temp_home)
 
         assert paths["home"] == temp_home
-        assert paths["loom_dir"] == temp_home / ".loom"
+        assert paths["dotz_dir"] == temp_home / ".dotz"
 
     def test_update_watcher_paths(self, temp_home: Path) -> None:
         """Test updating watcher paths."""
         watcher.update_watcher_paths(temp_home)
 
         assert watcher.HOME == temp_home
-        assert watcher.LOOM_DIR == temp_home / ".loom"
+        assert watcher.DOTZ_DIR == temp_home / ".dotz"
 
 
 class TestTrackedDirectories:
@@ -42,11 +42,11 @@ class TestTrackedDirectories:
 
     def test_get_tracked_dirs_with_data(self, temp_home: Path) -> None:
         """Test getting tracked dirs with existing data."""
-        loom_dir = temp_home / ".loom"
-        loom_dir.mkdir()
+        dotz_dir = temp_home / ".dotz"
+        dotz_dir.mkdir()
 
         tracked_dirs_data = ["/home/user/.config", "/home/user/.local"]
-        tracked_file = loom_dir / "tracked_dirs.json"
+        tracked_file = dotz_dir / "tracked_dirs.json"
         tracked_file.write_text(json.dumps(tracked_dirs_data))
 
         watcher.update_watcher_paths(temp_home)
@@ -56,10 +56,10 @@ class TestTrackedDirectories:
 
     def test_get_tracked_dirs_invalid_json(self, temp_home: Path) -> None:
         """Test getting tracked dirs with invalid JSON."""
-        loom_dir = temp_home / ".loom"
-        loom_dir.mkdir()
+        dotz_dir = temp_home / ".dotz"
+        dotz_dir.mkdir()
 
-        tracked_file = loom_dir / "tracked_dirs.json"
+        tracked_file = dotz_dir / "tracked_dirs.json"
         tracked_file.write_text("not valid json")
 
         watcher.update_watcher_paths(temp_home)
@@ -69,10 +69,10 @@ class TestTrackedDirectories:
 
     def test_get_tracked_dirs_non_list(self, temp_home: Path) -> None:
         """Test getting tracked dirs when data is not a list."""
-        loom_dir = temp_home / ".loom"
-        loom_dir.mkdir()
+        dotz_dir = temp_home / ".dotz"
+        dotz_dir.mkdir()
 
-        tracked_file = loom_dir / "tracked_dirs.json"
+        tracked_file = dotz_dir / "tracked_dirs.json"
         tracked_file.write_text('{"not": "a list"}')
 
         watcher.update_watcher_paths(temp_home)
@@ -84,7 +84,7 @@ class TestTrackedDirectories:
 class TestIsInTrackedDirectory:
     """Test checking if files are in tracked directories."""
 
-    @patch("loom.watcher.ensure_repo")
+    @patch("dotz.watcher.ensure_repo")
     def test_is_in_tracked_directory_true(
         self, mock_ensure_repo, temp_home: Path
     ) -> None:
@@ -97,7 +97,7 @@ class TestIsInTrackedDirectory:
 
         assert result is True
 
-    @patch("loom.watcher.ensure_repo")
+    @patch("dotz.watcher.ensure_repo")
     def test_is_in_tracked_directory_false(
         self, mock_ensure_repo, temp_home: Path
     ) -> None:
@@ -110,7 +110,7 @@ class TestIsInTrackedDirectory:
 
         assert result is False
 
-    @patch("loom.watcher.ensure_repo")
+    @patch("dotz.watcher.ensure_repo")
     def test_is_in_tracked_directory_parent_match(
         self, mock_ensure_repo, temp_home: Path
     ) -> None:
@@ -124,12 +124,12 @@ class TestIsInTrackedDirectory:
         assert result is True
 
 
-class TestLoomEventHandler:
-    """Test the LoomEventHandler class."""
+class TestDotzEventHandler:
+    """Test the DotzEventHandler class."""
 
     def setup_method(self) -> None:
         """Set up event handler for tests."""
-        with patch("loom.watcher.load_config") as mock_load:
+        with patch("dotz.watcher.load_config") as mock_load:
             mock_load.return_value = {
                 "file_patterns": {
                     "include": [".*", "*.conf", "*.json"],
@@ -137,7 +137,7 @@ class TestLoomEventHandler:
                 },
                 "search_settings": {"case_sensitive": False},
             }
-            self.handler = watcher.LoomEventHandler()
+            self.handler = watcher.DotzEventHandler()
 
     def test_should_track_file_match(self) -> None:
         """Test file matching include patterns."""
@@ -155,8 +155,8 @@ class TestLoomEventHandler:
         assert self.handler.should_track_file("document.pdf") is False
         assert self.handler.should_track_file("script.py") is False
 
-    @patch("loom.watcher.add_dotfile")
-    @patch("loom.watcher.is_in_tracked_directory")
+    @patch("dotz.watcher.add_dotfile")
+    @patch("dotz.watcher.is_in_tracked_directory")
     @patch("os.path.islink")
     def test_on_created_file_tracked(
         self, mock_islink, mock_is_tracked, mock_add, temp_home: Path
@@ -176,8 +176,8 @@ class TestLoomEventHandler:
         # Should have called add_dotfile
         mock_add.assert_called_once()
 
-    @patch("loom.watcher.add_dotfile")
-    @patch("loom.watcher.is_in_tracked_directory")
+    @patch("dotz.watcher.add_dotfile")
+    @patch("dotz.watcher.is_in_tracked_directory")
     @patch("os.path.islink")
     def test_on_created_file_already_tracked(
         self, mock_islink, mock_is_tracked, mock_add, temp_home: Path
@@ -196,7 +196,7 @@ class TestLoomEventHandler:
         # Should not have called add_dotfile
         mock_add.assert_not_called()
 
-    @patch("loom.watcher.add_dotfile")
+    @patch("dotz.watcher.add_dotfile")
     @patch("os.path.islink")
     def test_on_created_symlink_ignored(
         self, mock_islink, mock_add, temp_home: Path
@@ -215,7 +215,7 @@ class TestLoomEventHandler:
 
     def test_on_created_directory_ignored(self, temp_home: Path) -> None:
         """Test that directory creation is ignored."""
-        with patch("loom.watcher.add_dotfile") as mock_add:
+        with patch("dotz.watcher.add_dotfile") as mock_add:
             # Create event for a directory
             event = FileCreatedEvent(str(temp_home / ".new_dir"))
             event.is_directory = True
@@ -225,8 +225,8 @@ class TestLoomEventHandler:
             # Should not have called add_dotfile
             mock_add.assert_not_called()
 
-    @patch("loom.watcher.add_dotfile")
-    @patch("loom.watcher.is_in_tracked_directory")
+    @patch("dotz.watcher.add_dotfile")
+    @patch("dotz.watcher.is_in_tracked_directory")
     @patch("os.path.islink")
     def test_on_created_file_not_tracked(
         self, mock_islink, mock_is_tracked, mock_add, temp_home: Path
@@ -245,7 +245,7 @@ class TestLoomEventHandler:
         # Should not have called add_dotfile (doesn't match patterns)
         mock_add.assert_not_called()
 
-    @patch("loom.watcher.load_config")
+    @patch("dotz.watcher.load_config")
     def test_on_modified_config_reload(self, mock_load, temp_home: Path) -> None:
         """Test config reload when config file is modified."""
         new_config = {
@@ -255,7 +255,7 @@ class TestLoomEventHandler:
         mock_load.return_value = new_config
 
         # Create event for config file modification
-        config_path = str(temp_home / ".loom" / "config.json")
+        config_path = str(temp_home / ".dotz" / "config.json")
         event = FileModifiedEvent(config_path)
 
         self.handler.on_modified(event)
@@ -268,7 +268,7 @@ class TestLoomEventHandler:
         """Test that non-config file modifications don't reload config."""
         old_config = self.handler.config
 
-        with patch("loom.watcher.load_config") as mock_load:
+        with patch("dotz.watcher.load_config") as mock_load:
             # Create event for non-config file
             event = FileModifiedEvent(str(temp_home / ".bashrc"))
 
@@ -281,8 +281,8 @@ class TestLoomEventHandler:
     def test_on_created_bytes_filename(self, temp_home: Path) -> None:
         """Test handling file creation with bytes filename."""
         with (
-            patch("loom.watcher.add_dotfile") as mock_add,
-            patch("loom.watcher.is_in_tracked_directory") as mock_is_tracked,
+            patch("dotz.watcher.add_dotfile") as mock_add,
+            patch("dotz.watcher.is_in_tracked_directory") as mock_is_tracked,
             patch("os.path.islink") as mock_islink,
             patch("os.path.basename") as mock_basename,
         ):
@@ -303,8 +303,8 @@ class TestLoomEventHandler:
 class TestWatcherMain:
     """Test the main watcher function."""
 
-    @patch("loom.watcher.Observer")
-    @patch("loom.watcher.get_tracked_dirs")
+    @patch("dotz.watcher.Observer")
+    @patch("dotz.watcher.get_tracked_dirs")
     def test_main_no_tracked_dirs(
         self, mock_get_dirs, mock_observer_class, temp_home: Path
     ) -> None:
@@ -315,11 +315,11 @@ class TestWatcherMain:
             watcher.main()
 
             mock_print.assert_called_with(
-                "No tracked directories. Add one with loom add <dir>"
+                "No tracked directories. Add one with dotz add <dir>"
             )
 
-    @patch("loom.watcher.Observer")
-    @patch("loom.watcher.get_tracked_dirs")
+    @patch("dotz.watcher.Observer")
+    @patch("dotz.watcher.get_tracked_dirs")
     @patch("time.sleep")
     def test_main_with_tracked_dirs(
         self, mock_sleep, mock_get_dirs, mock_observer_class, temp_home: Path
@@ -340,8 +340,8 @@ class TestWatcherMain:
         mock_observer.stop.assert_called_once()
         mock_observer.join.assert_called_once()
 
-    @patch("loom.watcher.Observer")
-    @patch("loom.watcher.get_tracked_dirs")
+    @patch("dotz.watcher.Observer")
+    @patch("dotz.watcher.get_tracked_dirs")
     @patch("time.sleep")
     def test_main_keyboard_interrupt(
         self, mock_sleep, mock_get_dirs, mock_observer_class, temp_home: Path
@@ -366,27 +366,27 @@ class TestIntegration:
 
     def test_event_handler_with_real_config(self, temp_home: Path) -> None:
         """Test event handler with real configuration loading."""
-        # Create loom directory and config
-        loom_dir = temp_home / ".loom"
-        loom_dir.mkdir()
+        # Create dotz directory and config
+        dotz_dir = temp_home / ".dotz"
+        dotz_dir.mkdir()
 
         config = {
             "file_patterns": {"include": [".*", "*.txt"], "exclude": ["*.log"]},
             "search_settings": {"case_sensitive": False},
         }
 
-        config_file = loom_dir / "config.json"
+        config_file = dotz_dir / "config.json"
         config_file.write_text(json.dumps(config))
 
-        with patch("loom.watcher.LOOM_DIR", loom_dir):
-            handler = watcher.LoomEventHandler()
+        with patch("dotz.watcher.DOTZ_DIR", dotz_dir):
+            handler = watcher.DotzEventHandler()
 
             # Test file matching
             assert handler.should_track_file(".bashrc") is True
             assert handler.should_track_file("notes.txt") is True
             assert handler.should_track_file("debug.log") is False
 
-    @patch("loom.watcher.ensure_repo")
+    @patch("dotz.watcher.ensure_repo")
     def test_tracked_directory_check_integration(
         self, mock_ensure_repo, temp_home: Path
     ) -> None:

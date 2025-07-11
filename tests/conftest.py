@@ -11,7 +11,7 @@ from unittest.mock import Mock
 import pytest
 from git import Repo
 
-from loom import cli, core, watcher
+from dotz import cli, core, watcher
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def temp_home(tmp_path: Path) -> Generator[Path, None, None]:
     old_home = os.environ.get("HOME")
     os.environ["HOME"] = str(home_dir)
 
-    # Update loom paths to use the temp home
+    # Update dotz paths to use the temp home
     core.update_paths(home_dir)
     watcher.update_watcher_paths(home_dir)
     cli.update_cli_paths(home_dir)
@@ -76,35 +76,35 @@ def sample_config_dir(temp_home: Path) -> Path:
 
 
 @pytest.fixture
-def initialized_loom(temp_home: Path) -> Path:
-    """Initialize a loom repository in temp home."""
-    loom_dir = temp_home / ".loom"
-    loom_dir.mkdir()
+def initialized_dotz(temp_home: Path) -> Path:
+    """Initialize a dotz repository in temp home."""
+    dotz_dir = temp_home / ".dotz"
+    dotz_dir.mkdir()
 
-    work_tree = loom_dir / "repo"
+    work_tree = dotz_dir / "repo"
     work_tree.mkdir()
 
     # Initialize git repo
     repo = Repo.init(str(work_tree))
 
     # Create initial commit
-    (work_tree / "README.md").write_text("# Loom repository\n")
+    (work_tree / "README.md").write_text("# Dotz repository\n")
     repo.index.add(["README.md"])
     repo.index.commit("Initial commit")
 
     # Create config
-    config_file = loom_dir / "config.json"
+    config_file = dotz_dir / "config.json"
     config_file.write_text(json.dumps(core.DEFAULT_CONFIG, indent=2))
 
     # Create tracked dirs file
-    tracked_dirs_file = loom_dir / "tracked_dirs.json"
+    tracked_dirs_file = dotz_dir / "tracked_dirs.json"
     tracked_dirs_file.write_text("[]")
 
     # Create backups directory
-    backup_dir = loom_dir / "backups"
+    backup_dir = dotz_dir / "backups"
     backup_dir.mkdir()
 
-    return loom_dir
+    return dotz_dir
 
 
 @pytest.fixture

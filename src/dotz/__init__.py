@@ -1,7 +1,7 @@
 """
-loom - A minimal, Git-backed dotfiles manager for Linux.
+dotz - A minimal, Git-backed dotfiles manager for Linux.
 
-loom simplifies tracking, versioning, and synchronizing your configuration
+dotz simplifies tracking, versioning, and synchronizing your configuration
 files across machines using Git and automatic symlinking.
 """
 
