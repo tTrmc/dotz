@@ -587,7 +587,7 @@ def status() -> None:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
             typer.secho(
                 "  → Run 'loom commit -m \"Add new files\"' to commit these",
-                fg=typer.colors.CYAN
+                fg=typer.colors.CYAN,
             )
         if status_data["modified"]:
             typer.secho("Modified files:", fg=typer.colors.YELLOW)
@@ -596,7 +596,7 @@ def status() -> None:
             typer.secho(
                 "  → Run 'loom diff' to see changes, "
                 "'loom commit -m \"Update dotfiles\"' to commit",
-                fg=typer.colors.CYAN
+                fg=typer.colors.CYAN,
             )
         if status_data["staged"]:
             typer.secho("Staged files:", fg=typer.colors.YELLOW)
@@ -604,7 +604,7 @@ def status() -> None:
                 typer.secho(f"  {file}", fg=typer.colors.YELLOW)
             typer.secho(
                 "  → Run 'loom commit -m \"Commit staged changes\"' to commit",
-                fg=typer.colors.CYAN
+                fg=typer.colors.CYAN,
             )
 
     if status_data["unpushed"]:
@@ -613,7 +613,7 @@ def status() -> None:
             typer.secho(f"  {file}", fg=typer.colors.YELLOW)
         typer.secho(
             "  → Run 'loom push' to push commits to remote repository",
-            fg=typer.colors.CYAN
+            fg=typer.colors.CYAN,
         )
 
     if status_data["untracked_home_dotfiles"]:
@@ -1379,12 +1379,11 @@ def backup_help() -> None:
 @app.command()
 def commit(
     message: Annotated[
-        str,
-        typer.Option("--message", "-m", help="Commit message")
+        str, typer.Option("--message", "-m", help="Commit message")
     ] = "",
     files: Annotated[
         Optional[List[str]],
-        typer.Option("--file", "-f", help="Specific files to commit (optional)")
+        typer.Option("--file", "-f", help="Specific files to commit (optional)"),
     ] = None,
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Suppress output")
@@ -1421,7 +1420,7 @@ def commit(
 def diff(
     files: Annotated[
         Optional[List[str]],
-        typer.Argument(help="Files to show diff for (optional - shows all if empty)")
+        typer.Argument(help="Files to show diff for (optional - shows all if empty)"),
     ] = None,
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Suppress output")
