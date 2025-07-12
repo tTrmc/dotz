@@ -12,6 +12,7 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
+
 1. Run command '...'
 2. See error
 
@@ -20,11 +21,13 @@ A clear and concise description of what you expected to happen.
 
 **Error output**
 If applicable, paste the error message or output:
+
 ```
 paste error here
 ```
 
 **Environment (please complete the following information):**
+
 - OS: [e.g. Ubuntu 22.04, Arch Linux]
 - Python version: [e.g. 3.9.7]
 - dotz version: [e.g. 0.3.0]
@@ -32,6 +35,7 @@ paste error here
 
 **Configuration**
 If relevant, share your dotz configuration:
+
 ```bash
 dotz config show
 ```

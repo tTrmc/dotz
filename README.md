@@ -99,8 +99,6 @@ dotz --help
 * Python 3.9 or newer
 * Git
 
-
-
 >[!CAUTION]
 >**NEVER use public Git repositories with dotz.** Your dotfiles often contain:
 >
@@ -110,8 +108,6 @@ dotz --help
 >* Application configurations with sensitive data
 >
 >**Always use private repositories** or consider excluding sensitive files with dotz's pattern configuration.
-
-
 
 ## Quick Start
 
@@ -150,8 +146,6 @@ dotz pull
 # Push your changes
 dotz push
 ```
-
-
 
 ## Usage
 
@@ -249,8 +243,6 @@ dotz config reset             # Reset to defaults
 dotz config help              # Show detailed help
 ```
 
-
-
 ## Project Structure
 
 ```text
@@ -272,7 +264,7 @@ dotz/
 ├── tests/
 │   ├── conftest.py         # Shared pytest fixtures
 │   ├── test_cli.py         # CLI command tests
-│   ├── test_cli_config.py  # Configuration command tests  
+│   ├── test_cli_config.py  # Configuration command tests
 │   ├── test_core.py        # Core functionality tests
 │   └── test_watcher.py     # File watching tests
 ├── pyproject.toml          # Project metadata and dependencies
@@ -283,8 +275,6 @@ dotz/
 ```
 
 The `.git` folder is created inside `~/.dotz/repo` once you initialize dotz.
-
-
 
 ## Configuration
 
@@ -318,14 +308,12 @@ Use the `dotz config` commands to customize which files are tracked:
 # Add Python files to tracking
 dotz config add-pattern "*.py"
 
-# Exclude compiled Python files  
+# Exclude compiled Python files
 dotz config add-pattern "*.pyc" --type exclude
 
 # Disable recursive search
 dotz config set search_settings.recursive false
 ```
-
-
 
 ## Testing
 
@@ -441,8 +429,6 @@ Contributions are welcome!
 * Join discussions in [pull requests](https://github.com/tTrmc/dotz/pulls)
 * Feel free to ask questions in issues or discussions
 
-
-
 ## Support
 
 ### Getting Help
@@ -461,8 +447,6 @@ When reporting bugs, please include:
 * Expected vs. actual behavior
 * Any error messages or logs
 
-
-
 ## Acknowledgments
 
 This project has benefited from the contributions and support of the following people:
@@ -471,12 +455,8 @@ This project has benefited from the contributions and support of the following p
 
 [![Contributors](https://contrib.rocks/image?repo=tTrmc/dotz)](https://github.com/tTrmc/dotz/graphs/contributors)
 
-
-
 ## License
 
 This project is distributed under the **GPL-3.0-or-later** license. See the [LICENSE](LICENSE) file for details.
 
 By contributing to dotz, you agree that your contributions will be licensed under the same license.
-
-

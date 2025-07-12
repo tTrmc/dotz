@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - **BREAKING**: Project renamed from "dotkeep" to "dotz"
-- Command changed from `dotkeep` to `dotz`  
+- Command changed from `dotkeep` to `dotz`
 - Configuration directory changed from `~/.dotkeep` to `~/.dotz`
 - Package name changed from `dotkeepctl` to `dotz`
 
@@ -122,32 +122,32 @@ This is the first public release.
 
 ### Features
 
-- **Easy setup:**  
-  Initialize your dotfiles repo with `dotkeep init`.  
+- **Easy setup:**
+  Initialize your dotfiles repo with `dotkeep init`.
   The Git repository is stored in `~/.dotkeep/repo`.
 
-- **Git-based versioning:**  
-  All changes are tracked with Git.  
+- **Git-based versioning:**
+  All changes are tracked with Git.
   Supports local history, branching, and remote sync.
 
-- **Add and remove dotfiles:**  
+- **Add and remove dotfiles:**
   - `dotkeep add <file>`: Copies a file into the repo, commits it, and symlinks it from your home directory.
   - `dotkeep delete <file>`: Removes the symlink and the file from the repo and Git.
 
-- **Symlink management:**  
+- **Symlink management:**
   Automatically replaces managed files in `$HOME` with symlinks to the repo.
 
-- **Status overview:**  
+- **Status overview:**
   `dotkeep status` shows untracked, modified, and staged files in your dotkeep repo.
 
-- **Remote sync:**  
+- **Remote sync:**
   - `dotkeep push`: Push all local commits to your remote.
   - `dotkeep pull`: Pull and merge changes from your remote.
 
-- **Restore files:**  
+- **Restore files:**
   `dotkeep restore <file>`: Re-create the symlink for a managed file if it's missing.
 
-- **List tracked files:**  
+- **List tracked files:**
   `dotkeep list-files`: See all files currently managed by dotkeep.
 
 ### Requirements (v0.1.0)

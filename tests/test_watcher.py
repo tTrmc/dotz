@@ -286,7 +286,6 @@ class TestDotzEventHandler:
             patch("os.path.islink") as mock_islink,
             patch("os.path.basename") as mock_basename,
         ):
-
             mock_islink.return_value = False
             mock_is_tracked.return_value = False
             mock_basename.return_value = b".bashrc"  # Return bytes

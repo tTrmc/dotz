@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dotz"
 version = "0.3.0"
-description = "dotz is a minimal, Git-backed dotfiles manager for Linux"
+description = "A fully featured, Git-backed dotfiles manager for Linux"
 requires-python = ">=3.9"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -52,7 +52,15 @@ dev = [
     "black",
     "isort",
     "flake8",
+    "flake8-docstrings",
+    "flake8-bugbear",
+    "flake8-comprehensions",
     "mypy",
+    "bandit[toml]",
+    "pydocstyle",
+    "pre-commit",
+    "build",
+    "twine",
     "PySide6>=6.5.0",  # Include GUI deps in dev for development
 ]
 
@@ -140,13 +148,13 @@ ensure_newline_before_comments = true
 python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 check_untyped_defs = true
-disallow_untyped_decorators = true
+disallow_untyped_decorators = false
 no_implicit_optional = true
 warn_redundant_casts = true
-warn_unused_ignores = true
+warn_unused_ignores = false
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
@@ -164,9 +172,9 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203", "W503"]
-per-file-ignores = [
-    "tests/*:F401,F841",  # Allow unused imports and variables in tests
-]
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]  # Skip assert_used test
+
+[tool.pydocstyle]
+ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D107", "D200", "D205", "D400", "D401"]

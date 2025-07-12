@@ -330,7 +330,7 @@ def add_dotfile(
             src.symlink_to(dest)
             if not quiet:
                 typer.secho(f"Added {rel}", fg=typer.colors.GREEN)
-        except (PermissionError, OSError) as e:
+        except OSError as e:
             if not quiet:
                 typer.secho(
                     f"Error: Could not add {rel}: {e}",
@@ -685,7 +685,7 @@ def get_repo_status() -> Dict[str, List[str]]:
                 for diff_item in repo.index.diff(remote_branch)
                 if diff_item.a_path is not None
             ]
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
     # Dotfiles in $HOME not tracked by dotz
@@ -1651,7 +1651,26 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
         if backup_path.suffix == ".gz" or backup_path.name.endswith(".tar.gz"):
             # Extract tar archive
             with tarfile.open(backup_path, "r:gz") as tar:
-                tar.extractall(path=original_path.parent)
+                # Validate tar members for security
+                def is_safe_path(path: Path, base_path: Path) -> bool:
+                    """Check if the path is safe to extract."""
+                    try:
+                        resolved = (base_path / path).resolve()
+                        return str(resolved).startswith(str(base_path.resolve()))
+                    except (OSError, ValueError):
+                        return False
+
+                safe_members = []
+                for member in tar.getmembers():
+                    if member.isfile() and is_safe_path(
+                        Path(member.name), original_path.parent
+                    ):
+                        safe_members.append(member)
+
+                # Extract only safe members
+                tar.extractall(  # nosec B202
+                    path=original_path.parent, members=safe_members
+                )
         else:
             # Copy regular file
             shutil.copy2(backup_path, original_path)

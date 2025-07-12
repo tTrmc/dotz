@@ -26,6 +26,13 @@ fi
 echo "Activating virtual environment..."
 source .venv/bin/activate
 
+# Verify we're in the virtual environment
+if [[ "$VIRTUAL_ENV" != "" ]]; then
+    echo "Virtual environment activated: $VIRTUAL_ENV"
+else
+    echo "Warning: Virtual environment not activated properly"
+fi
+
 # Upgrade pip
 echo "Upgrading pip..."
 pip install --upgrade pip
@@ -34,21 +41,35 @@ pip install --upgrade pip
 echo "Installing development dependencies..."
 pip install -e ".[dev,test]"
 
-# Install build tools
-echo "Installing build tools..."
-pip install build twine
+# Set up pre-commit hooks
+echo "Setting up pre-commit hooks..."
+if command -v pre-commit >/dev/null 2>&1; then
+    pre-commit install
+    pre-commit install --hook-type commit-msg
+    echo "Pre-commit hooks installed successfully"
+else
+    echo "Warning: pre-commit not found, installing..."
+    pip install pre-commit
+    pre-commit install
+    pre-commit install --hook-type commit-msg
+    echo "Pre-commit hooks installed successfully"
+fi
 
 echo ""
 echo "Development environment setup complete!"
 echo ""
-echo "To activate the environment, run:"
+echo "IMPORTANT: To activate the environment in your current shell, run:"
 echo "  source .venv/bin/activate"
 echo ""
 echo "Available commands:"
 echo "  make help          # Show all available commands"
 echo "  make test          # Run tests"
 echo "  make test-cov      # Run tests with coverage"
-echo "  make lint          # Run linting"
-echo "  make format        # Format code"
-echo "  dotz --help     # Test CLI"
+echo "  make lint          # Run code quality checks"
+echo "  make format        # Auto-format code"
+echo "  pre-commit run     # Run pre-commit hooks manually"
+echo "  dotz --help        # Test CLI"
+echo ""
+echo "Note: The script has set up the environment, but you need to activate"
+echo "      it manually in your shell to use the installed packages."
 echo ""

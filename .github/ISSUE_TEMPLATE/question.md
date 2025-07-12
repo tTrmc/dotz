@@ -12,11 +12,12 @@ A clear and concise description of what you're trying to do or understand.
 
 **What have you tried?**
 List the steps or commands you've already attempted:
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 **Environment:**
+
 - OS: [e.g. Ubuntu 22.04]
 - dotz version: [e.g. 0.3.0]
 

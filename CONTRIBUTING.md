@@ -68,8 +68,78 @@ This will:
 
 * Create a virtual environment
 * Install development dependencies
-* Set up pre-commit hooks (if available)
+* Set up pre-commit hooks automatically
 * Run initial tests to verify setup
+
+### Manual Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e ".[dev,test]"
+
+# Install pre-commit hooks
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to automatically run code quality checks before each commit. The hooks are configured in `.pre-commit-config.yaml` and include:
+
+**Code Formatting:**
+
+* `black`: Python code formatting
+* `isort`: Import sorting
+* `trailing-whitespace`: Remove trailing whitespace
+* `end-of-file-fixer`: Ensure files end with newline
+
+**Code Quality:**
+
+* `flake8`: Python linting with additional plugins
+* `mypy`: Static type checking
+* `bandit`: Security vulnerability scanning
+* `pydocstyle`: Docstring style checking
+
+**Commit Quality:**
+
+* `conventional-pre-commit`: Enforce conventional commit messages
+* `markdownlint`: Markdown formatting and style
+
+**Setup Pre-commit:**
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+
+# Install the git hook scripts
+pre-commit install
+
+# Install commit message hook
+pre-commit install --hook-type commit-msg
+
+# Run against all files (optional, for first setup)
+pre-commit run --all-files
+```
+
+**Using Pre-commit:**
+
+Once installed, pre-commit will run automatically on `git commit`. You can also run it manually:
+
+```bash
+# Run on staged files
+pre-commit run
+
+# Run on all files
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run black
+
+# Skip hooks for a commit (use sparingly)
+git commit --no-verify -m "commit message"
+```
 
 ## Development Tools
 
@@ -183,7 +253,7 @@ class TestFeatureName:
     def test_successful_operation(self):
         # Test the happy path
         pass
-    
+
     def test_handles_error_condition(self):
         # Test error handling
         pass
@@ -197,9 +267,55 @@ class TestFeatureName:
 
 ## Commit Guidelines
 
-### Commit Message Format
+### Conventional Commit Messages
 
-Use clear, descriptive commit messages:
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for consistent and meaningful commit messages. The pre-commit hooks will enforce this format.
+
+**Format:**
+
+```text
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:**
+
+* `feat`: A new feature
+* `fix`: A bug fix
+* `docs`: Documentation only changes
+* `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+* `refactor`: A code change that neither fixes a bug nor adds a feature
+* `test`: Adding missing tests or correcting existing tests
+* `build`: Changes that affect the build system or external dependencies
+* `ci`: Changes to CI configuration files and scripts
+* `perf`: A code change that improves performance
+* `chore`: Other changes that don't modify src or test files
+
+**Examples:**
+
+```text
+feat(gui): add dashboard widget for repository status
+fix(cli): resolve path resolution on Windows
+docs: update installation instructions for GUI support
+test: add integration tests for file restoration
+refactor(core): simplify config loading logic
+```
+
+**Scope (optional):**
+
+* `cli`: Command-line interface
+* `gui`: Graphical user interface
+* `core`: Core functionality
+* `config`: Configuration management
+* `docs`: Documentation
+* `tests`: Test-related changes
+
+### Legacy Commit Format
+
+For compatibility, you can also use descriptive commit messages:
 
 * **Use imperative mood**: "Add feature" not "Added feature"
 * **Be specific**: Explain what changed and why
