@@ -10,7 +10,7 @@ install:  ## Install the package
 	pip install -e .
 
 install-dev:  ## Install development dependencies
-	pip install -e ".[dev,test]"
+	pip install -e ".[dev,test,gui]"
 
 test:  ## Run tests
 	pytest

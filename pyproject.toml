@@ -39,6 +39,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gui = [
+    "PySide6>=6.5.0",
+]
 test = [
     "pytest>=6.0",
     "pytest-cov",
@@ -50,6 +53,7 @@ dev = [
     "isort",
     "flake8",
     "mypy",
+    "PySide6>=6.5.0",  # Include GUI deps in dev for development
 ]
 
 [project.urls]
@@ -61,6 +65,7 @@ Changelog = "https://github.com/tTrmc/dotz/releases"
 
 [project.scripts]
 dotz = "dotz.cli:app"
+dotz-gui = "dotz.gui.main:main"
 
 # Tool configurations
 [tool.setuptools]

@@ -1,0 +1,22 @@
+pkgbase = dotz
+	pkgdesc = A minimal, Git-backed dotfiles manager for Linux
+	pkgver = 0.3.0
+	pkgrel = 1
+	url = https://github.com/tTrmc/dotz
+	arch = any
+	license = GPL-3.0-or-later
+	checkdepends = python-pytest
+	checkdepends = python-pytest-cov
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-setuptools
+	depends = python
+	depends = python-typer
+	depends = python-gitpython
+	depends = python-watchdog
+	depends = git
+	source = dotz-0.3.0.tar.gz::https://github.com/tTrmc/dotz/archive/v0.3.0.tar.gz
+	sha256sums = 17d80320e4c186a00ac1df970281af5a85668f7fa794d9f79a989ebac4a05ff9
+
+pkgname = dotz

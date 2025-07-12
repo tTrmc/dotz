@@ -4,14 +4,14 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/dotz.svg)](https://pypi.org/project/dotz/)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![CI](https://github.com/tTrmc/dotz/workflows/CI/badge.svg)](https://github.com/tTrmc/dotz/actions)
-[![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](https://github.com/tTrmc/dotz/actions)
+[![Tests](https://img.shields.io/badge/tests-161%20passing-brightgreen.svg)](https://github.com/tTrmc/dotz/actions)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/tTrmc/dotz/pulls)
 [![GitHub issues](https://img.shields.io/github/issues/tTrmc/dotz.svg)](https://github.com/tTrmc/dotz/issues)
 
-> A minimal **dotfiles** manager for Linux, backed by Git.
+> A fully featured **dotfiles** manager for Linux, backed by Git.
 
-**dotz** simplifies tracking, versioning, and synchronizing your configuration files across machines. An open source project welcoming community contributions.
+**dotz** provides comprehensive tracking, versioning, and synchronization of your configuration files across machines. An open source project welcoming community contributions.
 
 ## Table of Contents
 
@@ -30,19 +30,18 @@
 
 ## Features
 
-* **Easy setup**: Initialize a local dotz repository with a single command
-* **Git-based**: Full version history, branching, and remote synchronization
-* **File management**: Add and remove dotfiles with automatic symlinking
-* **Recursive directory support**: Add all dotfiles (optionally recursively) from a directory
-* **Tracked directories**: Only directories you add are watched for new dotfiles
-* **Configurable patterns**: Customize which file types to track with include/exclude patterns
-* **Status overview**: Display untracked, modified, and staged files at a glance
-* **Configuration management**: Built-in commands to manage file patterns and search settings
-* **File watching**: Automatic detection and addition of new configuration files
-* **Diagnostics**: Built-in `diagnose` command for troubleshooting
-* **Shell completion**: Tab-completion for all commands and options
-* **Robust & testable**: Comprehensive test suite with environment isolation
-* **Portable**: Requires only Python 3.9+ and Git
+* **Complete dotfile management**: Full-featured repository initialization with local and remote support
+* **Git-powered versioning**: Comprehensive version history, branching, and remote synchronization
+* **Advanced file management**: Add, remove, and restore dotfiles with automatic symlinking and conflict resolution
+* **Intelligent directory handling**: Recursive directory support with smart pattern matching
+* **Dynamic file watching**: Automatic detection and addition of new configuration files in tracked directories
+* **Flexible pattern system**: Comprehensive include/exclude patterns with customizable file type filtering
+* **Rich status reporting**: Detailed overview of untracked, modified, and staged files with progress indicators
+* **Complete configuration management**: Built-in commands to manage file patterns, search settings, and repository behavior
+* **GUI interface**: Modern Qt6-based graphical interface with tabbed workflow management
+* **Advanced diagnostics**: Comprehensive `diagnose` command with detailed troubleshooting and repair capabilities
+* **Full shell integration**: Tab-completion for all commands, options, and file paths
+* **Cross-platform foundation**: Portable architecture requiring only Python 3.9+ and Git
 
 ---
 
@@ -53,7 +52,11 @@
 **From PyPI:**
 
 ```bash
+# Core functionality
 pip install dotz
+
+# With GUI support
+pip install dotz[gui]
 ```
 
 **Using pipx (isolated environment):**
@@ -64,8 +67,8 @@ sudo apt install pipx           # Debian/Ubuntu
 # or
 sudo pacman -S python-pipx      # Arch Linux
 
-# Install dotz
-pipx install dotz
+# Install dotz with GUI support
+pipx install dotz[gui]
 ```
 
 ### For Developers
@@ -136,6 +139,9 @@ dotz add .config
 
 # Add and push to remote
 dotz add .vimrc --push
+
+# Or use the graphical interface
+dotz gui
 ```
 
 ### Sync across machines
@@ -202,6 +208,21 @@ dotz diagnose      # Troubleshoot issues
 dotz version       # Show version
 ```
 
+### Graphical Interface
+
+**Launch GUI:**
+
+```bash
+dotz gui           # Open the Qt6-based graphical interface
+```
+
+The GUI provides:
+
+* **Dashboard**: Repository status and quick actions
+* **File Management**: Visual file browser with add/remove capabilities
+* **Settings**: Configuration management with pattern editor
+* **Repository Setup**: Interactive initialization wizard
+
 ### Advanced Features
 
 **File watching:**
@@ -242,7 +263,15 @@ dotz/
 │       ├── __init__.py
 │       ├── cli.py          # Typer-based CLI entry point
 │       ├── core.py         # Core logic for dotfile management
-│       └── watcher.py      # Watchdog-based directory watcher
+│       ├── watcher.py      # Watchdog-based directory watcher
+│       └── gui/            # Qt6-based graphical interface
+│           ├── __init__.py
+│           ├── main.py     # Main GUI application window
+│           └── widgets/    # Individual GUI components
+│               ├── dashboard.py   # Status and quick actions
+│               ├── files.py       # File management interface
+│               ├── settings.py    # Configuration editor
+│               └── init.py        # Repository setup wizard
 ├── tests/
 │   ├── conftest.py         # Shared pytest fixtures
 │   ├── test_cli.py         # CLI command tests
@@ -322,9 +351,9 @@ pytest --cov=dotz
 
 ### Test Categories
 
-The project includes **148 passing tests** covering:
+The project includes **161 passing tests** covering:
 
-* **CLI commands**: All dotz commands and options
+* **CLI commands**: All dotz commands and options including GUI integration
 * **Core functionality**: File management, Git operations, configuration
 * **Configuration management**: Pattern matching, settings, validation
 * **File watching**: Automatic detection and tracking of new files
@@ -368,15 +397,16 @@ All tests run in isolated temporary environments to prevent interference with yo
 
 ## Roadmap
 
-dotz is actively developed as a personal project with community input welcome. Here are some areas being explored:
+dotz has evolved into a comprehensive dotfiles management solution. Future development focuses on expanding platform support and advanced features:
 
-### Planned Features
+### Planned Enhancements
 
-* **Cross-platform support**: Extend beyond Linux to macOS
-* **Plugin system**: Allow custom extensions and integrations
-* **Advanced conflict resolution**: Better handling of merge conflicts
-* **Performance optimizations**: Faster operations for large dotfile collections
-* **Enhanced CLI**: More interactive commands and better user experience
+* **Cross-platform expansion**: Extend full support to macOS and Windows
+* **Plugin ecosystem**: Extensible architecture for custom integrations and workflows
+* **Enhanced GUI features**: Advanced conflict resolution, visual diff tools, and batch operations
+* **Cloud integration**: Direct integration with popular cloud storage and repository services
+* **Performance optimization**: Enhanced performance for large dotfile collections and complex directory structures
+* **Advanced automation**: Intelligent dotfile discovery and automated configuration migration tools
 
 ---
 

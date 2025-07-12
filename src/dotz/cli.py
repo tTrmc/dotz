@@ -1435,3 +1435,34 @@ def diff(
     success = diff_files(files=files, quiet=quiet)
     if not success:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def gui() -> None:
+    """
+    Launch the graphical user interface.
+
+    Opens the dotz GUI application for managing dotfiles with a
+    point-and-click interface.
+    """
+    try:
+        # Import GUI here to avoid dependency issues if PySide6 is not installed
+        from .gui.main import main as gui_main
+    except ImportError:
+        typer.secho(
+            "Error: GUI dependencies not installed. "
+            "Install with: pip install dotz[gui]",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        gui_main()
+    except Exception as e:
+        typer.secho(
+            f"Error launching GUI: {e}",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1)
