@@ -22,7 +22,6 @@
 * [Project Structure](#project-structure)
 * [Configuration](#configuration)
 * [Testing](#testing)
-* [Roadmap](#roadmap)
 * [Contributing](#contributing)
 * [Support](#support)
 * [Acknowledgments](#acknowledgments)
@@ -390,21 +389,6 @@ When contributing new features:
 * Update test documentation if needed
 
 All tests run in isolated temporary environments to prevent interference with your actual dotz configuration.
-
-
-
-## Roadmap
-
-dotz has evolved into a comprehensive dotfiles management solution. Future development focuses on expanding platform support and advanced features:
-
-### Planned Enhancements
-
-* **Cross-platform expansion**: Extend full support to macOS and Windows
-* **Plugin ecosystem**: Extensible architecture for custom integrations and workflows
-* **Enhanced GUI features**: Advanced conflict resolution, visual diff tools, and batch operations
-* **Cloud integration**: Direct integration with popular cloud storage and repository services
-* **Performance optimization**: Enhanced performance for large dotfile collections and complex directory structures
-* **Advanced automation**: Intelligent dotfile discovery and automated configuration migration tools
 
 
 
