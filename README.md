@@ -43,8 +43,6 @@
 * **Full shell integration**: Tab-completion for all commands, options, and file paths
 * **Cross-platform foundation**: Portable architecture requiring only Python 3.9+ and Git
 
----
-
 ## Installation
 
 ### For End Users (Recommended)
@@ -102,7 +100,7 @@ dotz --help
 * Python 3.9 or newer
 * Git
 
----
+
 
 >[!CAUTION]
 >**NEVER use public Git repositories with dotz.** Your dotfiles often contain:
@@ -114,7 +112,7 @@ dotz --help
 >
 >**Always use private repositories** or consider excluding sensitive files with dotz's pattern configuration.
 
----
+
 
 ## Quick Start
 
@@ -154,7 +152,7 @@ dotz pull
 dotz push
 ```
 
----
+
 
 ## Usage
 
@@ -252,7 +250,7 @@ dotz config reset             # Reset to defaults
 dotz config help              # Show detailed help
 ```
 
----
+
 
 ## Project Structure
 
@@ -287,7 +285,7 @@ dotz/
 
 The `.git` folder is created inside `~/.dotz/repo` once you initialize dotz.
 
----
+
 
 ## Configuration
 
@@ -328,7 +326,7 @@ dotz config add-pattern "*.pyc" --type exclude
 dotz config set search_settings.recursive false
 ```
 
----
+
 
 ## Testing
 
@@ -393,7 +391,7 @@ When contributing new features:
 
 All tests run in isolated temporary environments to prevent interference with your actual dotz configuration.
 
----
+
 
 ## Roadmap
 
@@ -408,7 +406,7 @@ dotz has evolved into a comprehensive dotfiles management solution. Future devel
 * **Performance optimization**: Enhanced performance for large dotfile collections and complex directory structures
 * **Advanced automation**: Intelligent dotfile discovery and automated configuration migration tools
 
----
+
 
 ## Contributing
 
@@ -459,7 +457,7 @@ Contributions are welcome!
 * Join discussions in [pull requests](https://github.com/tTrmc/dotz/pulls)
 * Feel free to ask questions in issues or discussions
 
----
+
 
 ## Support
 
@@ -479,7 +477,7 @@ When reporting bugs, please include:
 * Expected vs. actual behavior
 * Any error messages or logs
 
----
+
 
 ## Acknowledgments
 
@@ -489,7 +487,7 @@ This project has benefited from the contributions and support of the following p
 
 [![Contributors](https://contrib.rocks/image?repo=tTrmc/dotz)](https://github.com/tTrmc/dotz/graphs/contributors)
 
----
+
 
 ## License
 
@@ -497,4 +495,4 @@ This project is distributed under the **GPL-3.0-or-later** license. See the [LIC
 
 By contributing to dotz, you agree that your contributions will be licensed under the same license.
 
----
+
