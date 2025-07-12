@@ -1,3 +1,5 @@
+"""File system watcher for automatically tracking new dotfiles."""
+
 import json
 import os
 import time

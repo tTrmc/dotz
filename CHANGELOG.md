@@ -10,12 +10,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- **BREAKING**: Project renamed from "dotkeep" to "dotz"
-- Command changed from `dotkeep` to `dotz`
-- Configuration directory changed from `~/.dotkeep` to `~/.dotz`
-- Package name changed from `dotkeepctl` to `dotz`
-
 - Future features will be listed here
+
+## [0.4.0] - 2025-07-12
+
+### Major release with GUI interface and comprehensive development automation
+
+### Added
+
+- **Qt6/PySide6 Graphical User Interface**
+  - Modern tabbed interface with dashboard, file management, and settings
+  - Visual file browser with add/remove capabilities
+  - Interactive repository setup wizard
+  - Real-time status monitoring and progress indicators
+
+- **Advanced Git Integration**
+  - `dotz commit` - Create commits with descriptive messages
+  - `dotz diff` - View changes between working directory and repository
+  - Enhanced Git operations with better error handling
+
+- **Comprehensive Development Automation**
+  - Pre-commit hooks with Python-only toolchain (black, isort, flake8, mypy, bandit)
+  - Conventional commit message enforcement
+  - Automated code quality checks and security scanning
+  - Enhanced CI/CD pipeline with pre-commit validation
+
+- **Enhanced Documentation & Developer Experience**
+  - Complete PRE_COMMIT.md setup guide
+  - Updated CONTRIBUTING.md with automation workflow
+  - Enhanced Makefile with setup, security, and docs targets
+  - Streamlined setup-dev.sh with virtual environment validation
+
+### Changed
+
+- **BREAKING**: Project renamed from "dotkeep" to "dotz"
+  - Command changed from `dotkeep` to `dotz`
+  - Configuration directory changed from `~/.dotkeep` to `~/.dotz`
+  - Package name changed from `dotkeepctl` to `dotz`
+
+- **Enhanced Project Branding**
+  - Updated description from "minimal" to "fully featured"
+  - Improved README with comprehensive feature descriptions
+  - Enhanced GitHub issue templates and workflows
+
+- **Development Workflow Improvements**
+  - Consolidated tool configurations for consistency
+  - Removed Node.js dependencies (Python-only development)
+  - Enhanced CI with comprehensive linting and security checks
+
+### Fixed
+
+- Security issues in core.py with proper tar extraction validation
+- Improved exception handling patterns
+- Enhanced virtual environment setup and activation
+- Better error messages and user guidance
+
+### Technical Improvements
+
+- Modern Qt6-based GUI architecture
+- Enhanced type checking and code quality standards
+- Comprehensive pre-commit automation infrastructure
+- Improved development environment setup and documentation
 
 ## [0.3.0] - 2025-07-05
 

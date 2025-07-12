@@ -1,6 +1,6 @@
 # Maintainer: Moustafa Salem <salemmoustafa442@gmail.com>
 pkgname=dotz
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="A minimal, Git-backed dotfiles manager for Linux"
 arch=('any')
