@@ -41,7 +41,7 @@ from .core import (
 from .watcher import main as watcher_main
 
 # Constants
-DEFAULT_VERSION = "0.3.0"
+DEFAULT_VERSION = "0.4.0"
 MAX_DISPLAYED_FILES = 10
 MAX_DISPLAYED_BACKUPS = 5
 
