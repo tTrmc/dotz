@@ -45,10 +45,12 @@ gui = [
 test = [
     "pytest>=6.0",
     "pytest-cov",
+    "pytest-timeout",
 ]
 dev = [
     "pytest>=6.0",
     "pytest-cov",
+    "pytest-timeout",
     "black",
     "isort",
     "flake8",
@@ -94,9 +96,12 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--verbose",
+    "--timeout=30",  # 30 second timeout per test to prevent hangs
+    "--timeout-method=thread",  # Use thread-based timeout
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gui: marks tests as GUI tests requiring display (can be skipped in headless environments)",
 ]
 
 [tool.coverage.run]

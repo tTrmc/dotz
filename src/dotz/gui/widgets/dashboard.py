@@ -120,10 +120,22 @@ class DashboardWidget(QWidget):
 
     def _push_changes(self) -> None:
         """Push changes to remote."""
-        # TODO: Implement push functionality
-        print("Push changes clicked")
+        try:
+            from ...core import push_repo
+
+            success = push_repo(quiet=True)
+            if success:
+                self.refresh()  # Refresh to show updated status
+        except Exception as e:
+            print(f"Error pushing changes: {e}")
 
     def _pull_changes(self) -> None:
         """Pull changes from remote."""
-        # TODO: Implement pull functionality
-        print("Pull changes clicked")
+        try:
+            from ...core import pull_repo
+
+            success = pull_repo(quiet=True)
+            if success:
+                self.refresh()  # Refresh to show updated status
+        except Exception as e:
+            print(f"Error pulling changes: {e}")

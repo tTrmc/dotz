@@ -49,7 +49,7 @@ class DotzMainWindow(QMainWindow):
         try:
             ensure_repo()
             return True
-        except SystemExit:
+        except (SystemExit, Exception):
             return False
 
     def _setup_ui(self) -> None:

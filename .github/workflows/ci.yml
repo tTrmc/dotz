@@ -35,7 +35,8 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
+        # Skip GUI tests in CI to avoid display-related issues
+        pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy -m "not gui"
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
