@@ -9,8 +9,39 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+
+# Try to import PySide6 components, skip if not available
+try:
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    PYSIDE6_AVAILABLE = True
+except ImportError:
+    PYSIDE6_AVAILABLE = False
+    # Create dummy classes to prevent import errors
+    from typing import Any
+
+    class _DummyQApplication:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        @staticmethod
+        def instance() -> None:
+            return None
+
+        def setQuitOnLastWindowClosed(self, value: bool) -> None:
+            pass
+
+        def processEvents(self) -> None:
+            pass
+
+    class _DummyQt:
+        pass
+
+    # Assign to the expected names for type checking
+    QApplication = _DummyQApplication  # type: ignore
+    Qt = _DummyQt  # type: ignore
+
 
 # Set up headless mode for CI environments
 if (
@@ -31,6 +62,9 @@ if not QApplication.instance():
 @pytest.fixture(scope="session")
 def qapp():
     """Fixture to provide QApplication instance for testing."""
+    if not PYSIDE6_AVAILABLE:
+        pytest.skip("PySide6 not available")
+
     # Ensure only one QApplication instance exists for the entire test session
     app = QApplication.instance()
     if app is None:

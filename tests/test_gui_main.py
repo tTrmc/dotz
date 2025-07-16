@@ -5,8 +5,16 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QTabWidget
+
+# Try to import PySide6 components, skip if not available
+try:
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QTabWidget
+
+    PYSIDE6_AVAILABLE = True
+except ImportError:
+    PYSIDE6_AVAILABLE = False
+    pytest.skip("PySide6 not available", allow_module_level=True)
 
 from dotz.gui.main import DotzMainWindow
 

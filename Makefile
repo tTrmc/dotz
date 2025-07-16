@@ -28,6 +28,9 @@ test:  ## Run tests
 test-cov:  ## Run tests with coverage
 	pytest --cov=dotz --cov-report=html --cov-report=term
 
+test-ci:  ## Run tests for CI (excluding GUI tests)
+	pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy -m "not gui" --tb=short
+
 format:  ## Format code
 	black src tests
 	isort src tests

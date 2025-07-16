@@ -3,8 +3,16 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QLineEdit, QMessageBox, QPushButton, QTextEdit
+
+# Try to import PySide6 components, skip if not available
+try:
+    from PySide6.QtCore import QThread
+    from PySide6.QtWidgets import QLineEdit, QMessageBox, QPushButton, QTextEdit
+
+    PYSIDE6_AVAILABLE = True
+except ImportError:
+    PYSIDE6_AVAILABLE = False
+    pytest.skip("PySide6 not available", allow_module_level=True)
 
 from dotz.gui.widgets.init import InitWidget, InitWorker
 
@@ -15,11 +23,16 @@ class TestInitWorker:
 
     def test_worker_initialization(self, qapp):
         """Test worker thread initialization."""
-        worker = InitWorker()
+        worker: InitWorker = InitWorker()
+        # Check that InitWorker is a subclass of QThread
         assert isinstance(worker, QThread)
+        # Test InitWorker-specific attributes
+        assert hasattr(worker, "remote_url")
         assert worker.remote_url == ""
 
-        worker_with_remote = InitWorker("https://github.com/user/dotfiles.git")
+        worker_with_remote: InitWorker = InitWorker(
+            "https://github.com/user/dotfiles.git"
+        )
         assert worker_with_remote.remote_url == "https://github.com/user/dotfiles.git"
 
     def test_worker_successful_init(self, qapp, mock_core_functions):

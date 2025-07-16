@@ -3,7 +3,15 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtWidgets import QListWidget, QPushButton
+
+# Try to import PySide6 components, skip if not available
+try:
+    from PySide6.QtWidgets import QListWidget, QPushButton
+
+    PYSIDE6_AVAILABLE = True
+except ImportError:
+    PYSIDE6_AVAILABLE = False
+    pytest.skip("PySide6 not available", allow_module_level=True)
 
 from dotz.gui.widgets.dashboard import DashboardWidget
 
