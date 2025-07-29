@@ -32,6 +32,8 @@
 * **Complete dotfile management**: Full-featured repository initialization with local and remote support
 * **Git-powered versioning**: Comprehensive version history, branching, and remote synchronization
 * **Advanced file management**: Add, remove, and restore dotfiles with automatic symlinking and conflict resolution
+* **Template system**: Create, apply, and share reusable dotfile configurations for quick environment setup
+* **Profile management**: Switch between complete dotfile environments for different contexts (work, personal, server)
 * **Intelligent directory handling**: Recursive directory support with smart pattern matching
 * **Dynamic file watching**: Automatic detection and addition of new configuration files in tracked directories
 * **Flexible pattern system**: Comprehensive include/exclude patterns with customizable file type filtering
@@ -243,6 +245,67 @@ dotz config reset             # Reset to defaults
 dotz config help              # Show detailed help
 ```
 
+### Template Management
+
+Create and manage reusable dotfile configurations:
+
+```bash
+# Create templates
+dotz template create work -d "Work environment setup"
+dotz template create minimal --file .bashrc --file .vimrc
+
+# List and view templates
+dotz template list            # List all templates
+dotz template list --verbose  # Show detailed information
+dotz template info work       # Show template details
+
+# Apply templates
+dotz template apply work      # Apply template (overwrite files)
+dotz template apply work --merge  # Apply without overwriting existing files
+
+# Share templates
+dotz template export work -o work-setup.tar.gz  # Export as archive
+dotz template import shared-config.tar.gz       # Import from archive
+
+# Clean up
+dotz template delete old-template  # Delete template
+dotz template help            # Show detailed help
+```
+
+### Profile Management
+
+Switch between complete dotfile environments:
+
+```bash
+# Create profiles
+dotz profile create work -d "Work setup" -e work
+dotz profile create personal --copy-from work  # Copy from existing profile
+
+# List and view profiles
+dotz profile list             # List all profiles
+dotz profile list --verbose  # Show detailed information
+dotz profile current          # Show active profile
+dotz profile info work        # Show profile details
+
+# Switch profiles
+dotz profile switch work      # Switch to work profile
+dotz profile switch personal --no-backup  # Switch without saving current state
+
+# Clean up
+dotz profile delete old-profile  # Delete profile
+dotz profile help             # Show detailed help
+```
+
+**Template vs Profile:**
+
+- **Templates**: Snapshots of specific files that can be applied to any repository
+- **Profiles**: Complete environments including all files, configuration, and state
+
+**Use Cases:**
+
+- **Templates**: Save working configurations, share setups, quick file restoration
+- **Profiles**: Work vs personal environments, machine-specific configs, project contexts
+
 ## Project Structure
 
 ```text
@@ -252,6 +315,7 @@ dotz/
 │       ├── __init__.py
 │       ├── cli.py          # Typer-based CLI entry point
 │       ├── core.py         # Core logic for dotfile management
+│       ├── templates.py    # Template and profile management
 │       ├── watcher.py      # Watchdog-based directory watcher
 │       └── gui/            # Qt6-based graphical interface
 │           ├── __init__.py
@@ -266,6 +330,8 @@ dotz/
 │   ├── test_cli.py         # CLI command tests
 │   ├── test_cli_config.py  # Configuration command tests
 │   ├── test_core.py        # Core functionality tests
+│   ├── test_templates.py   # Template and profile tests
+│   ├── test_templates_cli.py # Template/profile CLI tests
 │   └── test_watcher.py     # File watching tests
 ├── pyproject.toml          # Project metadata and dependencies
 ├── README.md               # Project documentation

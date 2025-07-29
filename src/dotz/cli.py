@@ -14,6 +14,7 @@ from typing_extensions import Annotated
 
 from dotz import core
 
+from . import templates
 from .core import (
     add_dotfile,
     add_file_pattern,
@@ -1466,3 +1467,527 @@ def gui() -> None:
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+# ============================================================================
+# TEMPLATE MANAGEMENT COMMANDS
+# ============================================================================
+
+template_app = typer.Typer(help="Manage dotfile templates")
+app.add_typer(template_app, name="template")
+
+
+@template_app.command("create")
+def template_create(
+    name: Annotated[str, typer.Argument(help="Template name")],
+    description: Annotated[
+        str, typer.Option("--description", "-d", help="Template description")
+    ] = "",
+    files: Annotated[
+        Optional[List[str]],
+        typer.Option("--file", "-f", help="Specific files to include (optional)"),
+    ] = None,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Create a new template from current tracked files or specified files."""
+    success = templates.create_template(
+        name=name, description=description, files=files, quiet=quiet
+    )
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@template_app.command("list")
+def template_list(
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show detailed information")
+    ] = False,
+) -> None:
+    """List all available templates."""
+    template_list = templates.list_templates()
+
+    if not template_list:
+        typer.secho("No templates found.", fg=typer.colors.YELLOW)
+        return
+
+    typer.secho(
+        f"Found {len(template_list)} template(s):", fg=typer.colors.WHITE, bold=True
+    )
+    typer.echo()
+
+    for template in template_list:
+        name = template.get("name", "unknown")
+        description = template.get("description", "")
+        created = template.get("created", "unknown")
+        file_count = template.get("file_count", 0)
+
+        if verbose:
+            typer.secho(f"{name}", fg=typer.colors.CYAN, bold=True)
+            if description:
+                typer.secho(f"   Description: {description}", fg=typer.colors.WHITE)
+            typer.secho(f"   Created:     {created}", fg=typer.colors.WHITE)
+            typer.secho(f"   Files:       {file_count}", fg=typer.colors.WHITE)
+
+            # Get additional info
+            info = templates.get_template_info(name)
+            if info:
+                total_size = info.get("total_size", 0)
+                size_str = format_file_size(total_size)
+                typer.secho(f"   Size:        {size_str}", fg=typer.colors.WHITE)
+
+            typer.echo()
+        else:
+            desc_part = f" - {description}" if description else ""
+            typer.secho(
+                f"{name:<20} {file_count:>3} files   {created}{desc_part}",
+                fg=typer.colors.CYAN,
+            )
+
+
+@template_app.command("apply")
+def template_apply(
+    name: Annotated[str, typer.Argument(help="Template name to apply")],
+    merge: Annotated[
+        bool,
+        typer.Option("--merge", help="Merge mode - don't overwrite existing files"),
+    ] = False,
+    no_backup: Annotated[
+        bool, typer.Option("--no-backup", help="Skip creating backup")
+    ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Apply a template to the current dotz repository."""
+    success = templates.apply_template(
+        name=name, merge=merge, backup=not no_backup, quiet=quiet
+    )
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@template_app.command("delete")
+def template_delete(
+    name: Annotated[str, typer.Argument(help="Template name to delete")],
+    confirm: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
+    ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Delete a template."""
+    if not confirm and not quiet:
+        if not typer.confirm(f"Delete template '{name}'?"):
+            typer.secho("Deletion cancelled.", fg=typer.colors.YELLOW)
+            return
+
+    success = templates.delete_template(name=name, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@template_app.command("export")
+def template_export(
+    name: Annotated[str, typer.Argument(help="Template name to export")],
+    output: Annotated[
+        str, typer.Option("--output", "-o", help="Output file path")
+    ] = "",
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Export a template as a portable archive."""
+    if not output:
+        output = f"{name}.tar.gz"
+
+    success = templates.export_template(name=name, output_path=output, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@template_app.command("import")
+def template_import(
+    archive: Annotated[str, typer.Argument(help="Archive file to import")],
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Import a template from an archive."""
+    success = templates.import_template(archive_path=archive, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@template_app.command("info")
+def template_info(
+    name: Annotated[str, typer.Argument(help="Template name")],
+) -> None:
+    """Show detailed information about a template."""
+    info = templates.get_template_info(name)
+
+    if not info:
+        typer.secho(f"Template '{name}' not found.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
+
+    typer.secho(f"Template: {name}", fg=typer.colors.CYAN, bold=True)
+    typer.echo()
+
+    description = info.get("description", "")
+    if description:
+        typer.secho(f"Description:  {description}", fg=typer.colors.WHITE)
+
+    typer.secho(
+        f"Created:      {info.get('created', 'unknown')}", fg=typer.colors.WHITE
+    )
+    typer.secho(f"Files:        {info.get('file_count', 0)}", fg=typer.colors.WHITE)
+
+    total_size = info.get("total_size", 0)
+    size_str = format_file_size(total_size)
+    typer.secho(f"Size:         {size_str}", fg=typer.colors.WHITE)
+    typer.secho(
+        f"Version:      {info.get('version', 'unknown')}", fg=typer.colors.WHITE
+    )
+
+    files = info.get("files", [])
+    if files:
+        typer.echo()
+        typer.secho("Files included:", fg=typer.colors.YELLOW, bold=True)
+        for file_path in files[:10]:  # Show first 10
+            typer.secho(f"  {file_path}", fg=typer.colors.WHITE)
+
+        if len(files) > 10:
+            typer.secho(
+                f"  ... and {len(files) - 10} more files", fg=typer.colors.BRIGHT_BLACK
+            )
+
+
+@template_app.command("help")
+def template_help() -> None:
+    """Show detailed help for template management."""
+    typer.secho("Dotz Template Management Help", fg=typer.colors.WHITE, bold=True)
+    typer.secho("=" * 50, fg=typer.colors.WHITE)
+
+    typer.secho("\nTemplates:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  Templates are snapshots of your dotfiles configuration that can be")
+    typer.echo("  applied to quickly set up specific environments or restore known")
+    typer.echo("  working configurations.")
+
+    typer.secho("\nUse Cases:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  • Save working configurations before experimenting")
+    typer.echo("  • Create environment-specific setups (work, personal, minimal)")
+    typer.echo("  • Share configurations with others")
+    typer.echo("  • Quick setup on new machines")
+
+    typer.secho("\nCommands:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  create    Create template from current files")
+    typer.echo("  list      List all available templates")
+    typer.echo("  apply     Apply template to current repository")
+    typer.echo("  delete    Delete a template")
+    typer.echo("  export    Export template as portable archive")
+    typer.echo("  import    Import template from archive")
+    typer.echo("  info      Show detailed template information")
+
+    typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo('  dotz template create work -d "Work environment setup"')
+    typer.echo("  dotz template list --verbose")
+    typer.echo("  dotz template apply work --merge")
+    typer.echo("  dotz template export work -o work-config.tar.gz")
+    typer.echo("  dotz template import shared-config.tar.gz")
+
+    typer.secho("\nTemplate Storage:", fg=typer.colors.CYAN, bold=True)
+    typer.echo("  Templates are stored in: ~/.dotz/templates/")
+    typer.echo("  Each template contains: files/, template.json")
+
+
+# ============================================================================
+# PROFILE MANAGEMENT COMMANDS
+# ============================================================================
+
+profile_app = typer.Typer(help="Manage dotfile profiles for different environments")
+app.add_typer(profile_app, name="profile")
+
+
+@profile_app.command("create")
+def profile_create(
+    name: Annotated[str, typer.Argument(help="Profile name")],
+    description: Annotated[
+        str, typer.Option("--description", "-d", help="Profile description")
+    ] = "",
+    environment: Annotated[
+        str,
+        typer.Option(
+            "--env", "-e", help="Environment type (work, personal, server, etc.)"
+        ),
+    ] = "",
+    copy_from: Annotated[
+        str, typer.Option("--copy-from", help="Copy from existing profile")
+    ] = "",
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Create a new profile for managing different dotfile environments."""
+    success = templates.create_profile(
+        name=name,
+        description=description,
+        environment=environment,
+        copy_from=copy_from if copy_from else None,
+        quiet=quiet,
+    )
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("list")
+def profile_list(
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show detailed information")
+    ] = False,
+) -> None:
+    """List all available profiles."""
+    profile_list = templates.list_profiles()
+
+    if not profile_list:
+        typer.secho("No profiles found.", fg=typer.colors.YELLOW)
+        typer.echo("Create a profile with: dotz profile create <name>")
+        return
+
+    typer.secho(
+        f"Found {len(profile_list)} profile(s):", fg=typer.colors.WHITE, bold=True
+    )
+    typer.echo()
+
+    for profile in profile_list:
+        name = profile.get("name", "unknown")
+        description = profile.get("description", "")
+        environment = profile.get("environment", "")
+        created = profile.get("created", "unknown")
+        last_used = profile.get("last_used", "never")
+        active = profile.get("active", False)
+
+        # Format active indicator
+        active_indicator = " ●" if active else "  "
+
+        if verbose:
+            color = typer.colors.GREEN if active else typer.colors.CYAN
+            typer.secho(f"{active_indicator} {name}", fg=color, bold=True)
+            if description:
+                typer.secho(f"     Description: {description}", fg=typer.colors.WHITE)
+            if environment:
+                typer.secho(f"     Environment: {environment}", fg=typer.colors.WHITE)
+            typer.secho(f"     Created:     {created}", fg=typer.colors.WHITE)
+            typer.secho(f"     Last used:   {last_used}", fg=typer.colors.WHITE)
+
+            # Get additional info
+            info = templates.get_profile_info(name)
+            if info:
+                file_count = info.get("file_count", 0)
+                total_size = info.get("total_size", 0)
+                size_str = format_file_size(total_size)
+                typer.secho(f"     Files:       {file_count}", fg=typer.colors.WHITE)
+                typer.secho(f"     Size:        {size_str}", fg=typer.colors.WHITE)
+
+            if active:
+                typer.secho(
+                    "     Status:      ACTIVE", fg=typer.colors.GREEN, bold=True
+                )
+
+            typer.echo()
+        else:
+            color = typer.colors.GREEN if active else typer.colors.CYAN
+            env_part = f" ({environment})" if environment else ""
+            desc_part = f" - {description}" if description else ""
+            typer.secho(
+                f"{active_indicator} {name:<18}{env_part:<12} {last_used}{desc_part}",
+                fg=color,
+            )
+
+
+@profile_app.command("switch")
+def profile_switch(
+    name: Annotated[str, typer.Argument(help="Profile name to switch to")],
+    no_backup: Annotated[
+        bool, typer.Option("--no-backup", help="Skip saving current state")
+    ] = False,
+    confirm: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
+    ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Switch to a different profile."""
+    current_profile = templates.get_active_profile()
+
+    if current_profile == name:
+        if not quiet:
+            typer.secho(f"Already using profile '{name}'", fg=typer.colors.YELLOW)
+        return
+
+    if not confirm and not quiet:
+        typer.secho(f"Switch to profile '{name}'?", fg=typer.colors.CYAN)
+        if current_profile:
+            backup_msg = (
+                "save current state" if not no_backup else "discard current state"
+            )
+            typer.secho(
+                f"Current profile '{current_profile}' will {backup_msg}",
+                fg=typer.colors.WHITE,
+            )
+
+        if not typer.confirm("Continue?"):
+            typer.secho("Profile switch cancelled.", fg=typer.colors.YELLOW)
+            return
+
+    success = templates.switch_profile(name=name, backup=not no_backup, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("delete")
+def profile_delete(
+    name: Annotated[str, typer.Argument(help="Profile name to delete")],
+    confirm: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")
+    ] = False,
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Suppress output")
+    ] = False,
+) -> None:
+    """Delete a profile."""
+    if not confirm and not quiet:
+        if not typer.confirm(f"Delete profile '{name}'?"):
+            typer.secho("Deletion cancelled.", fg=typer.colors.YELLOW)
+            return
+
+    success = templates.delete_profile(name=name, quiet=quiet)
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("current")
+def profile_current() -> None:
+    """Show the currently active profile."""
+    active_profile = templates.get_active_profile()
+
+    if not active_profile:
+        typer.secho("No active profile", fg=typer.colors.YELLOW)
+        typer.echo("Create a profile with: dotz profile create <name>")
+        return
+
+    info = templates.get_profile_info(active_profile)
+
+    if not info:
+        typer.secho(
+            f"Active profile '{active_profile}' (metadata not found)",
+            fg=typer.colors.RED,
+        )
+        return
+
+    typer.secho(f"Active profile: {active_profile}", fg=typer.colors.GREEN, bold=True)
+
+    description = info.get("description", "")
+    if description:
+        typer.secho(f"Description: {description}", fg=typer.colors.WHITE)
+
+    environment = info.get("environment", "")
+    if environment:
+        typer.secho(f"Environment: {environment}", fg=typer.colors.WHITE)
+
+    typer.secho(f"Last used: {info.get('last_used', 'never')}", fg=typer.colors.WHITE)
+    typer.secho(f"Files: {info.get('file_count', 0)}", fg=typer.colors.WHITE)
+
+
+@profile_app.command("info")
+def profile_info(
+    name: Annotated[str, typer.Argument(help="Profile name")],
+) -> None:
+    """Show detailed information about a profile."""
+    info = templates.get_profile_info(name)
+
+    if not info:
+        typer.secho(f"Profile '{name}' not found.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
+
+    active = info.get("active", False)
+    color = typer.colors.GREEN if active else typer.colors.CYAN
+
+    typer.secho(f"Profile: {name}", fg=color, bold=True)
+    if active:
+        typer.secho("Status: ACTIVE", fg=typer.colors.GREEN, bold=True)
+    typer.echo()
+
+    description = info.get("description", "")
+    if description:
+        typer.secho(f"Description:  {description}", fg=typer.colors.WHITE)
+
+    environment = info.get("environment", "")
+    if environment:
+        typer.secho(f"Environment:  {environment}", fg=typer.colors.WHITE)
+
+    typer.secho(
+        f"Created:      {info.get('created', 'unknown')}", fg=typer.colors.WHITE
+    )
+    typer.secho(
+        f"Last used:    {info.get('last_used', 'never')}", fg=typer.colors.WHITE
+    )
+    typer.secho(f"Files:        {info.get('file_count', 0)}", fg=typer.colors.WHITE)
+
+    total_size = info.get("total_size", 0)
+    size_str = format_file_size(total_size)
+    typer.secho(f"Size:         {size_str}", fg=typer.colors.WHITE)
+    typer.secho(
+        f"Version:      {info.get('version', 'unknown')}", fg=typer.colors.WHITE
+    )
+
+
+@profile_app.command("help")
+def profile_help() -> None:
+    """Show detailed help for profile management."""
+    typer.secho("Dotz Profile Management Help", fg=typer.colors.WHITE, bold=True)
+    typer.secho("=" * 50, fg=typer.colors.WHITE)
+
+    typer.secho("\nProfiles:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  Profiles are complete dotfile environments that you can switch")
+    typer.echo("  between. Each profile maintains its own set of files and")
+    typer.echo("  configuration, perfect for different contexts or environments.")
+
+    typer.secho("\nUse Cases:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  • Work vs Personal configurations")
+    typer.echo("  • Development vs Production environments")
+    typer.echo("  • Minimal vs Full feature setups")
+    typer.echo("  • Machine-specific configurations")
+
+    typer.secho("\nCommands:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo("  create    Create a new profile")
+    typer.echo("  list      List all available profiles")
+    typer.echo("  switch    Switch to a different profile")
+    typer.echo("  current   Show the currently active profile")
+    typer.echo("  delete    Delete a profile")
+    typer.echo("  info      Show detailed profile information")
+
+    typer.secho("\nExamples:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo('  dotz profile create work -d "Work setup" -e work')
+    typer.echo("  dotz profile create personal --copy-from work")
+    typer.echo("  dotz profile list --verbose")
+    typer.echo("  dotz profile switch work")
+    typer.echo("  dotz profile current")
+
+    typer.secho("\nProfile Switching:", fg=typer.colors.CYAN, bold=True)
+    typer.echo("  When switching profiles:")
+    typer.echo("  • Current state is automatically saved to the current profile")
+    typer.echo("  • Repository is updated with the new profile's files")
+    typer.echo("  • Configuration settings are updated")
+    typer.echo("  • Changes are committed to git")
+
+    typer.secho("\nProfile Storage:", fg=typer.colors.CYAN, bold=True)
+    typer.echo("  Profiles are stored in: ~/.dotz/profiles/")
+    typer.echo("  Each profile contains: files/, config/, profile.json")
+    typer.echo("  Active profile is tracked in: ~/.dotz/active_profile")
+
+
+if __name__ == "__main__":
+    app()

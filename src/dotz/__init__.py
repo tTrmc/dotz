@@ -20,6 +20,17 @@ from .core import (
     push_repo,
     restore_dotfile,
 )
+from .templates import (
+    apply_template,
+    create_profile,
+    create_template,
+    delete_profile,
+    delete_template,
+    get_active_profile,
+    list_profiles,
+    list_templates,
+    switch_profile,
+)
 
 __all__ = [
     "init_repo",
@@ -30,4 +41,14 @@ __all__ = [
     "list_tracked_files",
     "pull_repo",
     "push_repo",
+    # Template and Profile functions
+    "create_template",
+    "list_templates",
+    "apply_template",
+    "delete_template",
+    "create_profile",
+    "list_profiles",
+    "switch_profile",
+    "get_active_profile",
+    "delete_profile",
 ]
