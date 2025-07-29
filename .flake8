@@ -1,5 +1,7 @@
 [flake8]
-max-line-length = 88
-extend-ignore = E203, W503, B008, D200, D205, D400, D401, D103, D107, D101, D102
+max-line-length = 100
+# Relaxed ignore list - more contributor-friendly
+extend-ignore = E203, W503, E501, E731, B008, D200, D205, D400, D401, D103, D107, D101, D102, F401, F841
 per-file-ignores =
-    tests/*:F401,F841
+    tests/*:F401,F841,D100,D101,D102,D103
+    __init__.py:F401

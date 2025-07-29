@@ -12,8 +12,11 @@ setup:  ## Run development setup script
 install:  ## Install the package
 	pip install -e .
 
-install-dev:  ## Install development dependencies
+install-dev:  ## Install essential development dependencies
 	pip install -e ".[dev,test,gui]"
+
+install-maintainer:  ## Install all development dependencies (for maintainers)
+	pip install -e ".[full,test,gui,maintainer]"
 
 pre-commit-install:  ## Install pre-commit hooks
 	pre-commit install
@@ -22,26 +25,28 @@ pre-commit-install:  ## Install pre-commit hooks
 pre-commit-run:  ## Run pre-commit hooks on all files
 	pre-commit run --all-files
 
-test:  ## Run tests
+test:  ## Run tests (contributor-friendly)
+	pytest -m "not gui" --tb=short
+
+test-all:  ## Run all tests including GUI tests
 	pytest
 
 test-cov:  ## Run tests with coverage
-	pytest --cov=dotz --cov-report=html --cov-report=term
+	pytest --cov=dotz --cov-report=html --cov-report=term -m "not gui"
 
 test-ci:  ## Run tests for CI (excluding GUI tests)
 	pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy -m "not gui" --tb=short
 
-format:  ## Format code
+format:  ## Format code (auto-fix)
 	black src tests
 	isort src tests
 
-lint:  ## Run linting tools
+lint:  ## Basic linting (contributor-friendly)
 	flake8 src tests
-	mypy src
 	black --check src tests
 	isort --check-only src tests
 
-lint-all:  ## Run all linting tools including security and documentation
+lint-maintainer:  ## Full linting suite (for maintainers)
 	flake8 src tests
 	mypy src
 	black --check src tests

@@ -1,23 +1,16 @@
 # dotz
 
-[![PyPI version](https://badge.fury.io/py/dotz.svg)](https://badge.fury.io/py/dotz)
-[![Python versions](https://img.shields.io/pypi/pyversions/dotz.svg)](https://pypi.org/project/dotz/)
-[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
-[![CI](https://github.com/tTrmc/dotz/workflows/CI/badge.svg)](https://github.com/tTrmc/dotz/actions)
-[![Tests](https://img.shields.io/badge/tests-161%20passing-brightgreen.svg)](https://github.com/tTrmc/dotz/actions)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+> Sync your dotfiles across machines with Git
+
+If you've ever spent time setting up your perfect shell, vim, or desktop configuration, you know the pain of losing it when you switch computers. dotz helps you backup your dotfiles (`.bashrc`, `.vimrc`, etc.) to a Git repository so you can quickly restore your setup on any machine.
+
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/tTrmc/dotz/pulls)
-[![GitHub issues](https://img.shields.io/github/issues/tTrmc/dotz.svg)](https://github.com/tTrmc/dotz/issues)
-
-> A fully featured **dotfiles** manager for Linux, backed by Git.
-
-**dotz** provides comprehensive tracking, versioning, and synchronization of your configuration files across machines. An open source project welcoming community contributions.
 
 ## Table of Contents
 
 * [Features](#features)
 * [Installation](#installation)
-* [Quick Start](#quick-start)
+* [Getting Started](#getting-started)
 * [Usage](#usage)
 * [Project Structure](#project-structure)
 * [Configuration](#configuration)
@@ -29,68 +22,45 @@
 
 ## Features
 
-* **Complete dotfile management**: Full-featured repository initialization with local and remote support
-* **Git-powered versioning**: Comprehensive version history, branching, and remote synchronization
-* **Advanced file management**: Add, remove, and restore dotfiles with automatic symlinking and conflict resolution
-* **Template system**: Create, apply, and share reusable dotfile configurations for quick environment setup
-* **Profile management**: Switch between complete dotfile environments for different contexts (work, personal, server)
-* **Intelligent directory handling**: Recursive directory support with smart pattern matching
-* **Dynamic file watching**: Automatic detection and addition of new configuration files in tracked directories
-* **Flexible pattern system**: Comprehensive include/exclude patterns with customizable file type filtering
-* **Rich status reporting**: Detailed overview of untracked, modified, and staged files with progress indicators
-* **Complete configuration management**: Built-in commands to manage file patterns, search settings, and repository behavior
-* **GUI interface**: Modern Qt6-based graphical interface with tabbed workflow management
-* **Advanced diagnostics**: Comprehensive `diagnose` command with detailed troubleshooting and repair capabilities
-* **Full shell integration**: Tab-completion for all commands, options, and file paths
-* **Cross-platform foundation**: Portable architecture requiring only Python 3.9+ and Git
+* **Backup your dotfiles**: Keep your configuration files in Git with full version history
+* **Sync across machines**: Pull your configs on any computer and get your environment back quickly
+* **Smart file detection**: Automatically finds common config files (`.bashrc`, `.vimrc`, `.config/*`)
+* **Templates and profiles**: Save and share different setups for work, personal use, or specific projects
+* **File watching**: Automatically track new config files as you create them
+* **GUI available**: Use the command line or a graphical interface
+* **Safe and secure**: Works with private Git repositories to keep your configs safe
 
 ## Installation
 
-### For End Users (Recommended)
+### Basic Installation
 
 **From PyPI:**
 
 ```bash
-# Core functionality
-pip install dotz
-
-# With GUI support
-pip install dotz[gui]
+pip install dotz           # Basic version
+pip install dotz[gui]      # With graphical interface
 ```
 
-**Using pipx (isolated environment):**
+**Using pipx (recommended for isolation):**
 
 ```bash
-# Install pipx if needed
+# Install pipx if you don't have it
 sudo apt install pipx           # Debian/Ubuntu
-# or
 sudo pacman -S python-pipx      # Arch Linux
 
-# Install dotz with GUI support
+# Install dotz
 pipx install dotz[gui]
 ```
 
-### For Developers
-
-**Quick setup:**
+### Development Setup
 
 ```bash
 git clone https://github.com/tTrmc/dotz.git
 cd dotz
-./setup-dev.sh  # Sets up virtual environment and installs dependencies
+./setup-dev.sh  # Creates virtual environment and installs dependencies
 ```
 
-**Manual setup:**
-
-```bash
-git clone https://github.com/tTrmc/dotz.git
-cd dotz
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev,test]"
-```
-
-### Verify Installation
+### Check Installation
 
 ```bash
 dotz --help
@@ -101,51 +71,41 @@ dotz --help
 * Python 3.9 or newer
 * Git
 
->[!CAUTION]
->**NEVER use public Git repositories with dotz.** Your dotfiles often contain:
->
->* SSH keys and certificates
->* API tokens and passwords
->* Personal file paths and system information
->* Application configurations with sensitive data
->
->**Always use private repositories** or consider excluding sensitive files with dotz's pattern configuration.
+**Security Note:**
+Never use public Git repositories with dotz. Your dotfiles contain sensitive information like SSH keys, API tokens, and personal configurations. Always use private repositories.
 
-## Quick Start
+## Getting Started
 
-### Initialize your dotz repository
+### Set up your first repository
 
 ```bash
 # Local repository only
 dotz init
 
-# With private remote repository (recommended)
-dotz init --remote git@github.com:yourusername/dotfiles-private.git
+# With a private remote repository (recommended)
+dotz init --remote git@github.com:yourusername/my-dotfiles.git
 ```
 
-### Add your first dotfile
+### Add some config files
 
 ```bash
-# Add a single file
+# Add your shell config
 dotz add .bashrc
 
-# Add all dotfiles in a directory
+# Add your entire .config directory
 dotz add .config
 
-# Add and push to remote
+# Add a file and push it immediately
 dotz add .vimrc --push
-
-# Or use the graphical interface
-dotz gui
 ```
 
-### Sync across machines
+### Sync to another machine
 
 ```bash
-# Pull latest changes
+# Get the latest changes
 dotz pull
 
-# Push your changes
+# Send your changes
 dotz push
 ```
 
@@ -296,15 +256,15 @@ dotz profile delete old-profile  # Delete profile
 dotz profile help             # Show detailed help
 ```
 
-**Template vs Profile:**
+**Templates vs Profiles:**
 
-- **Templates**: Snapshots of specific files that can be applied to any repository
-- **Profiles**: Complete environments including all files, configuration, and state
+* **Templates**: Snapshots of specific files that can be applied to any repository
+* **Profiles**: Complete environments including all files, configuration, and state
 
-**Use Cases:**
+**When to use each:**
 
-- **Templates**: Save working configurations, share setups, quick file restoration
-- **Profiles**: Work vs personal environments, machine-specific configs, project contexts
+* **Templates**: Save working configurations, share setups, quick file restoration
+* **Profiles**: Work vs personal environments, machine-specific configs, project contexts
 
 ## Project Structure
 
@@ -383,68 +343,42 @@ dotz config set search_settings.recursive false
 
 ## Testing
 
-dotz has a comprehensive test suite to ensure reliability and catch regressions. Contributors are encouraged to run tests before submitting changes.
+dotz includes tests to make sure everything works correctly. If you're contributing code, please run the tests.
 
 ### Running Tests
 
-**Quick test run:**
-
 ```bash
-pip install pytest
+# Basic test run
 pytest
-```
 
-**With coverage:**
-
-```bash
+# With coverage report
 pytest --cov=dotz
 ```
 
-### Test Categories
+### Test Coverage
 
-The project includes **161 passing tests** covering:
+We have 161 tests covering:
 
-* **CLI commands**: All dotz commands and options including GUI integration
-* **Core functionality**: File management, Git operations, configuration
-* **Configuration management**: Pattern matching, settings, validation
-* **File watching**: Automatic detection and tracking of new files
-* **Error handling**: Graceful handling of edge cases and failures
-* **Environment isolation**: Tests run in isolated temporary environments
+* All CLI commands and options
+* File management and Git operations
+* Configuration and pattern matching
+* File watching and error handling
+* GUI components (when available)
 
-### Development Testing
-
-For development, install with test dependencies:
+### For Contributors
 
 ```bash
-pip install -e ".[dev,test]"  # Install with all dependencies
-pytest -v                     # Run tests with verbose output
-pytest --cov=dotz             # Run tests with coverage report
-make test-cov                 # Run tests with HTML coverage report
+# Install with development dependencies
+pip install -e ".[dev,test]"
+
+# Run tests with verbose output
+pytest -v
+
+# Run with coverage and HTML report
+make test-cov
 ```
 
-### Development Workflow
-
-```bash
-make help          # Show all available commands
-make test          # Run tests
-make lint          # Run code quality checks
-make format        # Auto-format code
-make build         # Build distribution packages
-```
-
-### Writing Tests
-
-When contributing new features:
-
-* Add tests to the appropriate test file in `tests/`
-* Follow existing test patterns and naming conventions
-* Ensure tests are isolated and don't depend on external state
-* Test both success and failure scenarios
-* Update test documentation if needed
-
-All tests run in isolated temporary environments to prevent interference with your actual dotz configuration.
-
-
+All tests run in isolated environments so they won't mess with your actual dotz setup.
 
 ## Contributing
 
@@ -459,7 +393,7 @@ Contributions are welcome!
 * **Review PRs**: Help review and test pull requests from other contributors
 * **Share feedback**: Let me know how dotz works for you and what could be better
 
-### Getting Started
+### Contributing Code
 
 1. **Fork the repository** and clone it locally
 2. **Set up development environment**:

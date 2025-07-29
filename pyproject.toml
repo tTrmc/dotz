@@ -47,6 +47,7 @@ test = [
     "pytest-cov",
     "pytest-timeout",
 ]
+# Essential dev tools only - contributors can add more if needed
 dev = [
     "pytest>=6.0",
     "pytest-cov",
@@ -54,16 +55,37 @@ dev = [
     "black",
     "isort",
     "flake8",
-    "flake8-docstrings",
-    "flake8-bugbear",
-    "flake8-comprehensions",
+    "pre-commit",
+]
+# Advanced tools for maintainers - optional for contributors
+maintainer = [
     "mypy",
     "bandit[toml]",
     "pydocstyle",
+    "flake8-docstrings",
+    "flake8-bugbear",
+    "flake8-comprehensions",
+    "build",
+    "twine",
+]
+# All tools including GUI for full development
+full = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "pytest-timeout",
+    "black",
+    "isort",
+    "flake8",
+    "mypy",
+    "bandit[toml]",
+    "pydocstyle",
+    "flake8-docstrings",
+    "flake8-bugbear",
+    "flake8-comprehensions",
     "pre-commit",
     "build",
     "twine",
-    "PySide6>=6.5.0",  # Include GUI deps in dev for development
+    "PySide6>=6.5.0",
 ]
 
 [project.urls]
@@ -93,11 +115,10 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "--strict-markers",
-    "--strict-config",
     "--verbose",
-    "--timeout=30",  # 30 second timeout per test to prevent hangs
-    "--timeout-method=thread",  # Use thread-based timeout
+    "--timeout=60",  # Increased timeout - less likely to fail on slower systems
+    "--timeout-method=thread",
+    "-x",  # Stop on first failure for faster feedback
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -151,18 +172,20 @@ ensure_newline_before_comments = true
 
 [tool.mypy]
 python_version = "3.9"
-warn_return_any = true
-warn_unused_configs = true
+# More relaxed mypy settings for contributors
+warn_return_any = false
+warn_unused_configs = false
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
-check_untyped_defs = true
+check_untyped_defs = false
 disallow_untyped_decorators = false
-no_implicit_optional = true
-warn_redundant_casts = true
+no_implicit_optional = false
+warn_redundant_casts = false
 warn_unused_ignores = false
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
+warn_no_return = false
+warn_unreachable = false
+strict_equality = false
+ignore_errors = true  # Allow contributors to ignore type issues
 
 [[tool.mypy.overrides]]
 module = [

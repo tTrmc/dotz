@@ -38,8 +38,17 @@ echo "Upgrading pip..."
 pip install --upgrade pip
 
 # Install development dependencies
-echo "Installing development dependencies..."
+echo "Installing contributor-friendly development dependencies..."
 pip install -e ".[dev,test]"
+
+# Ask if user wants full maintainer setup
+echo ""
+read -p "Are you a maintainer and want the full toolset? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Installing full maintainer dependencies..."
+    pip install -e ".[maintainer]"
+fi
 
 # Set up pre-commit hooks
 echo "Setting up pre-commit hooks..."
@@ -56,20 +65,24 @@ else
 fi
 
 echo ""
-echo "Development environment setup complete!"
+echo "🎉 Development environment setup complete!"
 echo ""
 echo "IMPORTANT: To activate the environment in your current shell, run:"
 echo "  source .venv/bin/activate"
 echo ""
-echo "Available commands:"
+echo "Quick start commands:"
 echo "  make help          # Show all available commands"
-echo "  make test          # Run tests"
-echo "  make test-cov      # Run tests with coverage"
-echo "  make lint          # Run code quality checks"
-echo "  make format        # Auto-format code"
-echo "  pre-commit run     # Run pre-commit hooks manually"
-echo "  dotz --help        # Test CLI"
+echo "  make test          # Run core tests (fast, contributor-friendly)"
+echo "  make format        # Auto-format your code"
+echo "  make lint          # Basic code checks"
 echo ""
-echo "Note: The script has set up the environment, but you need to activate"
-echo "      it manually in your shell to use the installed packages."
+echo "Optional commands:"
+echo "  make test-all      # Run all tests including GUI"
+echo "  make test-cov      # Run tests with coverage"
+echo "  make lint-maintainer # Full linting suite"
+echo ""
+echo "Pre-commit hooks are set up with minimal, auto-fixing rules."
+echo "They'll mostly fix formatting issues for you automatically!"
+echo ""
+echo "Check out docs/CONTRIBUTING_SIMPLE.md for a quick start guide."
 echo ""
