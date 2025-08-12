@@ -39,18 +39,35 @@ watchdog = "*"
 PySide6 = {version = ">=6.5.0", optional = true}
 
 [tool.poetry.group.test.dependencies]
-pytest = ">=6.0"
-pytest-cov = "*"
-pytest-timeout = "*"
+pytest = ">=7.4.0"
+pytest-cov = "^4.1.0"
+pytest-timeout = "^2.1.0"
+pytest-mock = "^3.11.1"
+pytest-qt = "^4.2.0"
+pytest-xdist = "^3.3.1"
+pytest-benchmark = "^4.0.0"
+hypothesis = "^6.82.0"
+faker = "^19.2.0"
+factory-boy = "^3.3.0"
+responses = "^0.23.3"
+freezegun = "^1.2.2"
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=6.0"
-pytest-cov = "*"
-pytest-timeout = "*"
+pytest = ">=7.4.0"
+pytest-cov = "^4.1.0"
+pytest-timeout = "^2.1.0"
+pytest-mock = "^3.11.1"
+pytest-qt = "^4.2.0"
+pytest-xdist = "^3.3.1"
+pytest-benchmark = "^4.0.0"
+hypothesis = "^6.82.0"
+faker = "^19.2.0"
+factory-boy = "^3.3.0"
+responses = "^0.23.3"
+freezegun = "^1.2.2"
 black = "*"
 isort = "*"
 flake8 = "*"
-pre-commit = "*"
 
 [tool.poetry.group.maintainer.dependencies]
 mypy = "*"
@@ -76,14 +93,24 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--verbose",
-    "--timeout=60",  # Increased timeout - less likely to fail on slower systems
+    "--timeout=60",
     "--timeout-method=thread",
-    "-x",  # Stop on first failure for faster feedback
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "gui: marks tests as GUI tests requiring display (can be skipped in headless environments)",
+    "gui: marks tests as GUI tests requiring display",
+    "integration: marks tests as integration tests",
+    "performance: marks tests as performance benchmarks",
+    "unit: marks tests as unit tests",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+minversion = "7.0"
 
 [tool.coverage.run]
 source = ["src"]

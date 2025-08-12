@@ -4,10 +4,12 @@ import json
 
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -19,12 +21,14 @@ from PySide6.QtWidgets import (
 
 from ...core import (
     add_file_pattern,
+    get_config_value,
     load_config,
     remove_file_pattern,
     reset_config,
     save_config,
     set_config_value,
 )
+from ..theme import theme_manager, Theme
 
 
 class SettingsWidget(QWidget):
@@ -38,6 +42,18 @@ class SettingsWidget(QWidget):
     def _setup_ui(self) -> None:
         """Set up the user interface."""
         layout = QVBoxLayout(self)
+
+        # Appearance Settings
+        appearance_group = QGroupBox("Appearance")
+        appearance_layout = QFormLayout(appearance_group)
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem("Light", Theme.LIGHT.value)
+        self.theme_combo.addItem("Dark", Theme.DARK.value)
+        self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
+        appearance_layout.addRow("Theme:", self.theme_combo)
+
+        layout.addWidget(appearance_group)
 
         # Search Settings
         search_group = QGroupBox("Search Settings")
@@ -125,10 +141,72 @@ class SettingsWidget(QWidget):
         config_layout.addLayout(config_buttons)
         layout.addWidget(config_group)
 
+        # Advanced configuration group
+        advanced_group = QGroupBox("Advanced Configuration")
+        advanced_layout = QVBoxLayout(advanced_group)
+
+        # Key-value editor
+        kv_layout = QHBoxLayout()
+        
+        kv_left = QVBoxLayout()
+        kv_left.addWidget(QLabel("Configuration Key:"))
+        self.config_key_edit = QLineEdit()
+        self.config_key_edit.setPlaceholderText("e.g., search_settings.recursive")
+        kv_left.addWidget(self.config_key_edit)
+        
+        kv_left.addWidget(QLabel("Value:"))
+        self.config_value_edit = QLineEdit()
+        self.config_value_edit.setPlaceholderText("e.g., true, false, \"string\", [\"list\"]")
+        kv_left.addWidget(self.config_value_edit)
+
+        kv_buttons = QHBoxLayout()
+        self.get_config_btn = QPushButton("Get Value")
+        self.get_config_btn.clicked.connect(self._get_config_value)
+        kv_buttons.addWidget(self.get_config_btn)
+
+        self.set_config_btn = QPushButton("Set Value")
+        self.set_config_btn.clicked.connect(self._set_config_value)
+        kv_buttons.addWidget(self.set_config_btn)
+
+        kv_left.addLayout(kv_buttons)
+        kv_layout.addLayout(kv_left)
+
+        # Config value display
+        kv_right = QVBoxLayout()
+        kv_right.addWidget(QLabel("Current Value:"))
+        self.config_result_text = QTextEdit()
+        self.config_result_text.setMaximumHeight(100)
+        self.config_result_text.setReadOnly(True)
+        kv_right.addWidget(self.config_result_text)
+
+        kv_layout.addLayout(kv_right)
+        advanced_layout.addLayout(kv_layout)
+
+        layout.addWidget(advanced_group)
+
     def load_settings(self) -> None:
         """Load settings from configuration."""
         try:
             config = load_config()
+
+            # Load appearance settings
+            appearance_settings = config.get("appearance", {})
+            theme_name = appearance_settings.get("theme", "light")
+            
+            # Set theme combo without triggering the change event
+            self.theme_combo.blockSignals(True)
+            if theme_name == "dark":
+                self.theme_combo.setCurrentText("Dark")
+            else:
+                self.theme_combo.setCurrentText("Light")
+            self.theme_combo.blockSignals(False)
+            
+            # Apply the theme
+            try:
+                theme = Theme(theme_name)
+                theme_manager.set_theme(theme)
+            except ValueError:
+                theme_manager.set_theme(Theme.LIGHT)
 
             # Load search settings
             search_settings = config.get("search_settings", {})
@@ -273,3 +351,65 @@ class SettingsWidget(QWidget):
             self, title, "Enter file pattern (e.g., *.conf, .gitconfig):"
         )
         return pattern.strip(), ok
+
+    def _get_config_value(self) -> None:
+        """Get and display a configuration value."""
+        key = self.config_key_edit.text().strip()
+        if not key:
+            QMessageBox.warning(self, "Invalid Key", "Please enter a configuration key.")
+            return
+
+        try:
+            value = get_config_value(key, quiet=True)
+            if value is not None:
+                if isinstance(value, (list, dict)):
+                    display_value = json.dumps(value, indent=2)
+                else:
+                    display_value = str(value)
+                self.config_result_text.setPlainText(display_value)
+                self.config_value_edit.setText(str(value))
+            else:
+                self.config_result_text.setPlainText("Key not found")
+                self.config_value_edit.clear()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to get config value: {str(e)}")
+            self.config_result_text.setPlainText(f"Error: {str(e)}")
+
+    def _set_config_value(self) -> None:
+        """Set a configuration value."""
+        key = self.config_key_edit.text().strip()
+        value_str = self.config_value_edit.text().strip()
+
+        if not key:
+            QMessageBox.warning(self, "Invalid Key", "Please enter a configuration key.")
+            return
+
+        if not value_str:
+            QMessageBox.warning(self, "Invalid Value", "Please enter a value.")
+            return
+
+        try:
+            success = set_config_value(key, value_str, quiet=True)
+            if success:
+                QMessageBox.information(self, "Success", f"Set {key} = {value_str}")
+                self.load_settings()  # Reload settings to show changes
+                self._get_config_value()  # Update the display
+            else:
+                QMessageBox.warning(self, "Failed", "Failed to set configuration value")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to set config value: {str(e)}")
+
+    def _on_theme_changed(self, theme_text: str) -> None:
+        """Handle theme selection change."""
+        try:
+            theme_value = "dark" if theme_text == "Dark" else "light"
+            theme = Theme(theme_value)
+            
+            # Apply theme immediately
+            theme_manager.set_theme(theme)
+            
+            # Save theme preference to config
+            set_config_value("appearance.theme", theme_value, quiet=True)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to change theme: {str(e)}")

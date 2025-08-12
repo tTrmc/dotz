@@ -25,17 +25,53 @@ pre-commit-install:  ## Install pre-commit hooks
 pre-commit-run:  ## Run pre-commit hooks on all files
 	pre-commit run --all-files
 
-test:  ## Run tests (contributor-friendly)
-	poetry run pytest -m "not gui" --tb=short
+test:  ## Run core tests (fast, contributor-friendly)
+	poetry run pytest tests/unit -m "not gui and not slow" --tb=short
+
+test-unit:  ## Run unit tests only
+	poetry run pytest tests/unit -v --tb=short
+
+test-integration:  ## Run integration tests only
+	poetry run pytest tests/integration -v --tb=short
+
+test-gui:  ## Run GUI tests only (requires display)
+	poetry run pytest tests/gui -v --tb=short
+
+test-performance:  ## Run performance tests only
+	poetry run pytest tests/performance -v --benchmark-only
 
 test-all:  ## Run all tests including GUI tests
 	poetry run pytest
 
-test-cov:  ## Run tests with coverage
-	poetry run pytest --cov=dotz --cov-report=html --cov-report=term -m "not gui"
+test-fast:  ## Run only fast tests (exclude slow and GUI)
+	poetry run pytest -m "not slow and not gui" --tb=short
+
+test-slow:  ## Run only slow tests
+	poetry run pytest -m "slow" --tb=short
+
+test-cov:  ## Run tests with coverage (excluding GUI and slow tests)
+	poetry run pytest tests/unit tests/integration -m "not gui and not slow" --cov=dotz --cov-report=html --cov-report=term
+
+test-cov-all:  ## Run all tests with coverage
+	poetry run pytest --cov=dotz --cov-report=html --cov-report=term --cov-report=xml
 
 test-ci:  ## Run tests for CI (excluding GUI tests)
-	poetry run pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy -m "not gui" --tb=short
+	poetry run pytest tests/unit tests/integration tests/performance -m "not gui" --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --tb=short
+
+test-parallel:  ## Run tests in parallel
+	poetry run pytest -n auto tests/unit tests/integration -m "not gui"
+
+test-watch:  ## Run tests in watch mode
+	poetry run pytest-watch tests/ --ignore tests/gui --tb=short
+
+test-random:  ## Run tests in random order
+	poetry run pytest --random-order tests/unit
+
+test-profile:  ## Profile test execution
+	poetry run pytest --profile-svg tests/unit
+
+test-debug:  ## Run tests with debugging enabled
+	poetry run pytest -v -s --tb=long --pdb-trace
 
 format:  ## Format code (auto-fix)
 	poetry run black src tests

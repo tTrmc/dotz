@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -57,11 +58,30 @@ class FilesWidget(QWidget):
         self.add_dir_btn.clicked.connect(self.add_directory)
         actions_layout.addWidget(self.add_dir_btn)
 
+        # Add options
+        options_layout = QVBoxLayout()
+        self.recursive_check = QCheckBox("Recursive")
+        self.recursive_check.setChecked(True)
+        self.recursive_check.setToolTip("Add directories recursively")
+        options_layout.addWidget(self.recursive_check)
+
+        self.push_after_add_check = QCheckBox("Push after add")
+        self.push_after_add_check.setToolTip("Automatically push to remote after adding files")
+        options_layout.addWidget(self.push_after_add_check)
+
+        actions_layout.addLayout(options_layout)
+
         actions_layout.addWidget(QWidget())  # Spacer
 
         self.restore_btn = QPushButton("Restore Selected")
         self.restore_btn.clicked.connect(self.restore_selected)
         actions_layout.addWidget(self.restore_btn)
+
+        self.restore_all_btn = QPushButton("Restore All Files")
+        self.restore_all_btn.clicked.connect(self.restore_all_files)
+        actions_layout.addWidget(self.restore_all_btn)
+
+        actions_layout.addWidget(QWidget())  # Spacer
 
         self.delete_btn = QPushButton("Delete Selected")
         self.delete_btn.clicked.connect(self.delete_selected)
@@ -113,7 +133,12 @@ class FilesWidget(QWidget):
                     )
                     return
 
-                success = add_dotfile(rel_path, quiet=True)
+                success = add_dotfile(
+                    rel_path, 
+                    push=self.push_after_add_check.isChecked(),
+                    quiet=True,
+                    recursive=self.recursive_check.isChecked()
+                )
                 if success:
                     QMessageBox.information(self, "Success", f"Added {rel_path}")
                     self.refresh()
@@ -131,6 +156,8 @@ class FilesWidget(QWidget):
 
         if dir_path:
             try:
+                from ...core import find_config_files, load_config
+                
                 # Convert to relative path from home
                 home_path = Path.home()
                 abs_path = Path(dir_path)
@@ -145,12 +172,53 @@ class FilesWidget(QWidget):
                     )
                     return
 
-                success = add_dotfile(rel_path, quiet=True)
-                if success:
-                    QMessageBox.information(self, "Success", f"Added {rel_path}")
-                    self.refresh()
-                else:
-                    QMessageBox.warning(self, "Failed", f"Failed to add {rel_path}")
+                # Use core's file finding logic
+                config = load_config()
+                files_to_add = find_config_files(abs_path, config, recursive=self.recursive_check.isChecked())
+                
+                if not files_to_add:
+                    QMessageBox.information(
+                        self, "No Files", f"No matching files found in {rel_path}"
+                    )
+                    return
+                
+                # Ask user to confirm
+                reply = QMessageBox.question(
+                    self,
+                    "Confirm Addition",
+                    f"Found {len(files_to_add)} files in {rel_path}.\n\nAdd them all?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    success_count = 0
+                    failed_count = 0
+                    push_enabled = self.push_after_add_check.isChecked()
+                    
+                    for i, file_path in enumerate(files_to_add):
+                        try:
+                            # Convert to relative path for add_dotfile
+                            rel_file_path = file_path.relative_to(home_path)
+                            # Only push on the last file if push is enabled
+                            should_push = push_enabled and (i == len(files_to_add) - 1)
+                            if add_dotfile(rel_file_path, quiet=True, recursive=False, push=should_push):
+                                success_count += 1
+                            else:
+                                failed_count += 1
+                        except Exception:
+                            failed_count += 1
+                    
+                    if success_count > 0:
+                        message = f"Added {success_count} files"
+                        if failed_count > 0:
+                            message += f" ({failed_count} failed)"
+                        if push_enabled:
+                            message += " and pushed to remote"
+                        QMessageBox.information(self, "Success", message)
+                        self.refresh()
+                    else:
+                        QMessageBox.warning(self, "Failed", "No files could be added")
 
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error adding directory: {str(e)}")
@@ -186,6 +254,50 @@ class FilesWidget(QWidget):
             )
 
         self.refresh()
+
+    def restore_all_files(self) -> None:
+        """Restore all tracked files."""
+        try:
+            tracked_files = list_tracked_files()
+            if not tracked_files:
+                QMessageBox.information(self, "No Files", "No tracked files to restore.")
+                return
+
+            # Confirm restore
+            reply = QMessageBox.question(
+                self,
+                "Confirm Restore All",
+                f"Restore all {len(tracked_files)} tracked files?\n\n"
+                "This will overwrite existing files in your home directory!",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                success_count = 0
+                failed_count = 0
+
+                for tracked_file in tracked_files:
+                    try:
+                        file_path = Path(tracked_file)
+                        if restore_dotfile(file_path, quiet=True, push=False):
+                            success_count += 1
+                        else:
+                            failed_count += 1
+                    except Exception:
+                        failed_count += 1
+
+                if success_count > 0:
+                    message = f"Restored {success_count} files"
+                    if failed_count > 0:
+                        message += f" ({failed_count} failed)"
+                    QMessageBox.information(self, "Success", message)
+                    self.refresh()
+                else:
+                    QMessageBox.warning(self, "Failed", "No files could be restored")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error restoring files: {str(e)}")
 
     def delete_selected(self) -> None:
         """Delete selected files."""
