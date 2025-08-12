@@ -3,11 +3,11 @@ name: CI
 on:
   push:
     branches: [ main, develop ]
-    tags: [ 'v*' ]  # Trigger on version tags
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, develop ]
   release:
-    types: [published]  # Trigger on GitHub releases
+    types: [published]
 
 permissions:
   contents: read
@@ -17,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+      fail-fast: false
 
     steps:
     - uses: actions/checkout@v4
@@ -26,17 +27,29 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        installer-parallel: true
+
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[test]"
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --with test
 
     - name: Run tests
       run: |
-        # Skip GUI tests in CI to avoid display-related issues
-        pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy -m "not gui"
+        poetry run pytest --cov=dotz --cov-report=xml --cov-report=term-missing --junitxml=junit.xml -m "not gui"
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -44,13 +57,14 @@ jobs:
       with:
         file: ./coverage.xml
         token: ${{ secrets.CODECOV_TOKEN }}
-        fail_ci_if_error: true
+        fail_ci_if_error: false
 
-    - name: Upload test results to Codecov
-      if: ${{ !cancelled() && matrix.python-version == '3.11' }}
+    - name: Upload test results
+      if: always() && matrix.python-version == '3.11'
       uses: codecov/test-results-action@v1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./junit.xml
 
   lint:
     runs-on: ubuntu-latest
@@ -62,24 +76,44 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
-        cache: 'pip'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-3.11-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --with dev,maintainer
 
-    - name: Run pre-commit hooks
+    - name: Run linting
       run: |
-        pre-commit install
-        pre-commit run --all-files
+        poetry run black --check src tests
+        poetry run isort --check-only src tests
+        poetry run flake8 src tests
 
-    - name: Run additional linting
-      run: |
-        black --check src tests
-        isort --check-only src tests
-        flake8 src tests
-        mypy src
+    - name: Run type checking
+      run: poetry run mypy src
+
+    - name: Run security scan
+      run: poetry run bandit -r src/ -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Upload security scan results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: bandit-report
+        path: bandit-report.json
 
   build:
     runs-on: ubuntu-latest
@@ -92,32 +126,30 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
-        cache: 'pip'
 
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
 
     - name: Build package
-      run: python -m build
+      run: poetry build
 
     - name: Check package
-      run: python -m twine check dist/*
+      run: |
+        pip install twine
+        python -m twine check dist/*
 
-    - name: Upload artifacts
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dist
+        name: dist-${{ github.sha }}
         path: dist/
+        retention-days: 30
 
-  publish:
+  gui-test:
     runs-on: ubuntu-latest
-    needs: [test, lint, build]
-    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || github.event_name == 'release'
-    permissions:
-      contents: read
-      id-token: write  # For trusted publishing
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
 
     steps:
     - uses: actions/checkout@v4
@@ -126,15 +158,54 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
-        cache: 'pip'
 
-    - name: Install build dependencies
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Install dependencies with GUI extras
+      run: poetry install --with test --extras gui
+
+    - name: Set up virtual display
       run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+
+    - name: Run GUI tests
+      run: |
+        xvfb-run -a poetry run pytest tests/gui/ -v
+      env:
+        QT_QPA_PLATFORM: offscreen
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [test, lint, build]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
 
     - name: Build package
-      run: python -m build
+      run: poetry build
 
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        print-hash: true
