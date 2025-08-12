@@ -4,7 +4,7 @@ import json
 from contextlib import nullcontext
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import typer
 from git import InvalidGitRepositoryError, Repo
@@ -24,12 +24,14 @@ from .core import (
     delete_dotfile,
     diff_files,
     get_config_value,
+    get_dotz_paths,
     get_home_dir,
     get_repo_status,
     init_repo,
     list_backups,
     list_tracked_files,
     load_config,
+    parse_backup_filename,
     pull_repo,
     push_repo,
     remove_file_pattern,
@@ -37,6 +39,7 @@ from .core import (
     restore_dotfile,
     restore_from_backup,
     set_config_value,
+    update_paths,
     validate_symlinks,
 )
 from .watcher import main as watcher_main
@@ -56,28 +59,6 @@ DOTZ_DIR: Path
 WORK_TREE: Path
 
 
-def get_cli_paths() -> Tuple[Path, Path, Path]:
-    """Get CLI-related paths based on current home directory."""
-    home = get_home_dir()
-    dotz_dir = home / ".dotz"
-    work_tree = dotz_dir / "repo"
-    return home, dotz_dir, work_tree
-
-
-def refresh_cli_paths() -> None:
-    """Refresh CLI paths when HOME environment changes."""
-    global HOME, DOTZ_DIR, WORK_TREE
-    HOME, DOTZ_DIR, WORK_TREE = get_cli_paths()
-
-
-def update_cli_paths(home_dir: Path) -> None:
-    """Update CLI paths for testing purposes."""
-    global HOME, DOTZ_DIR, WORK_TREE
-    HOME = home_dir
-    DOTZ_DIR = home_dir / ".dotz"
-    WORK_TREE = home_dir / ".dotz" / "repo"
-
-
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
@@ -95,30 +76,11 @@ def format_file_size(size_bytes: int) -> str:
         return f"{size_mb:.1f} MB"
 
 
-def parse_backup_filename(backup_name: str) -> Tuple[str, str, str]:
-    """Parse backup filename to extract original path, operation, and timestamp."""
-    parts = backup_name.split("_")
-    if len(parts) >= 3:
-        operation_idx = -2
-        original_parts = parts[:operation_idx]
-        original_file = "/".join(original_parts)
-        operation = parts[operation_idx]
-        timestamp = parts[-1]
-
-        # Format timestamp for display
-        try:
-            dt = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
-            formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            formatted_time = timestamp
-
-        return original_file, operation, formatted_time
-    else:
-        return backup_name, "unknown", "unknown"
-
-
-# Initialize global paths
-HOME, DOTZ_DIR, WORK_TREE = get_cli_paths()
+# Initialize global paths from core
+_paths = get_dotz_paths()
+HOME = _paths["home"]
+DOTZ_DIR = _paths["dotz_dir"]
+WORK_TREE = _paths["work_tree"]
 
 
 @app.command()
@@ -306,7 +268,7 @@ def add(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ) -> None:
     """Add files or directories to dotz with progress tracking."""
-    refresh_cli_paths()
+    update_paths()
 
     target_path = Path(path).expanduser()
     if not target_path.is_absolute():
@@ -445,7 +407,7 @@ def restore_all(
     This is useful for setting up dotfiles on a new system or when you want
     to restore all files at once.
     """
-    refresh_cli_paths()
+    update_paths()
 
     if not confirm and not quiet:
         # Show what will be restored
@@ -711,6 +673,10 @@ def version() -> None:
 
         version_str = get_version("dotz")
     except ImportError:
+        from importlib.metadata import version as get_version
+
+        version_str = DEFAULT_VERSION
+    except Exception:
         version_str = DEFAULT_VERSION
 
     typer.secho(f"dotz version {version_str}", fg=typer.colors.GREEN)

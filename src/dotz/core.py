@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import typer
-from git import GitCommandError, Repo
+from git import GitCommandError, InvalidGitRepositoryError, Repo
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -21,6 +21,17 @@ from rich.progress import (
     TextColumn,
 )
 from rich.status import Status
+
+from .exceptions import (
+    DotzBackupError,
+    DotzFileNotFoundError,
+    DotzGitError,
+    DotzRepositoryNotFoundError,
+    DotzValidationError,
+    OperationResultDict,
+    RepoStatusDict,
+    ValidationResultsDict,
+)
 
 # Constants
 DOTZ_DIR_NAME = ".dotz"
@@ -134,13 +145,10 @@ def ensure_repo() -> Repo:
     """Ensure that a dotz repository exists and return it."""
     try:
         return Repo(str(WORK_TREE))
-    except Exception:
-        typer.secho(
-            "Error: Dotz repository not initialized. Run 'dotz init' first.",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(code=1)
+    except (InvalidGitRepositoryError, OSError) as e:
+        raise DotzRepositoryNotFoundError(
+            "Dotz repository not initialized. Run 'dotz init' first."
+        ) from e
 
 
 def count_files_in_directory(path: Path) -> int:
@@ -664,7 +672,7 @@ def push_repo(quiet: bool = False) -> bool:
         return False
 
 
-def get_repo_status() -> Dict[str, List[str]]:
+def get_repo_status() -> RepoStatusDict:
     repo = ensure_repo()
     untracked = list(repo.untracked_files)
     modified = [
@@ -685,7 +693,8 @@ def get_repo_status() -> Dict[str, List[str]]:
                 for diff_item in repo.index.diff(remote_branch)
                 if diff_item.a_path is not None
             ]
-        except Exception:  # nosec B110
+        except (GitCommandError, ValueError, AttributeError):
+            # Handle cases where remote branch doesn't exist or other git errors
             pass
 
     # Dotfiles in $HOME not tracked by dotz
@@ -1238,7 +1247,7 @@ def restore_all_dotfiles(quiet: bool = False, push: bool = False) -> bool:
 
 def validate_symlinks(
     repair: bool = False, quiet: bool = False
-) -> Dict[str, List[str]]:
+) -> ValidationResultsDict:
     """
     Validate all symlinks managed by dotz and optionally repair broken ones.
 
@@ -1649,28 +1658,38 @@ def restore_from_backup(backup_path: Path, quiet: bool = False) -> bool:
 
         # Restore from backup
         if backup_path.suffix == ".gz" or backup_path.name.endswith(".tar.gz"):
-            # Extract tar archive
+            # Extract tar archive securely
             with tarfile.open(backup_path, "r:gz") as tar:
                 # Validate tar members for security
-                def is_safe_path(path: Path, base_path: Path) -> bool:
-                    """Check if the path is safe to extract."""
-                    try:
-                        resolved = (base_path / path).resolve()
-                        return str(resolved).startswith(str(base_path.resolve()))
-                    except (OSError, ValueError):
+                def is_safe_member(member: tarfile.TarInfo) -> bool:
+                    """Check if a tar member is safe to extract."""
+                    # Only allow regular files
+                    if not member.isfile():
                         return False
 
-                safe_members = []
-                for member in tar.getmembers():
-                    if member.isfile() and is_safe_path(
-                        Path(member.name), original_path.parent
-                    ):
-                        safe_members.append(member)
+                    # Check for directory traversal attempts
+                    if ".." in member.name or member.name.startswith("/"):
+                        return False
 
-                # Extract only safe members
-                tar.extractall(  # nosec B202
-                    path=original_path.parent, members=safe_members
-                )
+                    try:
+                        # Construct and validate the extraction path
+                        extract_path = (original_path.parent / member.name).resolve()
+                        extract_path.relative_to(original_path.parent.resolve())
+                        return True
+                    except (ValueError, OSError):
+                        return False
+
+                # Extract members individually for security
+                for member in tar.getmembers():
+                    if is_safe_member(member):
+                        try:
+                            tar.extract(member, original_path.parent)
+                        except Exception as extract_error:
+                            if not quiet:
+                                typer.secho(
+                                    f"Failed to extract {member.name}: {extract_error}",
+                                    fg=typer.colors.YELLOW,
+                                )
         else:
             # Copy regular file
             shutil.copy2(backup_path, original_path)
@@ -1942,3 +1961,140 @@ def diff_files(files: Optional[List[str]] = None, quiet: bool = False) -> bool:
         if not quiet:
             typer.secho(f"Error showing diff: {e}", fg=typer.colors.RED, err=True)
         return False
+
+
+# ============================================================================
+# UTILITY FUNCTIONS FOR COMMON OPERATIONS
+# ============================================================================
+
+
+def safe_git_operation(repo: Repo, operation: str, *args, **kwargs) -> bool:
+    """
+    Safely execute Git operations with consistent error handling.
+
+    Args:
+        repo: GitPython Repo object
+        operation: Name of the git operation (e.g., 'add', 'commit', 'push')
+        *args, **kwargs: Arguments to pass to the git operation
+
+    Returns:
+        bool: True if operation succeeded, False otherwise
+    """
+    try:
+        git_method = getattr(repo.git, operation, None)
+        if not git_method:
+            raise DotzGitError(f"Unknown git operation: {operation}")
+
+        git_method(*args, **kwargs)
+        return True
+    except GitCommandError as e:
+        raise DotzGitError(f"Git {operation} failed: {e}") from e
+    except Exception as e:
+        raise DotzGitError(f"Unexpected error during git {operation}: {e}") from e
+
+
+def validate_file_path(file_path: Path, must_exist: bool = True) -> None:
+    """
+    Validate a file path with consistent error handling.
+
+    Args:
+        file_path: Path to validate
+        must_exist: Whether the file must exist
+
+    Raises:
+        DotzFileNotFoundError: If file doesn't exist and must_exist=True
+        DotzValidationError: If path is invalid
+    """
+    try:
+        resolved_path = file_path.resolve()
+
+        if must_exist and not resolved_path.exists():
+            raise DotzFileNotFoundError(f"File not found: {file_path}")
+
+        # Check for path traversal attempts
+        if ".." in str(file_path) or str(file_path).startswith("/"):
+            raise DotzValidationError(f"Invalid file path: {file_path}")
+
+    except OSError as e:
+        raise DotzValidationError(f"Invalid path: {file_path}") from e
+
+
+def create_backup_with_validation(backup_name: str, quiet: bool = False) -> bool:
+    """
+    Create a backup with consistent validation and error handling.
+
+    Args:
+        backup_name: Name for the backup
+        quiet: Whether to suppress output
+
+    Returns:
+        bool: True if backup created successfully
+    """
+    try:
+        # Validate backup name
+        if not backup_name or not backup_name.strip():
+            raise DotzValidationError("Backup name cannot be empty")
+
+        # Create backup using existing function
+        return create_backup(backup_name, quiet=quiet)
+
+    except DotzValidationError:
+        raise
+    except Exception as e:
+        raise DotzBackupError(f"Failed to create backup: {e}") from e
+
+
+def batch_file_operation(
+    files: List[Path],
+    operation_func,
+    description: str = "Processing files",
+    quiet: bool = False,
+) -> OperationResultDict:
+    """
+    Execute a file operation on multiple files with progress tracking.
+
+    Args:
+        files: List of file paths to process
+        operation_func: Function to execute on each file
+        description: Description for progress bar
+        quiet: Whether to suppress output
+
+    Returns:
+        OperationResultDict with success/failed counts
+    """
+    results: OperationResultDict = {"success": 0, "failed": 0}
+
+    if not files:
+        return results
+
+    if quiet:
+        for file_path in files:
+            try:
+                if operation_func(file_path):
+                    results["success"] += 1
+                else:
+                    results["failed"] += 1
+            except Exception:
+                results["failed"] += 1
+    else:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(description, total=len(files))
+
+            for file_path in files:
+                try:
+                    if operation_func(file_path):
+                        results["success"] += 1
+                    else:
+                        results["failed"] += 1
+                except Exception:
+                    results["failed"] += 1
+                finally:
+                    progress.advance(task)
+
+    return results

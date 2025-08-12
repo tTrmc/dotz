@@ -1,19 +1,17 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "dotz"
 version = "0.4.0"
 description = "A fully featured, Git-backed dotfiles manager for Linux"
-requires-python = ">=3.9"
-readme = "README.md"
+authors = ["Moustafa Salem <salemmoustafa442@gmail.com>"]
 license = "GPL-3.0-or-later"
-
-authors = [
-  {name = "Moustafa Salem", email = "salemmoustafa442@gmail.com"}
-]
-
+readme = "README.md"
+homepage = "https://github.com/tTrmc/dotz"
+repository = "https://github.com/tTrmc/dotz"
+documentation = "https://github.com/tTrmc/dotz#readme"
 keywords = ["dotfiles", "git", "configuration", "linux", "symlink", "backup", "dotz"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -26,88 +24,50 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: System :: Archiving :: Backup",
     "Topic :: System :: Systems Administration",
     "Topic :: Utilities",
 ]
+packages = [{include = "dotz", from = "src"}]
+include = ["src/dotz/py.typed"]
 
-dependencies = [
-  "typer",
-  "gitpython",
-  "watchdog"
-]
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+typer = "*"
+gitpython = "*"
+watchdog = "*"
+PySide6 = {version = ">=6.5.0", optional = true}
 
-[project.optional-dependencies]
-gui = [
-    "PySide6>=6.5.0",
-]
-test = [
-    "pytest>=6.0",
-    "pytest-cov",
-    "pytest-timeout",
-]
-# Essential dev tools only - contributors can add more if needed
-dev = [
-    "pytest>=6.0",
-    "pytest-cov",
-    "pytest-timeout",
-    "black",
-    "isort",
-    "flake8",
-    "pre-commit",
-]
-# Advanced tools for maintainers - optional for contributors
-maintainer = [
-    "mypy",
-    "bandit[toml]",
-    "pydocstyle",
-    "flake8-docstrings",
-    "flake8-bugbear",
-    "flake8-comprehensions",
-    "build",
-    "twine",
-]
-# All tools including GUI for full development
-full = [
-    "pytest>=6.0",
-    "pytest-cov",
-    "pytest-timeout",
-    "black",
-    "isort",
-    "flake8",
-    "mypy",
-    "bandit[toml]",
-    "pydocstyle",
-    "flake8-docstrings",
-    "flake8-bugbear",
-    "flake8-comprehensions",
-    "pre-commit",
-    "build",
-    "twine",
-    "PySide6>=6.5.0",
-]
+[tool.poetry.group.test.dependencies]
+pytest = ">=6.0"
+pytest-cov = "*"
+pytest-timeout = "*"
 
-[project.urls]
-Homepage = "https://github.com/tTrmc/dotz"
-Repository = "https://github.com/tTrmc/dotz"
-Documentation = "https://github.com/tTrmc/dotz#readme"
-Issues = "https://github.com/tTrmc/dotz/issues"
-Changelog = "https://github.com/tTrmc/dotz/releases"
+[tool.poetry.group.dev.dependencies]
+pytest = ">=6.0"
+pytest-cov = "*"
+pytest-timeout = "*"
+black = "*"
+isort = "*"
+flake8 = "*"
+pre-commit = "*"
 
-[project.scripts]
+[tool.poetry.group.maintainer.dependencies]
+mypy = "*"
+bandit = {extras = ["toml"], version = "*"}
+pydocstyle = "*"
+flake8-docstrings = "*"
+flake8-bugbear = "*"
+flake8-comprehensions = "*"
+build = "*"
+twine = "*"
+
+[tool.poetry.extras]
+gui = ["PySide6"]
+
+[tool.poetry.scripts]
 dotz = "dotz.cli:app"
 dotz-gui = "dotz.gui.main:main"
-
-# Tool configurations
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-dotz = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

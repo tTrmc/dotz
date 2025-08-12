@@ -8,6 +8,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .core import DOTZ_DIR, WORK_TREE, console, ensure_repo
+from .exceptions import (
+    DotzArchiveError,
+    DotzFileNotFoundError,
+    DotzProfileError,
+    DotzSecurityError,
+    DotzTemplateError,
+    ProfileMetadataDict,
+    TemplateMetadataDict,
+)
 
 # Constants
 TEMPLATES_DIR_NAME = "templates"
@@ -39,7 +48,7 @@ def get_profiles_dir() -> Path:
     return PROFILES_DIR
 
 
-def list_templates() -> List[Dict[str, Any]]:
+def list_templates() -> List[TemplateMetadataDict]:
     """List all available templates with their metadata."""
     templates = []
     templates_dir = get_templates_dir()
@@ -135,10 +144,12 @@ def create_template(
 
         return True
 
+    except DotzTemplateError:
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error creating template: {e}[/red]")
-        return False
+        raise DotzTemplateError(f"Failed to create template: {e}") from e
 
 
 def apply_template(
@@ -224,10 +235,12 @@ def apply_template(
 
         return True
 
+    except DotzTemplateError:
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error applying template: {e}[/red]")
-        return False
+        raise DotzTemplateError(f"Failed to apply template: {e}") from e
 
 
 def delete_template(name: str, quiet: bool = False) -> bool:
@@ -248,10 +261,12 @@ def delete_template(name: str, quiet: bool = False) -> bool:
 
         return True
 
+    except DotzTemplateError:
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error deleting template: {e}[/red]")
-        return False
+        raise DotzTemplateError(f"Failed to delete template: {e}") from e
 
 
 def export_template(name: str, output_path: str, quiet: bool = False) -> bool:
@@ -279,10 +294,12 @@ def export_template(name: str, output_path: str, quiet: bool = False) -> bool:
 
         return True
 
+    except DotzArchiveError:
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error exporting template: {e}[/red]")
-        return False
+        raise DotzArchiveError(f"Failed to export template: {e}") from e
 
 
 def import_template(archive_path: str, quiet: bool = False) -> bool:
@@ -294,56 +311,61 @@ def import_template(archive_path: str, quiet: bool = False) -> bool:
         if not archive_file.exists():
             if not quiet:
                 console.print(f"[red]Archive '{archive_path}' not found[/red]")
-            return False
+            raise DotzFileNotFoundError(f"Archive '{archive_path}' not found")
 
         with tarfile.open(archive_file, "r:gz") as tar:
             # Validate archive members for security (prevent path traversal attacks)
-            def is_safe_path(path: str) -> bool:
-                """Check if the path is safe to extract."""
-                # Normalize the path and check for directory traversal attempts
-                normalized = Path(path).resolve()
-                try:
-                    # Ensure the path stays within the templates directory
-                    normalized.relative_to(templates_dir.resolve())
-                    return True
-                except ValueError:
+            def is_safe_member(member: tarfile.TarInfo) -> bool:
+                """Check if a tar member is safe to extract."""
+                # Only allow regular files and directories
+                if not (member.isfile() or member.isdir()):
                     return False
 
-            # Filter out unsafe members
-            safe_members = []
+                # Check for directory traversal attempts
+                if ".." in member.name or member.name.startswith("/"):
+                    raise DotzSecurityError(
+                        f"Path traversal attempt detected: {member.name}"
+                    )
+
+                # Construct the full extraction path
+                try:
+                    extract_path = (templates_dir / member.name).resolve()
+                    # Ensure the path stays within the templates directory
+                    extract_path.relative_to(templates_dir.resolve())
+                    return True
+                except (ValueError, OSError) as e:
+                    raise DotzSecurityError(
+                        f"Unsafe extraction path: {member.name}"
+                    ) from e
+
+            # Filter out unsafe members and extract them individually
             for member in tar.getmembers():
-                if member.isfile() or member.isdir():
-                    # Check for directory traversal attempts
-                    if ".." in member.name or member.name.startswith("/"):
+                if is_safe_member(member):
+                    try:
+                        tar.extract(member, templates_dir)
+                    except Exception as extract_error:
                         if not quiet:
                             console.print(
-                                f"[yellow]Skipping unsafe path: {member.name}[/yellow]"
+                                f"[yellow]Failed to extract {member.name}: "
+                                f"{extract_error}[/yellow]"
                             )
-                        continue
-
-                    # Construct the full extraction path
-                    extract_path = templates_dir / member.name
-                    if is_safe_path(str(extract_path)):
-                        safe_members.append(member)
-                    else:
-                        if not quiet:
-                            console.print(
-                                f"[yellow]Skipping unsafe path: {member.name}[/yellow]"
-                            )
-
-            # Extract only safe members
-            for member in safe_members:
-                tar.extract(member, templates_dir)
+                else:
+                    if not quiet:
+                        console.print(
+                            f"[yellow]Skipping unsafe member: {member.name}[/yellow]"
+                        )
 
         if not quiet:
             console.print(f"[green]✓ Template imported from {archive_file}[/green]")
 
         return True
 
+    except (DotzArchiveError, DotzSecurityError, DotzFileNotFoundError):
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error importing template: {e}[/red]")
-        return False
+        raise DotzArchiveError(f"Failed to import template: {e}") from e
 
 
 # ============================================================================
@@ -351,7 +373,7 @@ def import_template(archive_path: str, quiet: bool = False) -> bool:
 # ============================================================================
 
 
-def list_profiles() -> List[Dict[str, Any]]:
+def list_profiles() -> List[ProfileMetadataDict]:
     """List all available profiles with their metadata."""
     profiles = []
     profiles_dir = get_profiles_dir()
@@ -447,10 +469,12 @@ def create_profile(
 
         return True
 
+    except DotzProfileError:
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error creating profile: {e}[/red]")
-        return False
+        raise DotzProfileError(f"Failed to create profile: {e}") from e
 
 
 def switch_profile(name: str, backup: bool = True, quiet: bool = False) -> bool:
@@ -497,10 +521,12 @@ def switch_profile(name: str, backup: bool = True, quiet: bool = False) -> bool:
 
         return True
 
+    except DotzProfileError:
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error switching profile: {e}[/red]")
-        return False
+        raise DotzProfileError(f"Failed to switch profile: {e}") from e
 
 
 def get_active_profile() -> Optional[str]:
@@ -513,6 +539,7 @@ def get_active_profile() -> Optional[str]:
             console.print(
                 f"[yellow]Warning: Could not read active profile file: {e}[/yellow]"
             )
+            raise DotzProfileError(f"Could not read active profile: {e}") from e
     return None
 
 
@@ -542,10 +569,12 @@ def delete_profile(name: str, quiet: bool = False) -> bool:
 
         return True
 
+    except DotzProfileError:
+        raise
     except Exception as e:
         if not quiet:
             console.print(f"[red]Error deleting profile: {e}[/red]")
-        return False
+        raise DotzProfileError(f"Failed to delete profile: {e}") from e
 
 
 # ============================================================================
@@ -678,7 +707,7 @@ def _apply_profile_state(profile_name: str, quiet: bool = False) -> bool:
         return False
 
 
-def get_profile_info(name: str) -> Optional[Dict[str, Any]]:
+def get_profile_info(name: str) -> Optional[ProfileMetadataDict]:
     """Get detailed information about a profile."""
     profiles_dir = get_profiles_dir()
     profile_path = profiles_dir / name
@@ -719,7 +748,7 @@ def get_profile_info(name: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_template_info(name: str) -> Optional[Dict[str, Any]]:
+def get_template_info(name: str) -> Optional[TemplateMetadataDict]:
     """Get detailed information about a template."""
     templates_dir = get_templates_dir()
     template_path = templates_dir / name

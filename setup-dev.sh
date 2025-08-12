@@ -3,7 +3,7 @@
 
 set -e
 
-echo "Setting up dotz development environment..."
+echo "Setting up dotz development environment with Poetry..."
 
 # Check if Python 3.9+ is available
 python_version=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1-2)
@@ -16,30 +16,22 @@ fi
 
 echo "Python $python_version found"
 
-# Create virtual environment if it doesn't exist
-if [ ! -d ".venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv .venv
-fi
-
-# Activate virtual environment
-echo "Activating virtual environment..."
-source .venv/bin/activate
-
-# Verify we're in the virtual environment
-if [[ "$VIRTUAL_ENV" != "" ]]; then
-    echo "Virtual environment activated: $VIRTUAL_ENV"
+# Check if Poetry is installed
+if ! command -v poetry >/dev/null 2>&1; then
+    echo "Poetry is not installed. Installing Poetry..."
+    curl -sSL https://install.python-poetry.org | python3 -
+    export PATH="$HOME/.local/bin:$PATH"
+    echo "Poetry installed successfully"
 else
-    echo "Warning: Virtual environment not activated properly"
+    echo "Poetry is already installed"
 fi
 
-# Upgrade pip
-echo "Upgrading pip..."
-pip install --upgrade pip
+echo "Configuring Poetry to create virtual environment in project directory..."
+poetry config virtualenvs.in-project true
 
 # Install development dependencies
 echo "Installing contributor-friendly development dependencies..."
-pip install -e ".[dev,test]"
+poetry install --with dev,test
 
 # Ask if user wants full maintainer setup
 echo ""
@@ -47,39 +39,48 @@ read -p "Are you a maintainer and want the full toolset? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Installing full maintainer dependencies..."
-    pip install -e ".[maintainer]"
+    poetry install --with dev,test,maintainer --extras gui
+else
+    # Ask if user wants GUI dependencies
+    read -p "Do you want to install GUI dependencies for testing? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        poetry install --with dev,test --extras gui
+    fi
 fi
 
 # Set up pre-commit hooks
 echo "Setting up pre-commit hooks..."
-if command -v pre-commit >/dev/null 2>&1; then
-    pre-commit install
-    pre-commit install --hook-type commit-msg
+if poetry run pre-commit --version >/dev/null 2>&1; then
+    poetry run pre-commit install
+    poetry run pre-commit install --hook-type commit-msg
     echo "Pre-commit hooks installed successfully"
 else
-    echo "Warning: pre-commit not found, installing..."
-    pip install pre-commit
-    pre-commit install
-    pre-commit install --hook-type commit-msg
-    echo "Pre-commit hooks installed successfully"
+    echo "Warning: pre-commit not found in virtual environment"
+    echo "This should not happen if dependencies were installed correctly"
 fi
 
 echo ""
 echo "🎉 Development environment setup complete!"
 echo ""
-echo "IMPORTANT: To activate the environment in your current shell, run:"
-echo "  source .venv/bin/activate"
+echo "IMPORTANT: To activate the Poetry environment, run:"
+echo "  poetry shell"
+echo "Or prefix commands with 'poetry run', e.g.:"
+echo "  poetry run dotz --help"
 echo ""
 echo "Quick start commands:"
 echo "  make help          # Show all available commands"
 echo "  make test          # Run core tests (fast, contributor-friendly)"
 echo "  make format        # Auto-format your code"
 echo "  make lint          # Basic code checks"
+echo "  poetry run dotz --help  # Test the CLI directly"
 echo ""
 echo "Optional commands:"
 echo "  make test-all      # Run all tests including GUI"
 echo "  make test-cov      # Run tests with coverage"
 echo "  make lint-maintainer # Full linting suite"
+echo "  poetry add <package>  # Add a new dependency"
+echo "  poetry add --group dev <package>  # Add a dev dependency"
 echo ""
 echo "Pre-commit hooks are set up with minimal, auto-fixing rules."
 echo "They'll mostly fix formatting issues for you automatically!"

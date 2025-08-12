@@ -10,13 +10,13 @@ setup:  ## Run development setup script
 	./setup-dev.sh
 
 install:  ## Install the package
-	pip install -e .
+	poetry install
 
 install-dev:  ## Install essential development dependencies
-	pip install -e ".[dev,test,gui]"
+	poetry install --with dev,test --extras gui
 
 install-maintainer:  ## Install all development dependencies (for maintainers)
-	pip install -e ".[full,test,gui,maintainer]"
+	poetry install --with dev,test,maintainer --extras gui
 
 pre-commit-install:  ## Install pre-commit hooks
 	pre-commit install
@@ -26,40 +26,40 @@ pre-commit-run:  ## Run pre-commit hooks on all files
 	pre-commit run --all-files
 
 test:  ## Run tests (contributor-friendly)
-	pytest -m "not gui" --tb=short
+	poetry run pytest -m "not gui" --tb=short
 
 test-all:  ## Run all tests including GUI tests
-	pytest
+	poetry run pytest
 
 test-cov:  ## Run tests with coverage
-	pytest --cov=dotz --cov-report=html --cov-report=term -m "not gui"
+	poetry run pytest --cov=dotz --cov-report=html --cov-report=term -m "not gui"
 
 test-ci:  ## Run tests for CI (excluding GUI tests)
-	pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy -m "not gui" --tb=short
+	poetry run pytest --cov=dotz --cov-report=xml --junitxml=junit.xml -o junit_family=legacy -m "not gui" --tb=short
 
 format:  ## Format code (auto-fix)
-	black src tests
-	isort src tests
+	poetry run black src tests
+	poetry run isort src tests
 
 lint:  ## Basic linting (contributor-friendly)
-	flake8 src tests
-	black --check src tests
-	isort --check-only src tests
+	poetry run flake8 src tests
+	poetry run black --check src tests
+	poetry run isort --check-only src tests
 
 lint-maintainer:  ## Full linting suite (for maintainers)
-	flake8 src tests
-	mypy src
-	black --check src tests
-	isort --check-only src tests
-	bandit -r src
-	pydocstyle src
+	poetry run flake8 src tests
+	poetry run mypy src
+	poetry run black --check src tests
+	poetry run isort --check-only src tests
+	poetry run bandit -r src
+	poetry run pydocstyle src
 
 security:  ## Run security checks
-	bandit -r src -f json -o bandit-report.json
-	bandit -r src
+	poetry run bandit -r src -f json -o bandit-report.json
+	poetry run bandit -r src
 
 docs:  ## Check documentation style
-	pydocstyle src
+	poetry run pydocstyle src
 
 clean:  ## Clean build artifacts
 	rm -rf build/
@@ -71,13 +71,14 @@ clean:  ## Clean build artifacts
 	find . -type f -name "*.pyc" -delete
 
 build:  ## Build distribution packages
-	python -m build
+	poetry build
 
 upload-test:  ## Upload to Test PyPI
-	python -m twine upload --repository testpypi dist/*
+	poetry publish --repository testpypi
 
 upload:  ## Upload to PyPI
-	python -m twine upload dist/*
+	poetry publish
 
 check:  ## Check package before upload
-	python -m twine check dist/*
+	poetry build --format wheel
+	poetry run twine check dist/*
