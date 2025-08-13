@@ -1,6 +1,5 @@
 """Template management widget for dotz."""
 
-from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt
@@ -10,8 +9,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QInputDialog,
-    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -122,7 +119,6 @@ class TemplateWidget(QWidget):
                 name = template.get("name", "unknown")
                 description = template.get("description", "")
                 file_count = template.get("file_count", 0)
-                created = template.get("created", "unknown")
 
                 # Create display text
                 display_text = f"{name} ({file_count} files)"
@@ -134,7 +130,9 @@ class TemplateWidget(QWidget):
                 self.templates_list.addItem(item)
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to refresh templates: {str(e)}")
+            QMessageBox.critical(
+                self, "Error", f"Failed to refresh templates: {str(e)}"
+            )
 
     def _on_template_selected(self) -> None:
         """Handle template selection."""
@@ -159,14 +157,14 @@ class TemplateWidget(QWidget):
             info = templates.get_template_info(name)
             if info:
                 info_text = f"<b>Template:</b> {name}<br>"
-                
+
                 description = info.get("description", "")
                 if description:
                     info_text += f"<b>Description:</b> {description}<br>"
-                
+
                 info_text += f"<b>Created:</b> {info.get('created', 'unknown')}<br>"
                 info_text += f"<b>Files:</b> {info.get('file_count', 0)}<br>"
-                
+
                 total_size = info.get("total_size", 0)
                 if total_size > 0:
                     if total_size < 1024:
@@ -176,11 +174,11 @@ class TemplateWidget(QWidget):
                     else:
                         size_str = f"{total_size / (1024 * 1024):.1f} MB"
                     info_text += f"<b>Size:</b> {size_str}<br>"
-                
+
                 version = info.get("version", "")
                 if version:
                     info_text += f"<b>Version:</b> {version}<br>"
-                
+
                 # Show first few files
                 files = info.get("files", [])
                 if files:
@@ -189,10 +187,12 @@ class TemplateWidget(QWidget):
                         info_text += f"• {file_path}<br>"
                     if len(files) > 10:
                         info_text += f"... and {len(files) - 10} more files"
-                
+
                 self.info_text.setHtml(info_text)
             else:
-                self.info_text.setText(f"Could not load information for template '{name}'")
+                self.info_text.setText(
+                    f"Could not load information for template '{name}'"
+                )
 
         except Exception as e:
             self.info_text.setText(f"Error loading template info: {str(e)}")
@@ -207,12 +207,18 @@ class TemplateWidget(QWidget):
                     name=name, description=description, files=files, quiet=True
                 )
                 if success:
-                    QMessageBox.information(self, "Success", f"Template '{name}' created successfully!")
+                    QMessageBox.information(
+                        self, "Success", f"Template '{name}' created successfully!"
+                    )
                     self.refresh()
                 else:
-                    QMessageBox.warning(self, "Failed", f"Failed to create template '{name}'")
+                    QMessageBox.warning(
+                        self, "Failed", f"Failed to create template '{name}'"
+                    )
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error creating template: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error creating template: {str(e)}"
+                )
 
     def apply_template(self, merge: bool = False) -> None:
         """Apply the selected template."""
@@ -221,7 +227,7 @@ class TemplateWidget(QWidget):
             return
 
         template_name = current_item.data(Qt.ItemDataRole.UserRole)
-        
+
         # Confirm application
         mode_str = "merge mode" if merge else "overwrite mode"
         reply = QMessageBox.question(
@@ -240,14 +246,18 @@ class TemplateWidget(QWidget):
                 )
                 if success:
                     QMessageBox.information(
-                        self, "Success", f"Template '{template_name}' applied successfully!"
+                        self,
+                        "Success",
+                        f"Template '{template_name}' applied successfully!",
                     )
                 else:
                     QMessageBox.warning(
                         self, "Failed", f"Failed to apply template '{template_name}'"
                     )
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error applying template: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error applying template: {str(e)}"
+                )
 
     def export_template(self) -> None:
         """Export the selected template."""
@@ -256,7 +266,7 @@ class TemplateWidget(QWidget):
             return
 
         template_name = current_item.data(Qt.ItemDataRole.UserRole)
-        
+
         # Get export path
         default_filename = f"{template_name}.tar.gz"
         file_path, _ = QFileDialog.getSaveFileName(
@@ -278,7 +288,9 @@ class TemplateWidget(QWidget):
                 else:
                     QMessageBox.warning(self, "Failed", "Failed to export template")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error exporting template: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error exporting template: {str(e)}"
+                )
 
     def import_template(self) -> None:
         """Import a template from archive."""
@@ -300,7 +312,9 @@ class TemplateWidget(QWidget):
                 else:
                     QMessageBox.warning(self, "Failed", "Failed to import template")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error importing template: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error importing template: {str(e)}"
+                )
 
     def delete_template(self) -> None:
         """Delete the selected template."""
@@ -309,7 +323,7 @@ class TemplateWidget(QWidget):
             return
 
         template_name = current_item.data(Qt.ItemDataRole.UserRole)
-        
+
         # Confirm deletion
         reply = QMessageBox.question(
             self,
@@ -331,7 +345,9 @@ class TemplateWidget(QWidget):
                 else:
                     QMessageBox.warning(self, "Failed", "Failed to delete template")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error deleting template: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error deleting template: {str(e)}"
+                )
 
 
 class CreateTemplateDialog(QMessageBox):
@@ -340,8 +356,10 @@ class CreateTemplateDialog(QMessageBox):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Create Template")
-        self.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
-        
+        self.setStandardButtons(
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+        )
+
         # Create form layout
         widget = QWidget()
         layout = QFormLayout(widget)
@@ -356,18 +374,18 @@ class CreateTemplateDialog(QMessageBox):
 
         # File selection
         files_layout = QVBoxLayout()
-        
+
         self.use_all_files = QCheckBox("Use all currently tracked files")
         self.use_all_files.setChecked(True)
         self.use_all_files.toggled.connect(self._on_use_all_toggled)
         files_layout.addWidget(self.use_all_files)
-        
+
         self.files_edit = QTextEdit()
         self.files_edit.setPlaceholderText("Enter specific file paths, one per line")
         self.files_edit.setMaximumHeight(100)
         self.files_edit.setEnabled(False)
         files_layout.addWidget(self.files_edit)
-        
+
         files_widget = QWidget()
         files_widget.setLayout(files_layout)
         layout.addRow("Files:", files_widget)
@@ -382,11 +400,15 @@ class CreateTemplateDialog(QMessageBox):
         """Get the values from the dialog."""
         name = self.name_edit.text().strip()
         description = self.description_edit.text().strip()
-        
+
         if self.use_all_files.isChecked():
             files = None  # Use all tracked files
         else:
             files_text = self.files_edit.toPlainText().strip()
-            files = [line.strip() for line in files_text.split('\n') if line.strip()] if files_text else None
-        
+            files = (
+                [line.strip() for line in files_text.split("\n") if line.strip()]
+                if files_text
+                else None
+            )
+
         return name, description, files

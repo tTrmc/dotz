@@ -66,7 +66,9 @@ class FilesWidget(QWidget):
         options_layout.addWidget(self.recursive_check)
 
         self.push_after_add_check = QCheckBox("Push after add")
-        self.push_after_add_check.setToolTip("Automatically push to remote after adding files")
+        self.push_after_add_check.setToolTip(
+            "Automatically push to remote after adding files"
+        )
         options_layout.addWidget(self.push_after_add_check)
 
         actions_layout.addLayout(options_layout)
@@ -134,10 +136,10 @@ class FilesWidget(QWidget):
                     return
 
                 success = add_dotfile(
-                    rel_path, 
+                    rel_path,
                     push=self.push_after_add_check.isChecked(),
                     quiet=True,
-                    recursive=self.recursive_check.isChecked()
+                    recursive=self.recursive_check.isChecked(),
                 )
                 if success:
                     QMessageBox.information(self, "Success", f"Added {rel_path}")
@@ -157,7 +159,7 @@ class FilesWidget(QWidget):
         if dir_path:
             try:
                 from ...core import find_config_files, load_config
-                
+
                 # Convert to relative path from home
                 home_path = Path.home()
                 abs_path = Path(dir_path)
@@ -174,14 +176,16 @@ class FilesWidget(QWidget):
 
                 # Use core's file finding logic
                 config = load_config()
-                files_to_add = find_config_files(abs_path, config, recursive=self.recursive_check.isChecked())
-                
+                files_to_add = find_config_files(
+                    abs_path, config, recursive=self.recursive_check.isChecked()
+                )
+
                 if not files_to_add:
                     QMessageBox.information(
                         self, "No Files", f"No matching files found in {rel_path}"
                     )
                     return
-                
+
                 # Ask user to confirm
                 reply = QMessageBox.question(
                     self,
@@ -190,25 +194,30 @@ class FilesWidget(QWidget):
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.Yes,
                 )
-                
+
                 if reply == QMessageBox.StandardButton.Yes:
                     success_count = 0
                     failed_count = 0
                     push_enabled = self.push_after_add_check.isChecked()
-                    
+
                     for i, file_path in enumerate(files_to_add):
                         try:
                             # Convert to relative path for add_dotfile
                             rel_file_path = file_path.relative_to(home_path)
                             # Only push on the last file if push is enabled
                             should_push = push_enabled and (i == len(files_to_add) - 1)
-                            if add_dotfile(rel_file_path, quiet=True, recursive=False, push=should_push):
+                            if add_dotfile(
+                                rel_file_path,
+                                quiet=True,
+                                recursive=False,
+                                push=should_push,
+                            ):
                                 success_count += 1
                             else:
                                 failed_count += 1
                         except Exception:
                             failed_count += 1
-                    
+
                     if success_count > 0:
                         message = f"Added {success_count} files"
                         if failed_count > 0:
@@ -260,7 +269,9 @@ class FilesWidget(QWidget):
         try:
             tracked_files = list_tracked_files()
             if not tracked_files:
-                QMessageBox.information(self, "No Files", "No tracked files to restore.")
+                QMessageBox.information(
+                    self, "No Files", "No tracked files to restore."
+                )
                 return
 
             # Confirm restore

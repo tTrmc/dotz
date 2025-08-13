@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -87,7 +86,9 @@ class ProfileWidget(QWidget):
         actions_layout.addWidget(self.switch_btn)
 
         self.switch_no_backup_btn = QPushButton("Switch (No Backup)")
-        self.switch_no_backup_btn.clicked.connect(lambda: self.switch_profile(no_backup=True))
+        self.switch_no_backup_btn.clicked.connect(
+            lambda: self.switch_profile(no_backup=True)
+        )
         self.switch_no_backup_btn.setEnabled(False)
         actions_layout.addWidget(self.switch_no_backup_btn)
 
@@ -129,7 +130,6 @@ class ProfileWidget(QWidget):
                 name = profile.get("name", "unknown")
                 description = profile.get("description", "")
                 environment = profile.get("environment", "")
-                last_used = profile.get("last_used", "never")
                 active = profile.get("active", False)
 
                 # Create display text
@@ -143,7 +143,7 @@ class ProfileWidget(QWidget):
 
                 item = QListWidgetItem(display_text)
                 item.setData(Qt.ItemDataRole.UserRole, name)  # Store profile name
-                
+
                 # Highlight active profile
                 if active:
                     font = item.font()
@@ -165,12 +165,12 @@ class ProfileWidget(QWidget):
             profile_name = current_item.data(Qt.ItemDataRole.UserRole)
             active_profile = templates.get_active_profile()
             is_active = profile_name == active_profile
-            
+
             # Enable/disable buttons based on selection and active status
             self.switch_btn.setEnabled(not is_active)
             self.switch_no_backup_btn.setEnabled(not is_active)
             self.delete_btn.setEnabled(not is_active)
-            
+
             self._show_profile_info(profile_name)
         else:
             self.switch_btn.setEnabled(False)
@@ -185,22 +185,24 @@ class ProfileWidget(QWidget):
             if info:
                 active = info.get("active", False)
                 info_text = f"<b>Profile:</b> {name}<br>"
-                
+
                 if active:
-                    info_text += "<b>Status:</b> <span style='color: green;'>ACTIVE</span><br>"
-                
+                    info_text += (
+                        "<b>Status:</b> <span style='color: green;'>ACTIVE</span><br>"
+                    )
+
                 description = info.get("description", "")
                 if description:
                     info_text += f"<b>Description:</b> {description}<br>"
-                
+
                 environment = info.get("environment", "")
                 if environment:
                     info_text += f"<b>Environment:</b> {environment}<br>"
-                
+
                 info_text += f"<b>Created:</b> {info.get('created', 'unknown')}<br>"
                 info_text += f"<b>Last used:</b> {info.get('last_used', 'never')}<br>"
                 info_text += f"<b>Files:</b> {info.get('file_count', 0)}<br>"
-                
+
                 total_size = info.get("total_size", 0)
                 if total_size > 0:
                     if total_size < 1024:
@@ -210,14 +212,16 @@ class ProfileWidget(QWidget):
                     else:
                         size_str = f"{total_size / (1024 * 1024):.1f} MB"
                     info_text += f"<b>Size:</b> {size_str}<br>"
-                
+
                 version = info.get("version", "")
                 if version:
                     info_text += f"<b>Version:</b> {version}<br>"
-                
+
                 self.info_text.setHtml(info_text)
             else:
-                self.info_text.setText(f"Could not load information for profile '{name}'")
+                self.info_text.setText(
+                    f"Could not load information for profile '{name}'"
+                )
 
         except Exception as e:
             self.info_text.setText(f"Error loading profile info: {str(e)}")
@@ -236,10 +240,14 @@ class ProfileWidget(QWidget):
                     quiet=True,
                 )
                 if success:
-                    QMessageBox.information(self, "Success", f"Profile '{name}' created successfully!")
+                    QMessageBox.information(
+                        self, "Success", f"Profile '{name}' created successfully!"
+                    )
                     self.refresh()
                 else:
-                    QMessageBox.warning(self, "Failed", f"Failed to create profile '{name}'")
+                    QMessageBox.warning(
+                        self, "Failed", f"Failed to create profile '{name}'"
+                    )
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error creating profile: {str(e)}")
 
@@ -251,9 +259,11 @@ class ProfileWidget(QWidget):
 
         profile_name = current_item.data(Qt.ItemDataRole.UserRole)
         current_profile = templates.get_active_profile()
-        
+
         # Confirm switch
-        backup_text = "without saving current state" if no_backup else "and save current state"
+        backup_text = (
+            "without saving current state" if no_backup else "and save current state"
+        )
         reply = QMessageBox.question(
             self,
             "Confirm Profile Switch",
@@ -278,7 +288,9 @@ class ProfileWidget(QWidget):
                         self, "Failed", f"Failed to switch to profile '{profile_name}'"
                     )
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error switching profile: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error switching profile: {str(e)}"
+                )
 
     def delete_profile(self) -> None:
         """Delete the selected profile."""
@@ -287,7 +299,7 @@ class ProfileWidget(QWidget):
             return
 
         profile_name = current_item.data(Qt.ItemDataRole.UserRole)
-        
+
         # Confirm deletion
         reply = QMessageBox.question(
             self,
@@ -318,8 +330,10 @@ class CreateProfileDialog(QMessageBox):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Create Profile")
-        self.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
-        
+        self.setStandardButtons(
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+        )
+
         # Create form layout
         widget = QWidget()
         layout = QFormLayout(widget)
@@ -338,16 +352,16 @@ class CreateProfileDialog(QMessageBox):
 
         # Copy from existing profile
         copy_layout = QVBoxLayout()
-        
+
         self.copy_from_check = QCheckBox("Copy from existing profile")
         self.copy_from_check.toggled.connect(self._on_copy_from_toggled)
         copy_layout.addWidget(self.copy_from_check)
-        
+
         self.copy_from_edit = QLineEdit()
         self.copy_from_edit.setPlaceholderText("Enter existing profile name")
         self.copy_from_edit.setEnabled(False)
         copy_layout.addWidget(self.copy_from_edit)
-        
+
         copy_widget = QWidget()
         copy_widget.setLayout(copy_layout)
         layout.addRow("Copy From:", copy_widget)
@@ -363,10 +377,10 @@ class CreateProfileDialog(QMessageBox):
         name = self.name_edit.text().strip()
         description = self.description_edit.text().strip()
         environment = self.environment_edit.text().strip()
-        
+
         copy_from = None
         if self.copy_from_check.isChecked():
             copy_from_text = self.copy_from_edit.text().strip()
             copy_from = copy_from_text if copy_from_text else None
-        
+
         return name, description, environment, copy_from

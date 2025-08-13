@@ -11,11 +11,11 @@ from .templates import TemplateWidget
 
 __all__ = [
     "BackupWidget",
-    "DashboardWidget", 
-    "FilesWidget", 
-    "InitWidget", 
+    "DashboardWidget",
+    "FilesWidget",
+    "InitWidget",
     "ProfileWidget",
     "RepositoryWidget",
-    "SettingsWidget", 
-    "TemplateWidget"
+    "SettingsWidget",
+    "TemplateWidget",
 ]

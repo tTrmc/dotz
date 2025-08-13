@@ -28,7 +28,7 @@ from ...core import (
     save_config,
     set_config_value,
 )
-from ..theme import theme_manager, Theme
+from ..theme import Theme, theme_manager
 
 
 class SettingsWidget(QWidget):
@@ -147,16 +147,18 @@ class SettingsWidget(QWidget):
 
         # Key-value editor
         kv_layout = QHBoxLayout()
-        
+
         kv_left = QVBoxLayout()
         kv_left.addWidget(QLabel("Configuration Key:"))
         self.config_key_edit = QLineEdit()
         self.config_key_edit.setPlaceholderText("e.g., search_settings.recursive")
         kv_left.addWidget(self.config_key_edit)
-        
+
         kv_left.addWidget(QLabel("Value:"))
         self.config_value_edit = QLineEdit()
-        self.config_value_edit.setPlaceholderText("e.g., true, false, \"string\", [\"list\"]")
+        self.config_value_edit.setPlaceholderText(
+            'e.g., true, false, "string", ["list"]'
+        )
         kv_left.addWidget(self.config_value_edit)
 
         kv_buttons = QHBoxLayout()
@@ -192,7 +194,7 @@ class SettingsWidget(QWidget):
             # Load appearance settings
             appearance_settings = config.get("appearance", {})
             theme_name = appearance_settings.get("theme", "light")
-            
+
             # Set theme combo without triggering the change event
             self.theme_combo.blockSignals(True)
             if theme_name == "dark":
@@ -200,7 +202,7 @@ class SettingsWidget(QWidget):
             else:
                 self.theme_combo.setCurrentText("Light")
             self.theme_combo.blockSignals(False)
-            
+
             # Apply the theme
             try:
                 theme = Theme(theme_name)
@@ -356,7 +358,9 @@ class SettingsWidget(QWidget):
         """Get and display a configuration value."""
         key = self.config_key_edit.text().strip()
         if not key:
-            QMessageBox.warning(self, "Invalid Key", "Please enter a configuration key.")
+            QMessageBox.warning(
+                self, "Invalid Key", "Please enter a configuration key."
+            )
             return
 
         try:
@@ -381,7 +385,9 @@ class SettingsWidget(QWidget):
         value_str = self.config_value_edit.text().strip()
 
         if not key:
-            QMessageBox.warning(self, "Invalid Key", "Please enter a configuration key.")
+            QMessageBox.warning(
+                self, "Invalid Key", "Please enter a configuration key."
+            )
             return
 
         if not value_str:
@@ -404,12 +410,12 @@ class SettingsWidget(QWidget):
         try:
             theme_value = "dark" if theme_text == "Dark" else "light"
             theme = Theme(theme_value)
-            
+
             # Apply theme immediately
             theme_manager.set_theme(theme)
-            
+
             # Save theme preference to config
             set_config_value("appearance.theme", theme_value, quiet=True)
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to change theme: {str(e)}")

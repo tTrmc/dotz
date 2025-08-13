@@ -39,7 +39,7 @@ class DotzMainWindow(QMainWindow):
 
         # Check if dotz is initialized
         self.dotz_initialized = self._check_dotz_initialized()
-        
+
         # Initialize theme before setting up UI
         self._load_saved_theme()
 
@@ -168,13 +168,13 @@ class DotzMainWindow(QMainWindow):
         # Templates menu
         if self.dotz_initialized:
             templates_menu = menubar.addMenu("&Templates")
-            
+
             create_template_action = QAction("&Create Template...", self)
             create_template_action.triggered.connect(self._create_template)
             templates_menu.addAction(create_template_action)
-            
+
             templates_menu.addSeparator()
-            
+
             import_template_action = QAction("&Import Template...", self)
             import_template_action.triggered.connect(self._import_template)
             templates_menu.addAction(import_template_action)
@@ -182,13 +182,13 @@ class DotzMainWindow(QMainWindow):
         # Profiles menu
         if self.dotz_initialized:
             profiles_menu = menubar.addMenu("&Profiles")
-            
+
             create_profile_action = QAction("&Create Profile...", self)
             create_profile_action.triggered.connect(self._create_profile)
             profiles_menu.addAction(create_profile_action)
-            
+
             profiles_menu.addSeparator()
-            
+
             switch_profile_action = QAction("&Switch Profile...", self)
             switch_profile_action.triggered.connect(self._switch_profile)
             profiles_menu.addAction(switch_profile_action)
@@ -196,17 +196,17 @@ class DotzMainWindow(QMainWindow):
         # Tools menu
         if self.dotz_initialized:
             tools_menu = menubar.addMenu("&Tools")
-            
+
             validate_action = QAction("&Validate Symlinks", self)
             validate_action.triggered.connect(self._validate_symlinks)
             tools_menu.addAction(validate_action)
-            
+
             validate_repair_action = QAction("Validate && &Repair", self)
             validate_repair_action.triggered.connect(self._validate_repair)
             tools_menu.addAction(validate_repair_action)
-            
+
             tools_menu.addSeparator()
-            
+
             backup_action = QAction("Create &Backup...", self)
             backup_action.triggered.connect(self._create_backup)
             tools_menu.addAction(backup_action)
@@ -217,9 +217,9 @@ class DotzMainWindow(QMainWindow):
         refresh_action.setShortcut("F5")
         refresh_action.triggered.connect(self._refresh)
         view_menu.addAction(refresh_action)
-        
+
         view_menu.addSeparator()
-        
+
         # Theme toggle action
         toggle_theme_action = QAction("Toggle &Dark Mode", self)
         toggle_theme_action.setShortcut("Ctrl+D")
@@ -312,7 +312,7 @@ class DotzMainWindow(QMainWindow):
     def _push_changes(self) -> None:
         """Push changes to remote."""
         from ..core import push_repo
-        
+
         self.status_bar.showMessage("Pushing changes...")
         self.progress_bar.setVisible(True)
         try:
@@ -326,12 +326,14 @@ class DotzMainWindow(QMainWindow):
         except Exception as e:
             self.progress_bar.setVisible(False)
             self.status_bar.showMessage(f"Push error: {str(e)}")
-            QMessageBox.critical(self, "Push Error", f"Failed to push changes:\n{str(e)}")
+            QMessageBox.critical(
+                self, "Push Error", f"Failed to push changes:\n{str(e)}"
+            )
 
     def _pull_changes(self) -> None:
         """Pull changes from remote."""
         from ..core import pull_repo
-        
+
         self.status_bar.showMessage("Pulling changes...")
         self.progress_bar.setVisible(True)
         try:
@@ -345,7 +347,9 @@ class DotzMainWindow(QMainWindow):
         except Exception as e:
             self.progress_bar.setVisible(False)
             self.status_bar.showMessage(f"Pull error: {str(e)}")
-            QMessageBox.critical(self, "Pull Error", f"Failed to pull changes:\n{str(e)}")
+            QMessageBox.critical(
+                self, "Pull Error", f"Failed to pull changes:\n{str(e)}"
+            )
 
     def _refresh(self) -> None:
         """Refresh all data."""
@@ -425,7 +429,7 @@ class DotzMainWindow(QMainWindow):
             try:
                 from ..core import get_config_value
                 from .theme import Theme
-                
+
                 theme_name = get_config_value("appearance.theme", quiet=True)
                 if theme_name:
                     try:

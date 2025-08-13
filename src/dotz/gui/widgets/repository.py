@@ -2,14 +2,12 @@
 
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
-    QCheckBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
-    QListWidget,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -45,11 +43,15 @@ class OperationWorker(QThread):
             if self.operation == "clone":
                 self.progress.emit("Cloning repository...")
                 success = clone_repo(self.kwargs["remote_url"], quiet=True)
-                message = "Repository cloned successfully!" if success else "Clone failed"
-                
+                message = (
+                    "Repository cloned successfully!" if success else "Clone failed"
+                )
+
             elif self.operation == "validate":
                 self.progress.emit("Validating symlinks...")
-                results = validate_symlinks(repair=self.kwargs.get("repair", False), quiet=True)
+                results = validate_symlinks(
+                    repair=self.kwargs.get("repair", False), quiet=True
+                )
                 if results:
                     total_issues = (
                         len(results.get("broken", []))
@@ -73,7 +75,7 @@ class OperationWorker(QThread):
                 else:
                     success = False
                     message = "Validation failed"
-                    
+
             elif self.operation == "restore_all":
                 self.progress.emit("Restoring all tracked files...")
                 tracked_files = list_tracked_files()
@@ -83,7 +85,7 @@ class OperationWorker(QThread):
                 else:
                     success_count = 0
                     failed_count = 0
-                    
+
                     for tracked_file in tracked_files:
                         self.progress.emit(f"Restoring {tracked_file}...")
                         try:
@@ -93,7 +95,7 @@ class OperationWorker(QThread):
                                 failed_count += 1
                         except Exception:
                             failed_count += 1
-                    
+
                     total = success_count + failed_count
                     if failed_count == 0:
                         success = True
@@ -127,7 +129,9 @@ class RepositoryWidget(QWidget):
         clone_layout = QFormLayout(clone_group)
 
         self.clone_url_edit = QLineEdit()
-        self.clone_url_edit.setPlaceholderText("https://github.com/username/dotfiles.git")
+        self.clone_url_edit.setPlaceholderText(
+            "https://github.com/username/dotfiles.git"
+        )
         clone_layout.addRow("Remote URL:", self.clone_url_edit)
 
         clone_buttons = QHBoxLayout()
@@ -148,12 +152,12 @@ class RepositoryWidget(QWidget):
         self.restore_all_btn = QPushButton("Restore All Files")
         self.restore_all_btn.clicked.connect(self.restore_all_files)
         restore_layout.addWidget(self.restore_all_btn)
-        
+
         restore_info = QLabel("Restore all tracked dotfiles to home directory")
         restore_info.setStyleSheet("color: gray; font-style: italic;")
         restore_layout.addWidget(restore_info)
         restore_layout.addStretch()
-        
+
         operations_layout.addLayout(restore_layout)
 
         # Validate symlinks
@@ -163,14 +167,16 @@ class RepositoryWidget(QWidget):
         validate_layout.addWidget(self.validate_btn)
 
         self.validate_repair_btn = QPushButton("Validate & Repair")
-        self.validate_repair_btn.clicked.connect(lambda: self.validate_symlinks(repair=True))
+        self.validate_repair_btn.clicked.connect(
+            lambda: self.validate_symlinks(repair=True)
+        )
         validate_layout.addWidget(self.validate_repair_btn)
-        
+
         validate_info = QLabel("Check and fix broken symlinks")
         validate_info.setStyleSheet("color: gray; font-style: italic;")
         validate_layout.addWidget(validate_info)
         validate_layout.addStretch()
-        
+
         operations_layout.addLayout(validate_layout)
 
         layout.addWidget(operations_group)
@@ -184,12 +190,12 @@ class RepositoryWidget(QWidget):
         self.commit_btn = QPushButton("Commit Changes...")
         self.commit_btn.clicked.connect(self.commit_changes)
         commit_layout.addWidget(self.commit_btn)
-        
+
         commit_info = QLabel("Commit modified files with custom message")
         commit_info.setStyleSheet("color: gray; font-style: italic;")
         commit_layout.addWidget(commit_info)
         commit_layout.addStretch()
-        
+
         git_layout.addLayout(commit_layout)
 
         # Show diff
@@ -197,12 +203,12 @@ class RepositoryWidget(QWidget):
         self.diff_btn = QPushButton("Show Differences")
         self.diff_btn.clicked.connect(self.show_diff)
         diff_layout.addWidget(self.diff_btn)
-        
+
         diff_info = QLabel("Show changes in modified files")
         diff_info.setStyleSheet("color: gray; font-style: italic;")
         diff_layout.addWidget(diff_info)
         diff_layout.addStretch()
-        
+
         git_layout.addLayout(diff_layout)
 
         layout.addWidget(git_group)
@@ -277,7 +283,9 @@ class RepositoryWidget(QWidget):
         """Clone a repository."""
         remote_url = self.clone_url_edit.text().strip()
         if not remote_url:
-            QMessageBox.warning(self, "Invalid URL", "Please enter a remote repository URL.")
+            QMessageBox.warning(
+                self, "Invalid URL", "Please enter a remote repository URL."
+            )
             return
 
         # Confirm clone
@@ -299,7 +307,9 @@ class RepositoryWidget(QWidget):
         try:
             tracked_files = list_tracked_files()
             if not tracked_files:
-                QMessageBox.information(self, "No Files", "No tracked files to restore.")
+                QMessageBox.information(
+                    self, "No Files", "No tracked files to restore."
+                )
                 return
 
             reply = QMessageBox.question(
@@ -315,12 +325,14 @@ class RepositoryWidget(QWidget):
                 self._start_operation("restore_all")
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to list tracked files: {str(e)}")
+            QMessageBox.critical(
+                self, "Error", f"Failed to list tracked files: {str(e)}"
+            )
 
     def validate_symlinks(self, repair: bool = False) -> None:
         """Validate symlinks."""
         action = "validate and repair" if repair else "validate"
-        
+
         reply = QMessageBox.question(
             self,
             f"Confirm {action.title()}",
@@ -345,11 +357,15 @@ class RepositoryWidget(QWidget):
             try:
                 success = commit_repo(message=message.strip(), quiet=True)
                 if success:
-                    QMessageBox.information(self, "Success", "Changes committed successfully!")
+                    QMessageBox.information(
+                        self, "Success", "Changes committed successfully!"
+                    )
                 else:
                     QMessageBox.warning(self, "Failed", "Failed to commit changes")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error committing changes: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error committing changes: {str(e)}"
+                )
 
     def show_diff(self) -> None:
         """Show differences in modified files."""

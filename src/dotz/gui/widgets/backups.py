@@ -5,7 +5,6 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QInputDialog,
@@ -103,14 +102,14 @@ class BackupWidget(QWidget):
         # Cleanup controls
         cleanup_controls = QHBoxLayout()
         cleanup_controls.addWidget(QLabel("Delete backups older than:"))
-        
+
         self.cleanup_days = QSpinBox()
         self.cleanup_days.setMinimum(1)
         self.cleanup_days.setMaximum(365)
         self.cleanup_days.setValue(30)
         self.cleanup_days.setSuffix(" days")
         cleanup_controls.addWidget(self.cleanup_days)
-        
+
         cleanup_layout.addLayout(cleanup_controls)
 
         self.cleanup_btn = QPushButton("Clean Old Backups")
@@ -136,7 +135,9 @@ class BackupWidget(QWidget):
 
             for backup_path in backups:
                 backup_name = backup_path.name
-                original_file, operation, formatted_time = parse_backup_filename(backup_name)
+                original_file, operation, formatted_time = parse_backup_filename(
+                    backup_name
+                )
 
                 if original_file != backup_name:  # Successfully parsed
                     # Create display text
@@ -155,8 +156,10 @@ class BackupWidget(QWidget):
     def _on_backup_selected(self) -> None:
         """Handle backup selection."""
         current_item = self.backups_list.currentItem()
-        has_selection = (current_item is not None and 
-                        current_item.data(Qt.ItemDataRole.UserRole) is not None)
+        has_selection = (
+            current_item is not None
+            and current_item.data(Qt.ItemDataRole.UserRole) is not None
+        )
 
         # Enable/disable restore button based on selection
         self.restore_btn.setEnabled(has_selection)
@@ -171,10 +174,12 @@ class BackupWidget(QWidget):
         """Show detailed information about a backup."""
         try:
             backup_name = backup_path.name
-            original_file, operation, formatted_time = parse_backup_filename(backup_name)
+            original_file, operation, formatted_time = parse_backup_filename(
+                backup_name
+            )
 
             info_text = f"<b>Backup File:</b> {backup_name}<br>"
-            
+
             if original_file != backup_name:  # Successfully parsed
                 info_text += f"<b>Original File:</b> {original_file}<br>"
                 info_text += f"<b>Operation:</b> {operation}<br>"
@@ -204,7 +209,7 @@ class BackupWidget(QWidget):
     def create_manual_backup(self) -> None:
         """Create a manual backup of a file or directory."""
         home = get_home_dir()
-        
+
         # Get file or directory to backup
         path_str, ok = QInputDialog.getText(
             self,
@@ -299,7 +304,9 @@ class BackupWidget(QWidget):
                             self, "Success", f"Successfully restored '{original_file}'"
                         )
                     else:
-                        QMessageBox.information(self, "Success", "Backup restored successfully")
+                        QMessageBox.information(
+                            self, "Success", "Backup restored successfully"
+                        )
                 else:
                     QMessageBox.warning(self, "Failed", "Failed to restore backup")
             except Exception as e:
@@ -310,7 +317,9 @@ class BackupWidget(QWidget):
         try:
             backups = list_backups()
             if not backups:
-                QMessageBox.information(self, "No Backups", "No backups found to clean.")
+                QMessageBox.information(
+                    self, "No Backups", "No backups found to clean."
+                )
                 return
 
             # Filter backups older than specified days
