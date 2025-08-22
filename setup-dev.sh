@@ -25,9 +25,7 @@ poetry config virtualenvs.in-project true
 echo "Installing dependencies..."
 poetry install --with dev,test --extras gui
 
-# Setup pre-commit
-echo "Setting up pre-commit hooks..."
-poetry run pre-commit install
+# Development setup complete
 
 echo ""
 echo "🎉 Setup complete!"

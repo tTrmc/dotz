@@ -12,7 +12,7 @@ Thank you for your interest in contributing! All pull requests, bug reports, and
 
 2. **Setup development environment**
    ```bash
-   ./setup-dev.sh  # Sets up venv, installs deps, configures pre-commit
+   ./setup-dev.sh  # Sets up venv and installs dependencies
    ```
 
 3. **Create a branch**
@@ -138,7 +138,6 @@ pytest --cov=dotz        # With coverage
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev,test]"
-pre-commit install
 ```
 
 ## Project Goals
