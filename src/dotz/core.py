@@ -727,9 +727,12 @@ def list_tracked_files() -> List[str]:
 
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from config file, or return default if not exists."""
+    """Load configuration from config file, creating default if not exists."""
     if not CONFIG_FILE.exists():
-        return DEFAULT_CONFIG.copy()
+        # Create default config file if it doesn't exist
+        default_config = DEFAULT_CONFIG.copy()
+        save_config(default_config)
+        return default_config
 
     try:
         with open(CONFIG_FILE, "r") as f:
@@ -756,7 +759,10 @@ def load_config() -> Dict[str, Any]:
             fg=typer.colors.YELLOW,
             err=True,
         )
-        return DEFAULT_CONFIG.copy()
+        # Save the default config to fix the corrupted file
+        default_config = DEFAULT_CONFIG.copy()
+        save_config(default_config)
+        return default_config
 
 
 def save_config(config: Dict[str, Any]) -> None:
@@ -823,7 +829,7 @@ def find_config_files(
     return found_files
 
 
-def get_config_value(key_path: str, quiet: bool = False) -> Any:
+def get_config_value(key_path: str, default: Any = None, quiet: bool = False) -> Any:
     """Get a configuration value by key path (e.g., 'file_patterns.include')."""
     config = load_config()
     keys = key_path.split(".")
@@ -834,13 +840,13 @@ def get_config_value(key_path: str, quiet: bool = False) -> Any:
             value = value[key]
         return value
     except (KeyError, TypeError):
-        if not quiet:
+        if not quiet and default is None:
             typer.secho(
                 f"Error: Configuration key '{key_path}' not found.",
                 fg=typer.colors.RED,
                 err=True,
             )
-        return None
+        return default
 
 
 def set_config_value(key_path: str, value: Any, quiet: bool = False) -> bool:
@@ -857,13 +863,19 @@ def set_config_value(key_path: str, value: Any, quiet: bool = False) -> bool:
 
     # Set the final value
     try:
-        # Try to parse as JSON for complex values
-        if isinstance(value, str) and (value.startswith("[") or value.startswith("{")):
+        # Handle different value types
+        if isinstance(value, bool):
+            # Direct boolean value
+            current[keys[-1]] = value
+        elif isinstance(value, str) and (value.startswith("[") or value.startswith("{")):
+            # JSON string for complex values
             parsed_value = json.loads(value)
             current[keys[-1]] = parsed_value
-        elif value.lower() in ("true", "false"):
+        elif isinstance(value, str) and value.lower() in ("true", "false"):
+            # String boolean values
             current[keys[-1]] = value.lower() == "true"
         else:
+            # Direct value assignment
             current[keys[-1]] = value
 
         save_config(config)
@@ -1247,7 +1259,7 @@ def restore_all_dotfiles(quiet: bool = False, push: bool = False) -> bool:
 
 def validate_symlinks(
     repair: bool = False, quiet: bool = False
-) -> ValidationResultsDict:
+) -> dict[Any, Any] | dict[str, list[str]]:
     """
     Validate all symlinks managed by dotz and optionally repair broken ones.
 
@@ -2019,7 +2031,7 @@ def validate_file_path(file_path: Path, must_exist: bool = True) -> None:
         raise DotzValidationError(f"Invalid path: {file_path}") from e
 
 
-def create_backup_with_validation(backup_name: str, quiet: bool = False) -> bool:
+def create_backup_with_validation(backup_name: str, quiet: bool = False) -> Path | None:
     """
     Create a backup with consistent validation and error handling.
 

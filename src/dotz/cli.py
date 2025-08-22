@@ -158,8 +158,15 @@ def init(
     else:
         setup_dotfiles = False
 
-    success = init_repo(remote=remote, quiet=False)
-    if not success:
+    try:
+        success = init_repo(remote=remote, quiet=False)
+        if not success:
+            raise typer.Exit(code=1)
+    except KeyboardInterrupt:
+        typer.secho("Operation cancelled by user", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(code=1)
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1)
 
     # Handle initial dotfiles setup if requested
@@ -517,6 +524,13 @@ def delete(
     Remove a dotz-managed file or directory and delete the symlink in your
     home directory.
     """
+    # Confirm deletion unless in quiet mode
+    if not quiet:
+        files_str = ", ".join(str(p) for p in path)
+        if not typer.confirm(f"Delete {files_str}?"):
+            typer.secho("Deletion cancelled.", fg=typer.colors.YELLOW)
+            return
+    
     success = delete_dotfile(path, push=push, quiet=quiet)
     if not success:
         raise typer.Exit(code=1)
@@ -533,7 +547,11 @@ def status() -> None:
     Show the status of your dotz repo (untracked, modified, staged), and
     dotfiles in $HOME not tracked by dotz.
     """
-    status_data = get_repo_status()
+    try:
+        status_data = get_repo_status()
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
 
     typer.secho("Dotz repository status:", fg=typer.colors.WHITE, bold=True)
 
@@ -633,8 +651,14 @@ def pull(
     """
     Pull the latest changes from the 'origin' remote into the local dotz repository.
     """
-    success = pull_repo(quiet=quiet)
-    if not success:
+    try:
+        success = pull_repo(quiet=quiet)
+        if not success:
+            raise typer.Exit(code=1)
+        if not quiet:
+            typer.secho("Pull completed successfully", fg=typer.colors.GREEN)
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1)
 
 
@@ -647,8 +671,14 @@ def push(
     """
     Push all local commits to the 'origin' remote, if it exists.
     """
-    success = push_repo(quiet=quiet)
-    if not success:
+    try:
+        success = push_repo(quiet=quiet)
+        if not success:
+            raise typer.Exit(code=1)
+        if not quiet:
+            typer.secho("Push completed successfully", fg=typer.colors.GREEN)
+    except Exception as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1)
 
 

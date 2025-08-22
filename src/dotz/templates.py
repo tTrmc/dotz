@@ -707,7 +707,7 @@ def _apply_profile_state(profile_name: str, quiet: bool = False) -> bool:
         return False
 
 
-def get_profile_info(name: str) -> Optional[ProfileMetadataDict]:
+def get_profile_info(name: str) -> dict[str, Any] | None:
     """Get detailed information about a profile."""
     profiles_dir = get_profiles_dir()
     profile_path = profiles_dir / name
@@ -748,7 +748,7 @@ def get_profile_info(name: str) -> Optional[ProfileMetadataDict]:
         return None
 
 
-def get_template_info(name: str) -> Optional[TemplateMetadataDict]:
+def get_template_info(name: str) -> dict[str, Any] | None:
     """Get detailed information about a template."""
     templates_dir = get_templates_dir()
     template_path = templates_dir / name
