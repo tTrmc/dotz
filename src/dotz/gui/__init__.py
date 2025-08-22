@@ -1,3 +1,3 @@
 """GUI module for dotz - Qt6/PySide6 based graphical interface."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

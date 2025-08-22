@@ -2,8 +2,6 @@
 include README.md
 include LICENSE
 include CONTRIBUTING.md
-include CHANGELOG.md
 recursive-include src *.py
-recursive-include tests *.py
 global-exclude *.pyc
 global-exclude __pycache__

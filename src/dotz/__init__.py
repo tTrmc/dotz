@@ -5,7 +5,7 @@ dotz simplifies tracking, versioning, and synchronizing your configuration
 files across machines using Git and automatic symlinking.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = "Moustafa Salem"
 __email__ = "salemmoustafa442@gmail.com"
 __license__ = "GPL-3.0-or-later"
