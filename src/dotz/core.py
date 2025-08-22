@@ -30,7 +30,6 @@ from .exceptions import (
     DotzValidationError,
     OperationResultDict,
     RepoStatusDict,
-    ValidationResultsDict,
 )
 
 # Constants
@@ -867,7 +866,9 @@ def set_config_value(key_path: str, value: Any, quiet: bool = False) -> bool:
         if isinstance(value, bool):
             # Direct boolean value
             current[keys[-1]] = value
-        elif isinstance(value, str) and (value.startswith("[") or value.startswith("{")):
+        elif isinstance(value, str) and (
+            value.startswith("[") or value.startswith("{")
+        ):
             # JSON string for complex values
             parsed_value = json.loads(value)
             current[keys[-1]] = parsed_value

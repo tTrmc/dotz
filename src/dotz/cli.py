@@ -530,7 +530,7 @@ def delete(
         if not typer.confirm(f"Delete {files_str}?"):
             typer.secho("Deletion cancelled.", fg=typer.colors.YELLOW)
             return
-    
+
     success = delete_dotfile(path, push=push, quiet=quiet)
     if not success:
         raise typer.Exit(code=1)
