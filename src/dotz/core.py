@@ -8,7 +8,7 @@ import tarfile
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import typer
 from git import GitCommandError, InvalidGitRepositoryError, Repo
@@ -163,7 +163,7 @@ def count_files_in_directory(path: Path) -> int:
     return 0
 
 
-def parse_backup_filename(backup_name: str) -> tuple[str, str, str]:
+def parse_backup_filename(backup_name: str) -> Tuple[str, str, str]:
     """Parse backup filename to extract original path, operation, and timestamp.
 
     Returns:
@@ -1260,7 +1260,7 @@ def restore_all_dotfiles(quiet: bool = False, push: bool = False) -> bool:
 
 def validate_symlinks(
     repair: bool = False, quiet: bool = False
-) -> dict[Any, Any] | dict[str, list[str]]:
+) -> Union[dict[Any, Any], dict[str, list[str]]]:
     """
     Validate all symlinks managed by dotz and optionally repair broken ones.
 
@@ -2032,7 +2032,7 @@ def validate_file_path(file_path: Path, must_exist: bool = True) -> None:
         raise DotzValidationError(f"Invalid path: {file_path}") from e
 
 
-def create_backup_with_validation(backup_name: str, quiet: bool = False) -> Path | None:
+def create_backup_with_validation(backup_name: str, quiet: bool = False) -> Union[Path, None]:
     """
     Create a backup with consistent validation and error handling.
 

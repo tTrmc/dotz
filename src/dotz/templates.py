@@ -5,7 +5,7 @@ import shutil
 import tarfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from .core import DOTZ_DIR, WORK_TREE, console, ensure_repo
 from .exceptions import (
@@ -707,7 +707,7 @@ def _apply_profile_state(profile_name: str, quiet: bool = False) -> bool:
         return False
 
 
-def get_profile_info(name: str) -> dict[str, Any] | None:
+def get_profile_info(name: str) -> Union[dict[str, Any], None]:
     """Get detailed information about a profile."""
     profiles_dir = get_profiles_dir()
     profile_path = profiles_dir / name
@@ -748,7 +748,7 @@ def get_profile_info(name: str) -> dict[str, Any] | None:
         return None
 
 
-def get_template_info(name: str) -> dict[str, Any] | None:
+def get_template_info(name: str) -> Union[dict[str, Any], None]:
     """Get detailed information about a template."""
     templates_dir = get_templates_dir()
     template_path = templates_dir / name
