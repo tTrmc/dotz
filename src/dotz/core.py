@@ -2032,7 +2032,9 @@ def validate_file_path(file_path: Path, must_exist: bool = True) -> None:
         raise DotzValidationError(f"Invalid path: {file_path}") from e
 
 
-def create_backup_with_validation(backup_name: str, quiet: bool = False) -> Union[Path, None]:
+def create_backup_with_validation(
+    backup_name: str, quiet: bool = False
+) -> Union[Path, None]:
     """
     Create a backup with consistent validation and error handling.
 
