@@ -119,7 +119,7 @@ make lint                    # Check code quality
 
 ## Security Note
 
-⚠️ **Always use private repositories.** Dotfiles contain sensitive information like SSH keys and API tokens.
+**Always use private repositories.** Dotfiles contain sensitive information like SSH keys and API tokens.
 
 ## Contributing
 

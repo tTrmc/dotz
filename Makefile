@@ -9,8 +9,8 @@ help:  ## Show this help message
 install:  ## Install the package for development
 	poetry install --with dev,test --extras gui
 
-test:  ## Run tests (when available)
-	@echo "Tests directory is empty - skipping tests"
+test:  ## Run tests
+	poetry run pytest tests/ -v
 
 format:  ## Auto-format code
 	poetry run black src

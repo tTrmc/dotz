@@ -771,6 +771,15 @@ def save_config(config: Dict[str, Any]) -> None:
         json.dump(config, f, indent=2)
 
 
+def validate_file_patterns(patterns: List[str]) -> None:
+    """Validate that file patterns is a list of strings."""
+    if not isinstance(patterns, list):
+        raise ValueError("Patterns must be a list")
+    for pattern in patterns:
+        if not isinstance(pattern, str):
+            raise ValueError("All patterns must be strings")
+
+
 def matches_patterns(
     filename: str,
     include_patterns: List[str],
